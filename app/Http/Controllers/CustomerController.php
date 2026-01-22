@@ -238,6 +238,10 @@ class CustomerController extends Controller
                 \Storage::disk('public')->delete($customer->avatar);
             }
             $validated['avatar'] = $request->file('avatar')->store('avatars', 'public');
+        } else {
+            // Remove avatar from validated if no new file is uploaded
+            // This ensures the existing avatar is preserved
+            unset($validated['avatar']);
         }
 
         $validated['updated_by'] = auth()->id();

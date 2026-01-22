@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
         // Create admin user
         $admin = User::factory()->create([
             'name' => 'Admin',
+            'username' => 'admin',
             'email' => 'admin@ronicrm.com',
             'password' => bcrypt('password'),
         ]);
@@ -30,6 +31,7 @@ class DatabaseSeeder extends Seeder
         // Create regular user
         $user = User::factory()->create([
             'name' => 'User',
+            'username' => 'user',
             'email' => 'user@ronicrm.com',
             'password' => bcrypt('password'),
         ]);
