@@ -35,9 +35,9 @@ class DatabaseSeeder extends Seeder
         ]);
         $user->assignRole('user');
 
-        // Seed sample data if requested
-        if ($this->command->option('with-sample-data')) {
-            $this->call(SampleDataSeeder::class);
-        }
+        // Note: To seed sample data, run: php artisan db:seed --class=SampleDataSeeder
+        // Or run both commands separately:
+        // 1. php artisan db:seed (for users and roles)
+        // 2. php artisan db:seed --class=SampleDataSeeder (for sample data)
     }
 }

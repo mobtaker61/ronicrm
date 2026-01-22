@@ -80,11 +80,7 @@ php artisan db:seed
 php artisan db:seed --class=SampleDataSeeder
 ```
 
-یا برای seed کردن همه چیز با داده‌های نمونه:
-
-```bash
-php artisan db:seed --with-sample-data
-```
+**نکته**: ابتدا باید `php artisan db:seed` را اجرا کنید تا کاربران و نقش‌ها ایجاد شوند، سپس می‌توانید `SampleDataSeeder` را اجرا کنید.
 
 ### 6. Build کردن Frontend
 
