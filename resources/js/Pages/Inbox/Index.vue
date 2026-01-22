@@ -1,0 +1,783 @@
+<template>
+    <AppLayout>
+        <template #header>
+            INBOX
+        </template>
+
+        <!-- Success/Error Messages -->
+        <div v-if="$page.props.flash?.success || $page.props.flash?.error" class="absolute top-20 left-0 right-0 z-50 px-4 lg:px-8">
+            <div v-if="$page.props.flash?.success" class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg shadow-lg">
+                {{ $page.props.flash.success }}
+            </div>
+            <div v-if="$page.props.flash?.error" class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg shadow-lg">
+                {{ $page.props.flash.error }}
+            </div>
+        </div>
+
+        <!-- Full Height Inbox Container - Negative margins to override AppLayout padding -->
+        <div class="-m-4 lg:-m-8 h-[calc(100vh-64px)] flex flex-col bg-white overflow-hidden">
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Conversations List (Left Sidebar) - 20% -->
+                <div class="w-[20%] bg-white border-r border-gray-200 flex flex-col min-w-0 flex-shrink-0">
+                    <!-- Search Header (Sticky) -->
+                    <div class="flex-shrink-0 p-4 border-b border-gray-200 bg-gray-50 relative z-10">
+                        <div class="relative">
+                            <input
+                                v-model="searchPhone"
+                                @input="searchCustomers"
+                                @focus="showSearchResults = true"
+                                type="text"
+                                placeholder="Search or enter phone number..."
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            
+                            <!-- Search Results Dropdown -->
+                            <div
+                                v-if="showSearchResults && (searchResults.length > 0 || searchPhone.trim())"
+                                class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                            >
+                                <!-- Customer Results -->
+                                <div
+                                    v-for="result in searchResults"
+                                    :key="result.id"
+                                    @click="selectCustomerFromSearch(result)"
+                                    class="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 flex items-center space-x-3"
+                                >
+                                    <div
+                                        v-if="result.avatar"
+                                        class="w-10 h-10 rounded-full bg-cover bg-center border-2 border-gray-200"
+                                        :style="{ backgroundImage: `url(${result.avatar})` }"
+                                    ></div>
+                                    <div
+                                        v-else
+                                        class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold border-2 border-gray-200"
+                                    >
+                                        {{ result.name.charAt(0).toUpperCase() }}
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-semibold text-gray-900 truncate">{{ result.name }}</p>
+                                        <p class="text-xs text-gray-500">{{ result.phone }}</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Send to New Number Button -->
+                                <div
+                                    v-if="searchPhone.trim() && searchResults.length === 0"
+                                    class="px-4 py-3 border-t border-gray-200"
+                                >
+                                    <button
+                                        @click="startNewConversation(searchPhone)"
+                                        class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        <span>Send to {{ searchPhone }}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Conversations List (Scrollable) -->
+                    <div class="flex-1 overflow-y-auto">
+                        <div
+                            v-for="conv in filteredConversations"
+                            :key="conv.phone"
+                            @click="selectConversation(conv.phone)"
+                            :class="[
+                                'px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors',
+                                selectedPhone === conv.phone ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
+                            ]"
+                        >
+                            <div class="flex items-center space-x-3">
+                                <!-- Avatar -->
+                                <div class="flex-shrink-0">
+                                    <div
+                                        v-if="conv.avatar"
+                                        class="w-12 h-12 rounded-full bg-cover bg-center border-2 border-gray-200"
+                                        :style="{ backgroundImage: `url(${conv.avatar})` }"
+                                    ></div>
+                                    <div
+                                        v-else
+                                        class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold border-2 border-gray-200"
+                                    >
+                                        {{ conv.name.charAt(0).toUpperCase() }}
+                                    </div>
+                                </div>
+
+                                <!-- Conversation Info -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <h3 class="text-sm font-semibold text-gray-900 truncate">
+                                            {{ conv.name }}
+                                        </h3>
+                                        <span
+                                            v-if="conv.last_message_at"
+                                            class="text-xs text-gray-500 flex-shrink-0 ml-2"
+                                        >
+                                            {{ formatTime(conv.last_message_at) }}
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <p class="text-sm text-gray-600 truncate">
+                                            {{ conv.last_message || 'No messages' }}
+                                        </p>
+                                        <span
+                                            v-if="conv.unread_count > 0"
+                                            class="bg-blue-600 text-white text-xs font-semibold px-2 py-1 rounded-full flex-shrink-0 ml-2"
+                                        >
+                                            {{ conv.unread_count }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            v-if="filteredConversations.length === 0"
+                            class="px-4 py-8 text-center text-gray-500"
+                        >
+                            <p>No conversations found</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Messages Area (Middle) - 50% -->
+                <div class="w-[50%] flex flex-col bg-gray-50 min-w-0 flex-shrink-0">
+                    <div v-if="selectedPhone" class="flex-1 flex flex-col min-h-0">
+                        <!-- Conversation Header (Sticky) -->
+                        <div class="flex-shrink-0 bg-white px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                            <div class="flex items-center space-x-3 min-w-0">
+                                <div
+                                    v-if="selectedConversation?.avatar"
+                                    class="w-10 h-10 rounded-full bg-cover bg-center border-2 border-gray-200 flex-shrink-0"
+                                    :style="{ backgroundImage: `url(${selectedConversation.avatar})` }"
+                                ></div>
+                                <div
+                                    v-else
+                                    class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold border-2 border-gray-200 flex-shrink-0"
+                                >
+                                    {{ getDisplayName(selectedConversation)?.charAt(0).toUpperCase() || selectedPhone?.charAt(0) || '?' }}
+                                </div>
+                                <div class="min-w-0">
+                                    <h2 class="text-lg font-semibold text-gray-900 truncate">
+                                        {{ getDisplayName(selectedConversation) }}
+                                    </h2>
+                                    <p v-if="!hasCustomer" class="text-sm text-gray-500 truncate">{{ selectedPhone }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 flex-shrink-0">
+                                <button
+                                    v-if="!hasCustomer"
+                                    @click="showCreateCustomerModal = true"
+                                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors whitespace-nowrap"
+                                >
+                                    Add as Customer
+                                </button>
+                                <Link
+                                    v-else
+                                    :href="route('customers.show', selectedConversation.customer_id)"
+                                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors whitespace-nowrap"
+                                >
+                                    View Customer
+                                </Link>
+                            </div>
+                        </div>
+
+                        <!-- Messages (Scrollable) -->
+                        <div ref="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+                            <div
+                                v-for="msg in messages"
+                                :key="msg.id"
+                                :class="[
+                                    'flex',
+                                    msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'
+                                ]"
+                            >
+                                <div
+                                    :class="[
+                                        'max-w-xs lg:max-w-md px-4 py-2 rounded-lg shadow-sm',
+                                        msg.direction === 'outgoing'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-white text-gray-900'
+                                    ]"
+                                >
+                                    <div
+                                        v-if="msg.media_url"
+                                        class="mb-2 rounded-lg overflow-hidden max-w-full"
+                                    >
+                                        <img
+                                            :src="msg.media_url"
+                                            alt="Media"
+                                            class="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
+                                            @click="openImageModal(msg.media_url)"
+                                            @error="(e) => { console.error('Image load error:', e, msg.media_url); handleImageError(e); }"
+                                            @load="() => console.log('Image loaded:', msg.media_url)"
+                                        />
+                                    </div>
+                                    <p v-if="msg.message" class="text-sm whitespace-pre-wrap">{{ msg.message }}</p>
+                                    <p
+                                        :class="[
+                                            'text-xs mt-1',
+                                            msg.direction === 'outgoing' ? 'text-blue-100' : 'text-gray-500'
+                                        ]"
+                                    >
+                                        {{ formatTime(msg.created_at) }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div v-if="messages.length === 0" class="text-center text-gray-500 py-8">
+                                <p>No messages yet. Start the conversation!</p>
+                            </div>
+                        </div>
+
+                        <!-- Message Input (Sticky Bottom) -->
+                        <div class="flex-shrink-0 bg-white border-t border-gray-200 px-6 py-4">
+                            <form @submit.prevent class="space-y-3">
+                                <!-- File Upload Preview -->
+                                <div v-if="selectedFile" class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center space-x-2 min-w-0">
+                                        <svg class="w-5 h-5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                        </svg>
+                                        <span class="text-sm text-gray-700 truncate">{{ selectedFile.name }}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        @click="clearSelectedFile"
+                                        class="text-red-600 hover:text-red-700 flex-shrink-0 ml-2"
+                                    >
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                
+                                <div class="flex items-center space-x-3">
+                                    <input
+                                        ref="fileInput"
+                                        type="file"
+                                        @change="handleFileSelect"
+                                        accept="image/*"
+                                        class="hidden"
+                                    />
+                                    <button
+                                        type="button"
+                                        @click="$refs.fileInput?.click()"
+                                        class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                                        title="Attach file"
+                                    >
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                        </svg>
+                                    </button>
+                                    <textarea
+                                        ref="messageTextarea"
+                                        v-model="newMessage"
+                                        @keydown.enter.exact="handleEnterKey"
+                                        placeholder="Type a message... (Press Enter for new line, click Send to send)"
+                                        rows="1"
+                                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0 resize-none"
+                                        :style="{ minHeight: '40px', maxHeight: '120px', height: '40px' }"
+                                        :disabled="sendForm.processing"
+                                        @input="autoResizeTextarea"
+                                    ></textarea>
+                                    <button
+                                        type="button"
+                                        @click="sendMessage"
+                                        :disabled="sendForm.processing || (!newMessage.trim() && !selectedFile)"
+                                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex-shrink-0 whitespace-nowrap"
+                                    >
+                                        {{ sendForm.processing ? 'Sending...' : 'Send' }}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div
+                        v-else
+                        class="flex-1 flex items-center justify-center text-gray-500 bg-gray-50"
+                    >
+                        <div class="text-center">
+                            <svg
+                                class="w-16 h-16 mx-auto mb-4 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                />
+                            </svg>
+                            <p class="text-lg">Search for a contact or enter a phone number to start a conversation</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer Info Panel (Right Side) - 30% -->
+                <div v-if="selectedPhone" class="w-[30%] bg-white border-l border-gray-200 flex flex-col min-w-0 flex-shrink-0 overflow-hidden">
+                    <div v-if="selectedCustomer" class="flex-1 overflow-y-auto p-6">
+                        <!-- Customer Header -->
+                        <div class="mb-6 pb-6 border-b border-gray-200">
+                            <div class="flex items-center space-x-4 mb-4">
+                                <div
+                                    v-if="selectedCustomer.avatar"
+                                    class="w-20 h-20 rounded-full bg-cover bg-center border-4 border-gray-200 flex-shrink-0"
+                                    :style="{ backgroundImage: `url(${selectedCustomer.avatar.startsWith('http') ? selectedCustomer.avatar : '/storage/' + selectedCustomer.avatar})` }"
+                                ></div>
+                                <div
+                                    v-else
+                                    class="w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-semibold border-4 border-gray-200 flex-shrink-0"
+                                >
+                                    {{ selectedCustomer.name.charAt(0).toUpperCase() }}
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <h2 class="text-xl font-bold text-gray-900 truncate">{{ selectedCustomer.name }}</h2>
+                                    <p class="text-sm text-gray-500">{{ selectedPhone }}</p>
+                                </div>
+                            </div>
+                            <Link
+                                :href="route('customers.show', selectedCustomer.id)"
+                                class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors text-center block"
+                            >
+                                View Full Profile
+                            </Link>
+                        </div>
+
+                        <!-- Customer Details -->
+                        <div class="space-y-6">
+                            <!-- Basic Info -->
+                            <div>
+                                <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Basic Information</h3>
+                                <div class="space-y-2">
+                                    <div v-if="selectedCustomer.type" class="flex items-center justify-between py-2 border-b border-gray-100">
+                                        <span class="text-sm text-gray-600">Type</span>
+                                        <span class="text-sm font-medium text-gray-900 capitalize">{{ selectedCustomer.type }}</span>
+                                    </div>
+                                    <div v-if="selectedCustomer.status" class="flex items-center justify-between py-2 border-b border-gray-100">
+                                        <span class="text-sm text-gray-600">Status</span>
+                                        <span class="text-sm font-medium text-gray-900 capitalize">{{ selectedCustomer.status }}</span>
+                                    </div>
+                                    <div v-if="selectedCustomer.industry" class="flex items-center justify-between py-2 border-b border-gray-100">
+                                        <span class="text-sm text-gray-600">Industry</span>
+                                        <span class="text-sm font-medium text-gray-900">{{ selectedCustomer.industry.name }}</span>
+                                    </div>
+                                    <div v-if="selectedCustomer.source" class="flex items-center justify-between py-2 border-b border-gray-100">
+                                        <span class="text-sm text-gray-600">Source</span>
+                                        <span class="text-sm font-medium text-gray-900 capitalize">{{ selectedCustomer.source }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Contact Information -->
+                            <div v-if="selectedCustomer.contacts && selectedCustomer.contacts.length > 0">
+                                <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Contact Information</h3>
+                                <div class="space-y-2">
+                                    <div
+                                        v-for="contact in selectedCustomer.contacts"
+                                        :key="contact.id"
+                                        class="flex items-center justify-between py-2 border-b border-gray-100"
+                                    >
+                                        <span class="text-sm text-gray-600 capitalize">{{ contact.type }}</span>
+                                        <span class="text-sm font-medium text-gray-900">{{ contact.value }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Social Media -->
+                            <div v-if="selectedCustomer.social_media && selectedCustomer.social_media.length > 0">
+                                <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Social Media</h3>
+                                <div class="space-y-2">
+                                    <div
+                                        v-for="sm in selectedCustomer.social_media"
+                                        :key="sm.id"
+                                        class="flex items-center space-x-2 py-2 border-b border-gray-100"
+                                    >
+                                        <i v-if="sm.social_media_type?.icon" :class="sm.social_media_type.icon" class="w-5 h-5 text-gray-600"></i>
+                                        <span class="text-sm text-gray-600 flex-1">{{ sm.social_media_type?.name || 'Social Media' }}</span>
+                                        <a :href="sm.url" target="_blank" class="text-sm font-medium text-blue-600 hover:text-blue-700 truncate max-w-[150px]">
+                                            {{ sm.url }}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- No Customer Info -->
+                    <div v-else class="flex-1 flex items-center justify-center p-6">
+                        <div class="text-center">
+                            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            <p class="text-gray-500 mb-4">No customer information available</p>
+                            <button
+                                @click="showCreateCustomerModal = true"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
+                            >
+                                Add as Customer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Customer Modal -->
+        <div
+            v-if="showCreateCustomerModal"
+            class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            @click.self="showCreateCustomerModal = false"
+        >
+            <div class="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+                <h3 class="text-lg font-semibold mb-4 text-gray-900">Add as Customer</h3>
+                <form @submit.prevent="createCustomer">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Name *
+                            </label>
+                            <input
+                                v-model="customerForm.name"
+                                type="text"
+                                required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Email
+                            </label>
+                            <input
+                                v-model="customerForm.email"
+                                type="email"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Phone
+                            </label>
+                            <input
+                                :value="selectedPhone"
+                                type="text"
+                                disabled
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+                            />
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button
+                            type="button"
+                            @click="showCreateCustomerModal = false"
+                            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="customerForm.processing"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        >
+                            {{ customerForm.processing ? 'Creating...' : 'Create Customer' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </AppLayout>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { Link, useForm, router } from '@inertiajs/vue3';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import { debounce } from 'lodash-es';
+
+const props = defineProps({
+    conversations: {
+        type: Array,
+        default: () => [],
+    },
+    messages: {
+        type: Array,
+        default: () => [],
+    },
+    selectedPhone: {
+        type: String,
+        default: null,
+    },
+    searchResults: {
+        type: Array,
+        default: () => [],
+    },
+    selectedCustomer: {
+        type: Object,
+        default: null,
+    },
+});
+
+const searchPhone = ref('');
+const showSearchResults = ref(false);
+const newMessage = ref('');
+const selectedFile = ref(null);
+const fileInput = ref(null);
+const showCreateCustomerModal = ref(false);
+const messagesContainer = ref(null);
+const messageTextarea = ref(null);
+
+const sendForm = useForm({
+    to_phone: props.selectedPhone,
+    message: '',
+    media_file: null,
+});
+
+const customerForm = useForm({
+    phone: props.selectedPhone,
+    name: '',
+    email: '',
+});
+
+// Debounced search function
+const searchCustomers = debounce(() => {
+    if (searchPhone.value.trim().length >= 3) {
+        router.get(route('inbox.index'), { search_phone: searchPhone.value }, {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['searchResults'],
+        });
+    }
+}, 300);
+
+// Watch for search results from server
+const searchResults = computed(() => {
+    return props.searchResults || [];
+});
+
+// Close dropdown when clicking outside
+watch(() => searchPhone.value, () => {
+    if (searchPhone.value.trim().length >= 3) {
+        showSearchResults.value = true;
+    }
+});
+
+const filteredConversations = computed(() => {
+    return props.conversations;
+});
+
+const selectedConversation = computed(() => {
+    return props.conversations.find(c => c.phone === props.selectedPhone);
+});
+
+const getDisplayName = (conversation) => {
+    if (!conversation) return props.selectedPhone;
+    // If customer exists and has a name (not just phone number), use it
+    if (conversation.customer_id && conversation.name && conversation.name !== conversation.phone) {
+        return conversation.name;
+    }
+    // If name is different from phone, use name
+    if (conversation.name && conversation.name !== conversation.phone) {
+        return conversation.name;
+    }
+    // Otherwise return phone number
+    return conversation.phone || props.selectedPhone;
+};
+
+const hasCustomer = computed(() => {
+    return selectedConversation.value && selectedConversation.value.customer_id;
+});
+
+const openImageModal = (imageUrl) => {
+    // Simple image modal - open in new tab for now
+    window.open(imageUrl, '_blank');
+};
+
+const handleImageError = (event) => {
+    // Hide broken image
+    event.target.style.display = 'none';
+};
+
+const handleEnterKey = (event) => {
+    // Prevent form submission on Enter
+    event.preventDefault();
+    // Allow new line in textarea by inserting newline
+    const textarea = event.target;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = newMessage.value;
+    newMessage.value = text.substring(0, start) + '\n' + text.substring(end);
+    // Move cursor after the newline
+    nextTick(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + 1;
+        autoResizeTextarea();
+    });
+};
+
+const autoResizeTextarea = () => {
+    nextTick(() => {
+        if (messageTextarea.value) {
+            messageTextarea.value.style.height = 'auto';
+            messageTextarea.value.style.height = Math.min(messageTextarea.value.scrollHeight, 120) + 'px';
+        }
+    });
+};
+
+const clearSelectedFile = () => {
+    selectedFile.value = null;
+    sendForm.media_file = null;
+    if (fileInput.value) {
+        fileInput.value.value = '';
+    }
+};
+
+const selectCustomerFromSearch = (customer) => {
+    const phone = customer.phone;
+    showSearchResults.value = false;
+    searchPhone.value = '';
+    selectConversation(phone);
+};
+
+const startNewConversation = (phone) => {
+    showSearchResults.value = false;
+    searchPhone.value = '';
+    selectConversation(phone);
+};
+
+const selectConversation = (phone) => {
+    router.get(route('inbox.index'), { phone }, {
+        preserveState: true,
+        preserveScroll: false,
+    });
+};
+
+const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        // Validate file size (10MB max)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('File size must be less than 10MB');
+            event.target.value = '';
+            return;
+        }
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            event.target.value = '';
+            return;
+        }
+        
+        selectedFile.value = file;
+        sendForm.media_file = file;
+    }
+};
+
+const sendMessage = () => {
+    if ((!newMessage.value.trim() && !selectedFile.value) || !props.selectedPhone) {
+        return;
+    }
+
+    sendForm.to_phone = props.selectedPhone;
+    sendForm.message = newMessage.value || '';
+    
+    // If file is selected, it's already set in sendForm.media_file
+    if (!selectedFile.value) {
+        sendForm.media_file = null;
+    }
+
+    sendForm.post(route('inbox.send'), {
+        preserveState: false, // Don't preserve state to ensure fresh data
+        preserveScroll: false,
+        forceFormData: true, // Important for file uploads
+        onSuccess: (page) => {
+            newMessage.value = '';
+            clearSelectedFile();
+            // Reset textarea height
+            if (messageTextarea.value) {
+                messageTextarea.value.style.height = '40px';
+            }
+            // Scroll to bottom after sending
+            nextTick(() => {
+                scrollToBottom();
+            });
+        },
+        onError: (errors) => {
+            console.error('Error sending message:', errors);
+        },
+    });
+};
+
+const scrollToBottom = () => {
+    if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    }
+};
+
+const createCustomer = () => {
+    customerForm.phone = props.selectedPhone;
+    customerForm.post(route('inbox.create-customer'), {
+        preserveState: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            showCreateCustomerModal.value = false;
+            customerForm.reset();
+        },
+    });
+};
+
+const formatTime = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    });
+};
+
+// Watch for new messages and scroll to bottom
+watch(() => props.messages, (newMessages) => {
+    // Debug: log messages with media
+    const messagesWithMedia = newMessages.filter(m => m.media_url);
+    if (messagesWithMedia.length > 0) {
+        console.log('Messages with media:', messagesWithMedia);
+    }
+    nextTick(() => {
+        scrollToBottom();
+    });
+}, { deep: true });
+
+onMounted(() => {
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.relative')) {
+            showSearchResults.value = false;
+        }
+    });
+
+    // Scroll to bottom of messages on mount
+    if (props.messages.length > 0) {
+        nextTick(() => {
+            scrollToBottom();
+        });
+    }
+});
+</script>
