@@ -85,12 +85,14 @@
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             <option :value="null">Select Language</option>
-                            <option value="en">English</option>
-                            <option value="ar">Arabic</option>
-                            <option value="ur">Urdu</option>
-                            <option value="hi">Hindi</option>
-                            <option value="fr">French</option>
-                            <option value="de">German</option>
+                            <option value="Persian">Persian</option>
+                            <option value="English">English</option>
+                            <option value="Kurdish">Kurdish</option>
+                            <option value="Turkish">Turkish</option>
+                            <option value="Arabic">Arabic</option>
+                            <option value="Hindi">Hindi</option>
+                            <option value="Urdu">Urdu</option>
+                            <option value="Other">Other</option>
                         </select>
                     </div>
 

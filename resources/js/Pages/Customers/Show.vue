@@ -105,7 +105,7 @@
                             </div>
                             <div v-if="customer.language">
                                 <label class="block text-sm font-medium text-gray-500 mb-1">Language</label>
-                                <p class="text-gray-900 uppercase">{{ customer.language }}</p>
+                                <p class="text-gray-900">{{ customer.language }}</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-500 mb-1">Industry</label>
