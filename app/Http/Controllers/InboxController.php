@@ -7,6 +7,7 @@ use App\Models\WhatsAppMessage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -187,9 +188,9 @@ class InboxController extends Controller
                 $file = $request->file('media_file');
                 $path = $file->store('whatsapp-media', 'public');
                 
-                // Use the current request's scheme and host (works with ngrok)
-                $baseUrl = $request->getSchemeAndHttpHost();
-                $mediaUrl = $baseUrl . '/storage/' . $path;
+                // Get public URL for the file
+                // Priority: 1. APP_URL from .env, 2. Request host (for ngrok), 3. Storage::url()
+                $mediaUrl = $this->getPublicFileUrl($path, $request);
                 
                 // Determine file type based on MIME type or extension
                 $fileType = $this->getFileType($file);
@@ -197,7 +198,6 @@ class InboxController extends Controller
                 Log::info('Media file uploaded for WhatsApp', [
                     'path' => $path,
                     'url' => $mediaUrl,
-                    'base_url' => $baseUrl,
                     'file_type' => $fileType,
                     'mime_type' => $file->getMimeType(),
                 ]);
@@ -415,5 +415,33 @@ class InboxController extends Controller
 
         // Default to document for unknown types
         return 'document';
+    }
+
+    /**
+     * Get public URL for a file stored in public disk
+     * Priority: 1. APP_URL from .env, 2. Request host (for ngrok), 3. Storage::url()
+     */
+    protected function getPublicFileUrl(string $path, Request $request): string
+    {
+        $appUrl = config('app.url');
+        
+        // If APP_URL is set and is not localhost, use it
+        if (!empty($appUrl) && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
+            return rtrim($appUrl, '/') . '/storage/' . $path;
+        }
+        
+        // Otherwise, use request host (works with ngrok or if accessed via public URL)
+        $baseUrl = $request->getSchemeAndHttpHost();
+        
+        // If request host is also localhost, log a warning
+        if (str_contains($baseUrl, 'localhost') || str_contains($baseUrl, '127.0.0.1')) {
+            Log::warning('File URL is using localhost. API may not be able to access it. Please set APP_URL in .env or use ngrok.', [
+                'path' => $path,
+                'base_url' => $baseUrl,
+                'app_url' => $appUrl,
+            ]);
+        }
+        
+        return $baseUrl . '/storage/' . $path;
     }
 }
