@@ -54,16 +54,18 @@ class CampaignController extends Controller
             'template_id' => 'nullable|exists:campaign_templates,id',
             'subject' => 'nullable|string|max:255',
             'content' => 'required|string',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120',
+            'image' => 'nullable|file|max:51200', // 50MB max - accept all file types
             'scheduled_at' => 'nullable|date',
             'recipient_ids' => 'required|array|min:1',
             'recipient_ids.*' => 'exists:customers,id',
             'filters' => 'nullable|array',
         ]);
 
-        // Handle image upload
+        // Handle file upload (image, document, etc.)
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('campaign-images', 'public');
+            $validated['image'] = $request->file('image')->store('campaign-attachments', 'public');
+        } else {
+            unset($validated['image']);
         }
 
         $campaign = Campaign::create([

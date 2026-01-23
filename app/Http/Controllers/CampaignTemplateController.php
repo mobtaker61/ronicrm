@@ -25,12 +25,14 @@ class CampaignTemplateController extends Controller
             'type' => 'required|in:whatsapp,email',
             'subject' => 'nullable|string|max:255',
             'content' => 'required|string',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120',
+            'image' => 'nullable|file|max:51200', // 50MB max - accept all file types
             'variables' => 'nullable|array',
         ]);
 
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('campaign-images', 'public');
+            $validated['image'] = $request->file('image')->store('campaign-attachments', 'public');
+        } else {
+            unset($validated['image']);
         }
 
         CampaignTemplate::create($validated);
@@ -46,16 +48,18 @@ class CampaignTemplateController extends Controller
             'type' => 'required|in:whatsapp,email',
             'subject' => 'nullable|string|max:255',
             'content' => 'required|string',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120',
+            'image' => 'nullable|file|max:51200', // 50MB max - accept all file types
             'variables' => 'nullable|array',
         ]);
 
         if ($request->hasFile('image')) {
-            // Delete old image if exists
+            // Delete old file if exists
             if ($campaignTemplate->image) {
                 \Storage::disk('public')->delete($campaignTemplate->image);
             }
-            $validated['image'] = $request->file('image')->store('campaign-images', 'public');
+            $validated['image'] = $request->file('image')->store('campaign-attachments', 'public');
+        } else {
+            unset($validated['image']);
         }
 
         $campaignTemplate->update($validated);

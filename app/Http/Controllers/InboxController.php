@@ -175,13 +175,14 @@ class InboxController extends Controller
             'to_phone' => 'required|string',
             'message' => 'nullable|string|max:5000',
             'media_url' => 'nullable|url',
-            'media_file' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:10240', // 10MB max
+            'media_file' => 'nullable|file|max:51200', // 50MB max - accept all file types
         ]);
 
         try {
             $mediaUrl = $validated['media_url'] ?? null;
             
             // If file is uploaded, save it and get the URL
+            $fileType = 'text';
             if ($request->hasFile('media_file')) {
                 $file = $request->file('media_file');
                 $path = $file->store('whatsapp-media', 'public');
@@ -190,10 +191,15 @@ class InboxController extends Controller
                 $baseUrl = $request->getSchemeAndHttpHost();
                 $mediaUrl = $baseUrl . '/storage/' . $path;
                 
+                // Determine file type based on MIME type or extension
+                $fileType = $this->getFileType($file);
+                
                 Log::info('Media file uploaded for WhatsApp', [
                     'path' => $path,
                     'url' => $mediaUrl,
                     'base_url' => $baseUrl,
+                    'file_type' => $fileType,
+                    'mime_type' => $file->getMimeType(),
                 ]);
             }
 
@@ -201,7 +207,7 @@ class InboxController extends Controller
             $message = $validated['message'] ?? '';
             if (empty($message) && !$mediaUrl) {
                 return redirect()->back()
-                    ->with('error', 'Please provide either a message or an image.');
+                    ->with('error', 'Please provide either a message or a file.');
             }
 
             $whatsappService = app(\App\Services\WhatsAppService::class);
@@ -240,8 +246,9 @@ class InboxController extends Controller
                 'from_phone' => $validated['to_phone'], // Recipient's phone (for grouping conversations)
                 'to_phone' => $validated['to_phone'], // Recipient's phone
                 'message' => $messageToSend ?: null, // Store null if empty, not empty string
-                'message_type' => $mediaUrl ? 'image' : 'text',
+                'message_type' => $mediaUrl ? $fileType : 'text',
                 'media_url' => $mediaUrl, // Store full URL
+                'media_mime_type' => $request->hasFile('media_file') ? $request->file('media_file')->getMimeType() : null,
                 'customer_id' => $customer?->id,
                 'direction' => 'outgoing',
                 'status' => $result['success'] ? 'sent' : 'failed', // Mark as failed if API call failed
@@ -361,5 +368,52 @@ class InboxController extends Controller
             $phone = substr($phone, 2);
         }
         return $phone;
+    }
+
+    /**
+     * Determine file type based on MIME type or extension
+     */
+    protected function getFileType($file): string
+    {
+        $mimeType = $file->getMimeType();
+        $extension = strtolower($file->getClientOriginalExtension());
+
+        // Image types
+        if (str_starts_with($mimeType, 'image/')) {
+            return 'image';
+        }
+
+        // Video types
+        if (str_starts_with($mimeType, 'video/')) {
+            return 'video';
+        }
+
+        // Audio types
+        if (str_starts_with($mimeType, 'audio/')) {
+            return 'audio';
+        }
+
+        // Document types
+        $documentMimes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'text/plain',
+            'text/csv',
+            'application/zip',
+            'application/x-rar-compressed',
+            'application/x-7z-compressed',
+        ];
+
+        if (in_array($mimeType, $documentMimes)) {
+            return 'document';
+        }
+
+        // Default to document for unknown types
+        return 'document';
     }
 }

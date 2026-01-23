@@ -130,25 +130,44 @@
                             />
                         </div>
 
-                        <!-- Image Upload (for WhatsApp) -->
+                        <!-- File Upload (for WhatsApp) -->
                         <div v-if="form.type === 'whatsapp'">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Image (Optional)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Attachment (Optional)</label>
                             <div class="flex items-center space-x-4">
-                                <div v-if="imagePreview || (editingTemplate && editingTemplate.image)" class="flex-shrink-0">
+                                <div v-if="imagePreview || selectedFile || (editingTemplate && editingTemplate.image)" class="flex-shrink-0 relative">
                                     <img
-                                        :src="imagePreview || `/storage/${editingTemplate.image}`"
+                                        v-if="(imagePreview || (editingTemplate && editingTemplate.image)) && isImageFile(selectedFile || editingTemplate?.image)"
+                                        :src="imagePreview || (editingTemplate?.image ? `/storage/${editingTemplate.image}` : '')"
                                         alt="Preview"
                                         class="w-32 h-32 object-cover rounded-lg border border-gray-300"
                                     />
+                                    <div
+                                        v-else-if="selectedFile || (editingTemplate && editingTemplate.image)"
+                                        class="w-32 h-32 bg-gray-100 rounded-lg border border-gray-300 flex items-center justify-center"
+                                    >
+                                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <button
+                                        v-if="imagePreview || selectedFile"
+                                        type="button"
+                                        @click="clearImage"
+                                        class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                                    >
+                                        ×
+                                    </button>
                                 </div>
                                 <div class="flex-1">
                                     <input
                                         type="file"
-                                        accept="image/*"
                                         @change="handleImageChange"
                                         class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                     />
-                                    <p class="mt-1 text-xs text-gray-500">Upload image for WhatsApp (optional)</p>
+                                    <p class="mt-1 text-xs text-gray-500">Upload file for WhatsApp (PDF, Word, Excel, Images, etc. - Max 50MB)</p>
+                                    <p v-if="selectedFile" class="mt-1 text-xs text-gray-600">
+                                        Selected: {{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -363,6 +382,7 @@ const showAddModal = ref(false);
 const editingTemplate = ref(null);
 const editorMode = ref('html');
 const imagePreview = ref(null);
+const selectedFile = ref(null);
 const htmlEditor = ref(null);
 
 const form = useForm({
@@ -383,13 +403,56 @@ const handleTypeChange = () => {
 const handleImageChange = (event) => {
     const file = event.target.files[0];
     if (file) {
+        // Validate file size (50MB max)
+        if (file.size > 50 * 1024 * 1024) {
+            alert('File size must be less than 50MB');
+            event.target.value = '';
+            return;
+        }
+        
         form.image = file;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            imagePreview.value = e.target.result;
-        };
-        reader.readAsDataURL(file);
+        selectedFile.value = file;
+        
+        // Only create preview for image files
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.value = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        } else {
+            imagePreview.value = null;
+        }
     }
+};
+
+const clearImage = () => {
+    form.image = null;
+    imagePreview.value = null;
+    selectedFile.value = null;
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) {
+        fileInput.value = '';
+    }
+};
+
+const isImageFile = (file) => {
+    if (!file) return false;
+    if (typeof file === 'string') {
+        // It's a URL/path, check extension
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+        const lowerPath = file.toLowerCase();
+        return imageExtensions.some(ext => lowerPath.includes(ext));
+    }
+    return file.type && file.type.startsWith('image/');
+};
+
+const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 };
 
 const editTemplate = (template) => {
@@ -400,6 +463,7 @@ const editTemplate = (template) => {
     form.content = template.content;
     form.image = null;
     imagePreview.value = null;
+    selectedFile.value = null;
     editorMode.value = 'html';
     showAddModal.value = true;
 };
@@ -523,6 +587,7 @@ const closeModal = () => {
     form.reset();
     form.type = '';
     imagePreview.value = null;
+    selectedFile.value = null;
     editorMode.value = 'html';
 };
 </script>

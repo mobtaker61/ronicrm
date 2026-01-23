@@ -58,7 +58,7 @@ class WhatsAppService
                 // اگر message خالی است و فایل داریم، یک message پیش‌فرض بگذار
                 // API Ronibot نیاز به message دارد حتی اگر فایل هم داشته باشیم
                 // استفاده از یک متن ساده به جای emoji برای سازگاری بیشتر
-                $postData['message'] = trim($message) ?: 'Image';
+                $postData['message'] = trim($message) ?: 'File';
             } else {
                 // اگر فایل نداریم، message اجباری است
                 $postData['message'] = $message;

@@ -207,14 +207,38 @@
                                         v-if="msg.media_url"
                                         class="mb-2 rounded-lg overflow-hidden max-w-full"
                                     >
+                                        <!-- Image files -->
                                         <img
+                                            v-if="isImageFile(msg.message_type, msg.media_url)"
                                             :src="msg.media_url"
                                             alt="Media"
                                             class="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
-                                            @click="openImageModal(msg.media_url)"
+                                            @click="openFileModal(msg.media_url)"
                                             @error="(e) => { console.error('Image load error:', e, msg.media_url); handleImageError(e); }"
-                                            @load="() => console.log('Image loaded:', msg.media_url)"
                                         />
+                                        <!-- Other files -->
+                                        <div
+                                            v-else
+                                            class="p-4 bg-gray-100 rounded-lg border border-gray-300 cursor-pointer hover:bg-gray-200 transition-colors"
+                                            @click="openFileModal(msg.media_url)"
+                                        >
+                                            <div class="flex items-center space-x-3">
+                                                <svg class="w-10 h-10 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                </svg>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm font-medium text-gray-900 truncate">
+                                                        {{ getFileName(msg.media_url) }}
+                                                    </p>
+                                                    <p class="text-xs text-gray-500 capitalize">
+                                                        {{ msg.message_type || 'file' }}
+                                                    </p>
+                                                </div>
+                                                <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                            </div>
+                                        </div>
                                     </div>
                                     <p v-if="msg.message" class="text-sm whitespace-pre-wrap">{{ msg.message }}</p>
                                     <p
@@ -260,7 +284,6 @@
                                         ref="fileInput"
                                         type="file"
                                         @change="handleFileSelect"
-                                        accept="image/*"
                                         class="hidden"
                                     />
                                     <button
@@ -599,9 +622,35 @@ const openImageModal = (imageUrl) => {
     window.open(imageUrl, '_blank');
 };
 
+const openFileModal = (fileUrl) => {
+    // Open file in new tab
+    window.open(fileUrl, '_blank');
+};
+
 const handleImageError = (event) => {
     // Hide broken image
     event.target.style.display = 'none';
+};
+
+const isImageFile = (messageType, url) => {
+    if (messageType === 'image') return true;
+    if (!url) return false;
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+    const lowerUrl = url.toLowerCase();
+    return imageExtensions.some(ext => lowerUrl.includes(ext));
+};
+
+const getFileName = (url) => {
+    if (!url) return 'File';
+    try {
+        const urlObj = new URL(url);
+        const pathname = urlObj.pathname;
+        const fileName = pathname.split('/').pop();
+        return fileName || 'File';
+    } catch {
+        const parts = url.split('/');
+        return parts[parts.length - 1] || 'File';
+    }
 };
 
 const handleEnterKey = (event) => {
@@ -660,16 +709,9 @@ const selectConversation = (phone) => {
 const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
-        // Validate file size (10MB max)
-        if (file.size > 10 * 1024 * 1024) {
-            alert('File size must be less than 10MB');
-            event.target.value = '';
-            return;
-        }
-        
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            alert('Please select an image file');
+        // Validate file size (50MB max)
+        if (file.size > 50 * 1024 * 1024) {
+            alert('File size must be less than 50MB');
             event.target.value = '';
             return;
         }
