@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SendCampaignMessage;
 use App\Models\Campaign;
 use App\Models\CampaignTemplate;
 use App\Models\Customer;
@@ -104,6 +105,49 @@ class CampaignController extends Controller
         return Inertia::render('Campaigns/Show', [
             'campaign' => $campaign,
         ]);
+    }
+
+    public function start(Campaign $campaign)
+    {
+        // Only allow starting draft or scheduled campaigns
+        if (!in_array($campaign->status, ['draft', 'scheduled'])) {
+            return redirect()->back()
+                ->with('error', 'Campaign cannot be started. Current status: ' . $campaign->status);
+        }
+
+        // Check if scheduled time has passed
+        if ($campaign->scheduled_at && $campaign->scheduled_at->isFuture()) {
+            return redirect()->back()
+                ->with('error', 'Campaign is scheduled for a future time. Please wait until ' . $campaign->scheduled_at->format('Y-m-d H:i:s'));
+        }
+
+        // Update campaign status
+        $campaign->update([
+            'status' => 'running',
+            'started_at' => now(),
+        ]);
+
+        // Load recipients with customer data
+        $campaign->load(['recipients.customer']);
+
+        // Dispatch jobs for all pending recipients
+        $dispatchedCount = 0;
+        foreach ($campaign->recipients as $recipient) {
+            if ($recipient->status === 'pending') {
+                SendCampaignMessage::dispatch(
+                    $recipient,
+                    $campaign->type,
+                    $campaign->content ?? '',
+                    $campaign->subject ?? null,
+                    $campaign->image ?? null
+                )->onQueue('campaigns');
+                
+                $dispatchedCount++;
+            }
+        }
+
+        return redirect()->back()
+            ->with('success', "Campaign started successfully. {$dispatchedCount} message(s) queued for sending.");
     }
 
     public function destroy(Campaign $campaign)

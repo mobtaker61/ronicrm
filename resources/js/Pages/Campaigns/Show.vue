@@ -20,28 +20,42 @@
                         <h2 class="text-2xl font-bold text-gray-900">{{ campaign.name }}</h2>
                         <p v-if="campaign.description" class="text-gray-600 mt-2">{{ campaign.description }}</p>
                     </div>
-                    <div class="flex space-x-2">
-                        <span
-                            class="px-3 py-1 text-sm font-medium rounded-full"
-                            :class="{
-                                'bg-green-100 text-green-800': campaign.type === 'whatsapp',
-                                'bg-blue-100 text-blue-800': campaign.type === 'email',
-                            }"
+                    <div class="flex items-center space-x-3">
+                        <div class="flex space-x-2">
+                            <span
+                                class="px-3 py-1 text-sm font-medium rounded-full"
+                                :class="{
+                                    'bg-green-100 text-green-800': campaign.type === 'whatsapp',
+                                    'bg-blue-100 text-blue-800': campaign.type === 'email',
+                                }"
+                            >
+                                {{ campaign.type }}
+                            </span>
+                            <span
+                                class="px-3 py-1 text-sm font-medium rounded-full"
+                                :class="{
+                                    'bg-gray-100 text-gray-800': campaign.status === 'draft',
+                                    'bg-yellow-100 text-yellow-800': campaign.status === 'scheduled',
+                                    'bg-blue-100 text-blue-800': campaign.status === 'running',
+                                    'bg-green-100 text-green-800': campaign.status === 'completed',
+                                    'bg-red-100 text-red-800': campaign.status === 'cancelled',
+                                }"
+                            >
+                                {{ campaign.status }}
+                            </span>
+                        </div>
+                        <button
+                            v-if="campaign.status === 'draft' || (campaign.status === 'scheduled' && canStartNow)"
+                            @click="startCampaign"
+                            :disabled="startForm.processing"
+                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
                         >
-                            {{ campaign.type }}
-                        </span>
-                        <span
-                            class="px-3 py-1 text-sm font-medium rounded-full"
-                            :class="{
-                                'bg-gray-100 text-gray-800': campaign.status === 'draft',
-                                'bg-yellow-100 text-yellow-800': campaign.status === 'scheduled',
-                                'bg-blue-100 text-blue-800': campaign.status === 'running',
-                                'bg-green-100 text-green-800': campaign.status === 'completed',
-                                'bg-red-100 text-red-800': campaign.status === 'cancelled',
-                            }"
-                        >
-                            {{ campaign.status }}
-                        </span>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>{{ startForm.processing ? 'Starting...' : 'Start Campaign' }}</span>
+                        </button>
                     </div>
                 </div>
 
@@ -202,11 +216,20 @@
 </template>
 
 <script setup>
-import { Link, router } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
     campaign: Object,
+});
+
+const startForm = useForm({});
+
+const canStartNow = computed(() => {
+    if (!props.campaign.scheduled_at) return true;
+    const scheduledDate = new Date(props.campaign.scheduled_at);
+    return scheduledDate <= new Date();
 });
 
 const formatDate = (date) => {
@@ -223,6 +246,15 @@ const formatDate = (date) => {
 const getStatusCount = (status) => {
     if (!props.campaign.recipients) return 0;
     return props.campaign.recipients.filter(r => r.status === status).length;
+};
+
+const startCampaign = () => {
+    if (confirm('Are you sure you want to start this campaign? Messages will be sent immediately.')) {
+        startForm.post(route('campaigns.start', props.campaign.id), {
+            preserveState: true,
+            preserveScroll: true,
+        });
+    }
 };
 
 const deleteCampaign = () => {
