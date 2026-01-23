@@ -1,0 +1,12 @@
+[Unit]
+Description=RoniCRM Queue Worker
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+Restart=always
+ExecStart=/usr/bin/php /path/to/your/project/artisan queue:work database --sleep=3 --tries=3 --max-time=3600 --queue=campaigns,default
+
+[Install]
+WantedBy=multi-user.target

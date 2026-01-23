@@ -232,19 +232,47 @@ php artisan storage:link
 
 در cPanel به **"Select PHP Version"** بروید و PHP >= 8.2 را انتخاب کنید.
 
-### 7.3. تنظیم Cron Jobs (برای Queue)
+### 7.3. تنظیم Queue Worker و Scheduler
 
-در cPanel به **"Cron Jobs"** بروید و یک Cron Job اضافه کنید:
+**⚠️ مهم:** برای اجرای صحیح Queue Worker و Scheduler، لطفاً راهنمای کامل `QUEUE_SETUP.md` را مطالعه کنید.
 
+#### روش 1: استفاده از Supervisor (توصیه می‌شود)
+
+1. فایل `supervisor-ronicrm-queue-worker.conf` را کپی کنید:
+   ```bash
+   sudo cp supervisor-ronicrm-queue-worker.conf /etc/supervisor/conf.d/ronicrm-queue-worker.conf
+   ```
+
+2. مسیر پروژه را در فایل تنظیمات اصلاح کنید:
+   ```bash
+   sudo nano /etc/supervisor/conf.d/ronicrm-queue-worker.conf
+   ```
+   `/path/to/your/project` را با مسیر واقعی پروژه جایگزین کنید.
+
+3. بارگذاری و راه‌اندازی:
+   ```bash
+   sudo supervisorctl reread
+   sudo supervisorctl update
+   sudo supervisorctl start ronicrm-queue-worker:*
+   ```
+
+#### روش 2: استفاده از Cron Job (برای cPanel)
+
+در cPanel به **"Cron Jobs"** بروید و این دو Cron Job را اضافه کنید:
+
+**برای Scheduler (اجرای کمپین‌های زمان‌بندی شده):**
 ```
 * * * * * cd /home/username/public_html && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-و برای Queue Worker:
+**برای Queue Worker (توصیه نمی‌شود، اما اگر Supervisor ندارید):**
+```
+* * * * * cd /home/username/public_html && php artisan queue:work --tries=3 --timeout=90 --stop-when-empty >> /dev/null 2>&1
+```
 
-```
-* * * * * cd /home/username/public_html && php artisan queue:work --tries=3 --timeout=90 >> /dev/null 2>&1
-```
+**نکته:** استفاده از Cron برای Queue Worker توصیه نمی‌شود چون ممکن است job های طولانی را قطع کند. بهتر است از Supervisor استفاده کنید.
+
+برای اطلاعات بیشتر، `QUEUE_SETUP.md` را مطالعه کنید.
 
 ## مرحله 8: به‌روزرسانی پروژه (Deployment)
 

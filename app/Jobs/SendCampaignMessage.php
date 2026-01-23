@@ -31,12 +31,14 @@ class SendCampaignMessage implements ShouldQueue
 
             if ($this->type === 'whatsapp') {
                 $whatsappService = app(WhatsAppService::class);
-                $phone = $customer->phone ?? $customer->contacts()->where('type', 'phone')->first()?->value;
+                // Get WhatsApp contact (not phone, as they are separate entities)
+                $whatsappContact = $customer->contacts()->where('type', 'whatsapp')->first();
+                $phone = $whatsappContact?->value;
                 
                 if (!$phone) {
                     $this->recipient->update([
                         'status' => 'failed',
-                        'error_message' => 'No phone number found',
+                        'error_message' => 'No WhatsApp contact found',
                     ]);
                     return;
                 }

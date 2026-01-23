@@ -300,6 +300,23 @@
                 <div class="border-t pt-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Select Recipients</h3>
                     
+                    <!-- Campaign Type Warning -->
+                    <div v-if="!form.type" class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p class="text-sm text-yellow-800">
+                            <strong>Note:</strong> Please select the campaign type (WhatsApp or Email) first. The recipient list will be filtered automatically based on the selected type.
+                        </p>
+                    </div>
+                    
+                    <!-- Filtered Count Info -->
+                    <div v-if="form.type" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-sm text-blue-800">
+                            <strong>Filtered by Campaign Type:</strong> 
+                            Showing <span class="font-semibold">{{ filteredCustomers.length }}</span> 
+                            {{ form.type === 'whatsapp' ? 'customers with WhatsApp contact' : 'customers with email' }} 
+                            (out of {{ props.customers.length }} total customers)
+                        </p>
+                    </div>
+                    
                     <!-- Filter Options -->
                     <div class="mb-4 p-4 bg-gray-50 rounded-lg">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -369,7 +386,14 @@
                     </div>
 
                     <!-- Recipients List -->
-                    <div class="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
+                    <div v-if="!form.type" class="p-8 text-center text-gray-500 border border-gray-200 rounded-lg">
+                        <p>Please select the campaign type first to see available recipients.</p>
+                    </div>
+                    <div v-else-if="filteredCustomers.length === 0" class="p-8 text-center text-gray-500 border border-gray-200 rounded-lg">
+                        <p>No recipients found matching the selected filters.</p>
+                        <p class="text-sm mt-2">Try adjusting your filters or check if customers have {{ form.type === 'whatsapp' ? 'WhatsApp contact' : 'email' }} information.</p>
+                    </div>
+                    <div v-else class="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50 sticky top-0">
                                 <tr>
@@ -423,11 +447,6 @@
                                         >
                                             {{ customer.status }}
                                         </span>
-                                    </td>
-                                </tr>
-                                <tr v-if="filteredCustomers.length === 0">
-                                    <td colspan="5" class="px-4 py-8 text-center text-gray-500">
-                                        No customers found matching the filters.
                                     </td>
                                 </tr>
                             </tbody>
@@ -545,6 +564,33 @@ const recipientFilters = ref({
 const filteredCustomers = computed(() => {
     let filtered = [...props.customers];
 
+    // Filter by campaign type (WhatsApp or Email)
+    if (form.type === 'whatsapp') {
+        // Only customers with WhatsApp contact (whatsapp type in contacts)
+        filtered = filtered.filter(c => {
+            // Check if customer has whatsapp contact
+            if (c.contacts && Array.isArray(c.contacts)) {
+                return c.contacts.some(contact => contact.type === 'whatsapp');
+            }
+            
+            return false;
+        });
+    } else if (form.type === 'email') {
+        // Only customers with email (either in email field or contacts)
+        filtered = filtered.filter(c => {
+            // Check if customer has email in main field
+            if (c.email) return true;
+            
+            // Check if customer has email in contacts
+            if (c.contacts && Array.isArray(c.contacts)) {
+                return c.contacts.some(contact => contact.type === 'email');
+            }
+            
+            return false;
+        });
+    }
+
+    // Filter by industry
     if (recipientFilters.value.industry_id) {
         // Also include customers from child industries
         const selectedIndustry = allIndustries.value.find(i => i.id == recipientFilters.value.industry_id);
@@ -567,10 +613,12 @@ const filteredCustomers = computed(() => {
         filtered = filtered.filter(c => industryIds.includes(c.industry_id));
     }
 
+    // Filter by status
     if (recipientFilters.value.status) {
         filtered = filtered.filter(c => c.status === recipientFilters.value.status);
     }
 
+    // Filter by customer type
     if (recipientFilters.value.type) {
         filtered = filtered.filter(c => c.type === recipientFilters.value.type);
     }
@@ -588,6 +636,10 @@ const handleTypeChange = () => {
         form.subject = '';
     }
     editorMode.value = 'html';
+    
+    // Clear selected recipients when campaign type changes
+    // because the filtered list will change
+    form.recipient_ids = [];
 };
 
 const handleImageChange = (event) => {
