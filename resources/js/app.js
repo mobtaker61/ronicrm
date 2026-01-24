@@ -35,6 +35,7 @@ const routeHelper = (name, params = null, absolute = false) => {
         'campaigns.show': (id) => `/campaigns/${id}`,
         'campaigns.store': '/campaigns',
         'campaigns.start': (id) => `/campaigns/${id}/start`,
+        'campaigns.status': (id) => `/campaigns/${id}/status`,
         'campaigns.destroy': (id) => `/campaigns/${id}`,
         'campaign-templates.index': '/campaign-templates',
         'campaign-templates.store': '/campaign-templates',

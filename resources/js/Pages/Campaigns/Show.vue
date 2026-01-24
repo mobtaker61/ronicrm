@@ -212,24 +212,142 @@
                 </button>
             </div>
         </div>
+
+        <!-- Progress Modal -->
+        <div v-if="showProgressModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-900">ارسال کمپین در حال انجام...</h3>
+                    <button
+                        v-if="isCompleted"
+                        @click="closeProgressModal"
+                        class="text-gray-400 hover:text-gray-600"
+                    >
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="px-6 py-4 flex-1 overflow-y-auto">
+                    <!-- Progress Bar -->
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-gray-700">پیشرفت ارسال</span>
+                            <span class="text-sm text-gray-600">{{ progressPercentage }}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div
+                                class="bg-green-600 h-3 rounded-full transition-all duration-300"
+                                :style="{ width: progressPercentage + '%' }"
+                            ></div>
+                        </div>
+                        <div class="flex justify-between items-center mt-2 text-sm text-gray-600">
+                            <span>ارسال شده: {{ statusCounts.sent + statusCounts.delivered }}</span>
+                            <span>ناموفق: {{ statusCounts.failed }}</span>
+                            <span>در انتظار: {{ statusCounts.pending }}</span>
+                            <span>کل: {{ statusCounts.total }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Recipients List -->
+                    <div class="space-y-2 max-h-96 overflow-y-auto">
+                        <div
+                            v-for="recipient in progressRecipients"
+                            :key="recipient.id"
+                            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
+                            :class="{
+                                'bg-green-50 border-green-200': recipient.status === 'sent' || recipient.status === 'delivered',
+                                'bg-red-50 border-red-200': recipient.status === 'failed',
+                                'bg-yellow-50 border-yellow-200': recipient.status === 'pending',
+                            }"
+                        >
+                            <div class="flex-1">
+                                <div class="font-medium text-gray-900">{{ recipient.customer_name }}</div>
+                                <div v-if="recipient.error_message" 
+                                    class="text-sm mt-1"
+                                    :class="{
+                                        'text-yellow-600': recipient.status === 'sent' || recipient.status === 'delivered',
+                                        'text-red-600': recipient.status === 'failed',
+                                    }"
+                                >
+                                    {{ recipient.error_message }}
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <span
+                                    class="px-3 py-1 text-xs font-medium rounded-full"
+                                    :class="{
+                                        'bg-green-100 text-green-800': recipient.status === 'sent' || recipient.status === 'delivered',
+                                        'bg-red-100 text-red-800': recipient.status === 'failed',
+                                        'bg-yellow-100 text-yellow-800': recipient.status === 'pending',
+                                    }"
+                                >
+                                    {{ getStatusLabel(recipient.status) }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="isCompleted" class="px-6 py-4 border-t border-gray-200" :class="statusCounts.failed > 0 ? 'bg-yellow-50' : 'bg-green-50'">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium" :class="statusCounts.failed > 0 ? 'text-yellow-800' : 'text-green-800'">
+                                {{ statusCounts.failed > 0 ? 'ارسال کمپین به پایان رسید (برخی با خطا)' : 'ارسال کمپین با موفقیت به پایان رسید!' }}
+                            </p>
+                            <p class="text-xs mt-1" :class="statusCounts.failed > 0 ? 'text-yellow-600' : 'text-green-600'">
+                                {{ statusCounts.sent + statusCounts.delivered }} ارسال موفق، 
+                                {{ statusCounts.failed }} ناموفق
+                            </p>
+                        </div>
+                        <button
+                            @click="closeProgressModal"
+                            class="px-4 py-2 rounded-lg text-white"
+                            :class="statusCounts.failed > 0 ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'"
+                        >
+                            بستن
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </AppLayout>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, onUnmounted } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import axios from 'axios';
 
 const props = defineProps({
     campaign: Object,
 });
 
 const startForm = useForm({});
+const showProgressModal = ref(false);
+const progressRecipients = ref([]);
+const statusCounts = ref({
+    total: 0,
+    sent: 0,
+    delivered: 0,
+    failed: 0,
+    pending: 0,
+});
+const isCompleted = ref(false);
+const pollingInterval = ref(null);
 
 const canStartNow = computed(() => {
     if (!props.campaign.scheduled_at) return true;
     const scheduledDate = new Date(props.campaign.scheduled_at);
     return scheduledDate <= new Date();
+});
+
+const progressPercentage = computed(() => {
+    if (statusCounts.value.total === 0) return 0;
+    const completed = statusCounts.value.sent + statusCounts.value.delivered + statusCounts.value.failed;
+    return Math.round((completed / statusCounts.value.total) * 100);
 });
 
 const formatDate = (date) => {
@@ -248,14 +366,107 @@ const getStatusCount = (status) => {
     return props.campaign.recipients.filter(r => r.status === status).length;
 };
 
-const startCampaign = () => {
-    if (confirm('Are you sure you want to start this campaign? Messages will be sent immediately.')) {
-        startForm.post(route('campaigns.start', props.campaign.id), {
-            preserveState: true,
-            preserveScroll: true,
-        });
+const getStatusLabel = (status) => {
+    const labels = {
+        'pending': 'در انتظار',
+        'sent': 'ارسال شده',
+        'delivered': 'تحویل داده شده',
+        'failed': 'ناموفق',
+    };
+    return labels[status] || status;
+};
+
+const startCampaign = async () => {
+    if (!confirm('آیا مطمئن هستید که می‌خواهید این کمپین را شروع کنید؟ پیام‌ها بلافاصله ارسال خواهند شد.')) {
+        return;
+    }
+
+    try {
+        showProgressModal.value = true;
+        isCompleted.value = false;
+        
+        // Initialize progress
+        statusCounts.value = {
+            total: props.campaign.recipients?.filter(r => r.status === 'pending').length || 0,
+            sent: 0,
+            delivered: 0,
+            failed: 0,
+            pending: props.campaign.recipients?.filter(r => r.status === 'pending').length || 0,
+        };
+        progressRecipients.value = [];
+
+        // Start campaign
+        const response = await axios.post(route('campaigns.start', props.campaign.id));
+        
+        if (response.data.success) {
+            // Start polling for status
+            startPolling();
+        } else {
+            alert('خطا در شروع کمپین: ' + (response.data.message || 'خطای ناشناخته'));
+            showProgressModal.value = false;
+        }
+    } catch (error) {
+        console.error('Error starting campaign:', error);
+        alert('خطا در شروع کمپین: ' + (error.response?.data?.message || error.message));
+        showProgressModal.value = false;
     }
 };
+
+const startPolling = () => {
+    // Poll immediately first time
+    pollStatus();
+    
+    // Then poll every 500ms for real-time updates
+    pollingInterval.value = setInterval(() => {
+        pollStatus();
+    }, 500);
+};
+
+const pollStatus = async () => {
+    try {
+        const response = await axios.get(route('campaigns.status', props.campaign.id));
+        const data = response.data;
+        
+        statusCounts.value = {
+            total: data.total,
+            sent: data.sent,
+            delivered: data.delivered,
+            failed: data.failed,
+            pending: data.pending,
+        };
+        
+        progressRecipients.value = data.recipients || [];
+        isCompleted.value = data.is_completed;
+        
+        // If completed, stop polling and reload page after 2 seconds
+        if (data.is_completed) {
+            stopPolling();
+            setTimeout(() => {
+                router.reload();
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Error polling status:', error);
+        // Continue polling even if there's an error
+    }
+};
+
+const stopPolling = () => {
+    if (pollingInterval.value) {
+        clearInterval(pollingInterval.value);
+        pollingInterval.value = null;
+    }
+};
+
+const closeProgressModal = () => {
+    stopPolling();
+    showProgressModal.value = false;
+    router.reload();
+};
+
+onUnmounted(() => {
+    stopPolling();
+});
 
 const deleteCampaign = () => {
     if (confirm('Are you sure you want to delete this campaign?')) {

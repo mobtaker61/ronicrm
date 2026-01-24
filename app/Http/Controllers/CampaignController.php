@@ -4,10 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Jobs\SendCampaignMessage;
 use App\Models\Campaign;
+use App\Models\CampaignRecipient;
 use App\Models\CampaignTemplate;
 use App\Models\Customer;
 use App\Models\Industry;
+use App\Services\EmailService;
+use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -128,26 +132,210 @@ class CampaignController extends Controller
         ]);
 
         // Load recipients with customer data
-        $campaign->load(['recipients.customer']);
+        $campaign->load(['recipients.customer.contacts']);
 
-        // Dispatch jobs for all pending recipients
-        $dispatchedCount = 0;
-        foreach ($campaign->recipients as $recipient) {
-            if ($recipient->status === 'pending') {
-                SendCampaignMessage::dispatch(
-                    $recipient,
-                    $campaign->type,
-                    $campaign->content ?? '',
-                    $campaign->subject ?? null,
-                    $campaign->image ?? null
-                )->onQueue('campaigns');
-                
-                $dispatchedCount++;
+        // Start sending messages in background without queue
+        $pendingRecipients = $campaign->recipients->where('status', 'pending');
+        
+        // Prepare response
+        $response = response()->json([
+            'success' => true,
+            'campaign_id' => $campaign->id,
+            'total' => $pendingRecipients->count(),
+            'message' => 'Campaign started. Sending messages...',
+        ]);
+        
+        // If fastcgi_finish_request is available, send response immediately and process in background
+        if (function_exists('fastcgi_finish_request')) {
+            // Send response to client immediately
+            $response->send();
+            
+            // Finish request and continue processing in background
+            fastcgi_finish_request();
+            
+            // Now send messages one by one in background
+            foreach ($pendingRecipients as $recipient) {
+                try {
+                    // Send message directly (no queue, immediate execution)
+                    $this->sendMessageToRecipient($recipient, $campaign);
+                } catch (\Exception $e) {
+                    Log::error('Error sending campaign message: ' . $e->getMessage(), [
+                        'recipient_id' => $recipient->id,
+                        'campaign_id' => $campaign->id,
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                    // Update recipient status to failed
+                    try {
+                        $recipient->update([
+                            'status' => 'failed',
+                            'error_message' => $e->getMessage(),
+                        ]);
+                    } catch (\Exception $updateException) {
+                        Log::error('Error updating recipient status: ' . $updateException->getMessage());
+                    }
+                }
             }
+            
+            // Exit to prevent any further output
+            exit;
+        } else {
+            // If fastcgi_finish_request is not available, send messages directly
+            // This will take some time, but frontend will poll for status
+            foreach ($pendingRecipients as $recipient) {
+                try {
+                    // Send message directly (no queue, immediate execution)
+                    $this->sendMessageToRecipient($recipient, $campaign);
+                } catch (\Exception $e) {
+                    Log::error('Error sending campaign message: ' . $e->getMessage(), [
+                        'recipient_id' => $recipient->id,
+                        'campaign_id' => $campaign->id,
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                    // Update recipient status to failed
+                    try {
+                        $recipient->update([
+                            'status' => 'failed',
+                            'error_message' => $e->getMessage(),
+                        ]);
+                    } catch (\Exception $updateException) {
+                        Log::error('Error updating recipient status: ' . $updateException->getMessage());
+                    }
+                }
+            }
+            
+            // Return JSON response
+            return $response;
+        }
+    }
+
+    protected function sendMessageToRecipient(CampaignRecipient $recipient, Campaign $campaign): void
+    {
+        try {
+            $customer = $recipient->customer;
+            $result = null;
+
+            if ($campaign->type === 'whatsapp') {
+                $whatsappService = app(WhatsAppService::class);
+                // Get WhatsApp contact (not phone, as they are separate entities)
+                $whatsappContact = $customer->contacts()->where('type', 'whatsapp')->first();
+                $phone = $whatsappContact?->value;
+                
+                if (!$phone) {
+                    $recipient->update([
+                        'status' => 'failed',
+                        'error_message' => 'No WhatsApp contact found',
+                    ]);
+                    return;
+                }
+
+                // Replace variables in content
+                $message = $this->replaceVariables($campaign->content ?? '', $customer);
+                
+                // Build full URL for image if exists
+                $imageUrl = null;
+                if ($campaign->image) {
+                    $imageUrl = asset('storage/' . $campaign->image);
+                }
+                
+                $result = $whatsappService->sendMessage($phone, $message, $imageUrl);
+            } elseif ($campaign->type === 'email') {
+                $emailService = app(EmailService::class);
+                $email = $customer->email ?? $customer->contacts()->where('type', 'email')->first()?->value;
+                
+                if (!$email) {
+                    $recipient->update([
+                        'status' => 'failed',
+                        'error_message' => 'No email address found',
+                    ]);
+                    return;
+                }
+
+                // Replace variables in content
+                $content = $this->replaceVariables($campaign->content ?? '', $customer);
+                $subject = $campaign->subject ? $this->replaceVariables($campaign->subject, $customer) : 'Campaign Message';
+                
+                $result = $emailService->sendHtmlEmail($email, $subject, $content);
+            }
+
+            if ($result && $result['success']) {
+                $updateData = [
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                ];
+                
+                // If there's a warning (like timeout but message sent), include it in error_message
+                if (isset($result['warning'])) {
+                    $updateData['error_message'] = $result['warning'];
+                }
+                
+                $recipient->update($updateData);
+            } else {
+                $recipient->update([
+                    'status' => 'failed',
+                    'error_message' => $result['error'] ?? 'Unknown error',
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Campaign message sending failed: ' . $e->getMessage());
+            $recipient->update([
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    protected function replaceVariables(string $content, $customer): string
+    {
+        $variables = [
+            '{name}' => $customer->name,
+            '{company}' => $customer->company_name ?? '',
+            '{email}' => $customer->email ?? '',
+            '{phone}' => $customer->phone ?? '',
+        ];
+
+        return str_replace(array_keys($variables), array_values($variables), $content);
+    }
+
+    public function getStatus(Campaign $campaign)
+    {
+        $campaign->load(['recipients.customer']);
+        
+        $recipients = $campaign->recipients->map(function ($recipient) {
+            return [
+                'id' => $recipient->id,
+                'customer_name' => $recipient->customer->name ?? 'Unknown',
+                'status' => $recipient->status,
+                'error_message' => $recipient->error_message,
+                'sent_at' => $recipient->sent_at?->toIso8601String(),
+            ];
+        });
+
+        $total = $campaign->recipients->count();
+        $sent = $campaign->recipients->where('status', 'sent')->count();
+        $delivered = $campaign->recipients->where('status', 'delivered')->count();
+        $failed = $campaign->recipients->where('status', 'failed')->count();
+        $pending = $campaign->recipients->where('status', 'pending')->count();
+        
+        $isCompleted = $pending === 0 && ($sent + $delivered + $failed) === $total;
+        
+        if ($isCompleted && $campaign->status === 'running') {
+            $campaign->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+            ]);
         }
 
-        return redirect()->back()
-            ->with('success', "Campaign started successfully. {$dispatchedCount} message(s) queued for sending.");
+        return response()->json([
+            'campaign_id' => $campaign->id,
+            'campaign_status' => $campaign->status,
+            'total' => $total,
+            'sent' => $sent,
+            'delivered' => $delivered,
+            'failed' => $failed,
+            'pending' => $pending,
+            'is_completed' => $isCompleted,
+            'recipients' => $recipients,
+        ]);
     }
 
     public function destroy(Campaign $campaign)

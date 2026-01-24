@@ -32,6 +32,7 @@ Route::middleware('auth')->group(function () {
     // Campaigns
     Route::resource('campaigns', \App\Http\Controllers\CampaignController::class)->except(['edit', 'update']);
     Route::post('campaigns/{campaign}/start', [\App\Http\Controllers\CampaignController::class, 'start'])->name('campaigns.start');
+    Route::get('campaigns/{campaign}/status', [\App\Http\Controllers\CampaignController::class, 'getStatus'])->name('campaigns.status');
     Route::resource('campaign-templates', \App\Http\Controllers\CampaignTemplateController::class)->except(['show', 'create', 'edit']);
 
     // Inbox (WhatsApp Messages)

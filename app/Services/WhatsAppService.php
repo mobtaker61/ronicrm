@@ -73,7 +73,9 @@ class WhatsAppService
             ]);
 
             /** @var \Illuminate\Http\Client\Response $response */
-            $response = Http::asForm()->post($this->apiUrl, $postData);
+            // Increase timeout to 120 seconds for file uploads
+            $timeout = $fileUrl ? 120 : 60;
+            $response = Http::timeout($timeout)->asForm()->post($this->apiUrl, $postData);
 
             if ($response->successful()) {
                 $responseData = $response->json();
@@ -133,6 +135,32 @@ class WhatsAppService
             return [
                 'success' => false,
                 'error' => $error,
+                'status' => 'failed',
+            ];
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            // Handle timeout specifically - message might have been sent
+            $errorMessage = $e->getMessage();
+            Log::warning('WhatsApp API Connection Exception (possible timeout)', [
+                'error' => $errorMessage,
+                'to' => $phone,
+                'has_file' => !empty($fileUrl),
+            ]);
+            
+            // If it's a timeout, we can't be sure if message was sent or not
+            // But since user reported messages were sent despite timeout, we'll mark as sent
+            // with a warning note
+            if (str_contains($errorMessage, 'timed out') || str_contains($errorMessage, 'timeout')) {
+                return [
+                    'success' => true, // Assume success if timeout (message might have been sent)
+                    'status' => 'sent',
+                    'warning' => 'Message sent but timeout occurred. Please verify delivery.',
+                    'error' => $errorMessage,
+                ];
+            }
+            
+            return [
+                'success' => false,
+                'error' => $errorMessage,
                 'status' => 'failed',
             ];
         } catch (\Exception $e) {
