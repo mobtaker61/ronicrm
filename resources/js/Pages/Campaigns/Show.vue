@@ -90,13 +90,29 @@
                     <p class="text-sm text-gray-500">Subject</p>
                     <p class="text-sm font-medium text-gray-900">{{ campaign.subject }}</p>
                 </div>
-                <div v-if="campaign.image && campaign.type === 'whatsapp'" class="mb-4">
-                    <p class="text-sm text-gray-500 mb-2">Image</p>
-                    <img
-                        :src="`/storage/${campaign.image}`"
-                        alt="Campaign Image"
-                        class="max-w-md rounded-lg border border-gray-300"
-                    />
+                <div v-if="campaign.image" class="mb-4">
+                    <p class="text-sm text-gray-500 mb-2">Attachment</p>
+                    <div class="inline-block max-w-md border border-gray-300 rounded-lg overflow-hidden bg-white">
+                        <img
+                            v-if="isImageFile(campaign.image)"
+                            :src="`/storage/${campaign.image}`"
+                            alt="Campaign Attachment"
+                            class="max-h-[100px] w-auto object-contain"
+                        />
+                        <div
+                            v-else
+                            class="flex items-center justify-center p-4 max-h-[100px] bg-gray-50"
+                        >
+                            <div class="text-center">
+                                <svg class="w-12 h-12 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                                <p class="text-xs text-gray-600 font-medium truncate max-w-[200px]">
+                                    {{ getFileName(campaign.image) }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <p class="text-sm text-gray-500 mb-2">Message</p>
@@ -374,6 +390,20 @@ const getStatusLabel = (status) => {
         'failed': 'ناموفق',
     };
     return labels[status] || status;
+};
+
+const isImageFile = (filePath) => {
+    if (!filePath) return false;
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+    const lowerPath = filePath.toLowerCase();
+    return imageExtensions.some(ext => lowerPath.includes(ext));
+};
+
+const getFileName = (filePath) => {
+    if (!filePath) return '';
+    // Extract filename from path (e.g., "campaign-attachments/file.pdf" -> "file.pdf")
+    const parts = filePath.split('/');
+    return parts[parts.length - 1] || filePath;
 };
 
 const startCampaign = async () => {

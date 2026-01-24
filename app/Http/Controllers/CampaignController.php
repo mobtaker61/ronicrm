@@ -12,6 +12,7 @@ use App\Services\EmailService;
 use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -67,10 +68,25 @@ class CampaignController extends Controller
         ]);
 
         // Handle file upload (image, document, etc.)
+        $imagePath = null;
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('campaign-attachments', 'public');
-        } else {
-            unset($validated['image']);
+            $imagePath = $request->file('image')->store('campaign-attachments', 'public');
+        } elseif ($validated['template_id']) {
+            // If template is selected and no new file is uploaded, copy template's file
+            $template = CampaignTemplate::find($validated['template_id']);
+            if ($template && $template->image) {
+                // Copy template's file to campaign-attachments directory
+                $sourcePath = storage_path('app/public/' . $template->image);
+                if (file_exists($sourcePath)) {
+                    $extension = pathinfo($template->image, PATHINFO_EXTENSION);
+                    $fileName = 'campaign_' . time() . '_' . uniqid() . '.' . $extension;
+                    $destinationPath = 'campaign-attachments/' . $fileName;
+                    
+                    // Copy file
+                    Storage::disk('public')->copy($template->image, $destinationPath);
+                    $imagePath = $destinationPath;
+                }
+            }
         }
 
         $campaign = Campaign::create([
@@ -81,7 +97,7 @@ class CampaignController extends Controller
             'scheduled_at' => $validated['scheduled_at'] ? now()->parse($validated['scheduled_at']) : null,
             'subject' => $validated['subject'] ?? null,
             'content' => $validated['content'],
-            'image' => $validated['image'] ?? null,
+            'image' => $imagePath,
             'created_by' => auth()->id(),
         ]);
 
