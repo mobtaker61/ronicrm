@@ -314,9 +314,13 @@ class CampaignController extends Controller
 
     public function getStatus(Campaign $campaign)
     {
+        // Refresh campaign and recipients from database to get latest status
+        $campaign->refresh();
         $campaign->load(['recipients.customer']);
         
         $recipients = $campaign->recipients->map(function ($recipient) {
+            // Refresh recipient to get latest status
+            $recipient->refresh();
             return [
                 'id' => $recipient->id,
                 'customer_name' => $recipient->customer->name ?? 'Unknown',
@@ -332,13 +336,17 @@ class CampaignController extends Controller
         $failed = $campaign->recipients->where('status', 'failed')->count();
         $pending = $campaign->recipients->where('status', 'pending')->count();
         
-        $isCompleted = $pending === 0 && ($sent + $delivered + $failed) === $total;
+        // Campaign is completed when there are no pending recipients
+        $isCompleted = $pending === 0 && $total > 0;
         
+        // Update campaign status if completed
         if ($isCompleted && $campaign->status === 'running') {
             $campaign->update([
                 'status' => 'completed',
                 'completed_at' => now(),
             ]);
+            // Refresh campaign to get updated status
+            $campaign->refresh();
         }
 
         return response()->json([

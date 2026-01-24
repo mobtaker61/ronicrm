@@ -468,12 +468,13 @@ const pollStatus = async () => {
         progressRecipients.value = data.recipients || [];
         isCompleted.value = data.is_completed;
         
-        // If completed, stop polling and reload page after 2 seconds
+        // If completed, stop polling and close modal after 3 seconds
         if (data.is_completed) {
             stopPolling();
+            // Wait 3 seconds to show final status, then close modal and reload
             setTimeout(() => {
-                router.reload();
-            }, 2000);
+                closeProgressModal();
+            }, 3000);
         }
     } catch (error) {
         console.error('Error polling status:', error);
@@ -491,7 +492,8 @@ const stopPolling = () => {
 const closeProgressModal = () => {
     stopPolling();
     showProgressModal.value = false;
-    router.reload();
+    // Reload page to show updated campaign status
+    router.reload({ only: ['campaign'] });
 };
 
 onUnmounted(() => {
