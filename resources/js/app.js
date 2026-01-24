@@ -30,6 +30,8 @@ const routeHelper = (name, params = null, absolute = false) => {
         'customers.notes.store': (id) => `/customers/${id}/notes`,
         'customers.notes.destroy': (id) => `/customers/notes/${id}`,
         'customers.share-via-whatsapp': (id) => `/customers/${id}/share-via-whatsapp`,
+        'customers.import': '/customers/import',
+        'customers.import-preview': '/customers/import-preview',
         'campaigns.index': '/campaigns',
         'campaigns.create': '/campaigns/create',
         'campaigns.show': (id) => `/campaigns/${id}`,

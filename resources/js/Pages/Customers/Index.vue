@@ -13,12 +13,23 @@
             <!-- Header -->
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h2 class="text-2xl font-bold text-gray-900">Customers</h2>
-                <Link
-                    :href="route('customers.create')"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
-                >
-                    Add Customer
-                </Link>
+                <div class="flex gap-2">
+                    <button
+                        @click="showImportModal = true"
+                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap flex items-center space-x-2"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <span>Import Customers</span>
+                    </button>
+                    <Link
+                        :href="route('customers.create')"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
+                    >
+                        Add Customer
+                    </Link>
+                </div>
             </div>
 
             <!-- Filters -->
@@ -278,12 +289,137 @@
                 </div>
             </div>
         </div>
+
+        <!-- Import Modal -->
+        <div v-if="showImportModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-900">Import مخاطبان از فایل</h3>
+                    <button
+                        @click="closeImportModal"
+                        class="text-gray-400 hover:text-gray-600"
+                    >
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="px-6 py-4 flex-1 overflow-y-auto">
+                    <!-- Instructions -->
+                    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h4 class="font-medium text-blue-900 mb-2">فرمت فایل CSV:</h4>
+                        <ul class="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                            <li>فایل باید فرمت CSV باشد (با encoding UTF-8)</li>
+                            <li>ستون‌های اجباری: name, type (person/company)</li>
+                            <li>ستون‌های اختیاری: company_name, email, phone, address, industry_name, status, source, gender, language, contact_person, notes</li>
+                            <li>برای contacts: phone, email, whatsapp, telegram (مثال: phone:09123456789)</li>
+                            <li>برای social_media: instagram, telegram, linkedin (مثال: instagram:username)</li>
+                        </ul>
+                        <p class="text-xs text-blue-700 mt-3">
+                            <strong>نکته:</strong> اگر industry_name در فایل باشد، سیستم به صورت خودکار industry را پیدا می‌کند یا ایجاد می‌کند.
+                        </p>
+                    </div>
+
+                    <!-- File Upload -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">انتخاب فایل CSV یا Excel</label>
+                        <input
+                            type="file"
+                            ref="fileInput"
+                            @change="handleFileSelect"
+                            accept=".csv,.xlsx,.xls"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p class="mt-1 text-xs text-gray-500">فرمت‌های پشتیبانی شده: CSV, Excel (.xlsx, .xls)</p>
+                    </div>
+
+                    <!-- Preview Table -->
+                    <div v-if="isLoadingPreview" class="mb-4 p-4 bg-gray-50 rounded-lg text-center">
+                        <p class="text-sm text-gray-600">در حال خواندن فایل...</p>
+                    </div>
+                    
+                    <div v-if="previewData && previewData.success" class="mb-4">
+                        <h4 class="font-medium text-gray-900 mb-2">
+                            پیش‌نمایش فایل ({{ previewData.preview_rows }} از {{ previewData.total_rows }} ردیف)
+                        </h4>
+                        <div class="overflow-x-auto border border-gray-300 rounded-lg max-h-96 overflow-y-auto">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">#</th>
+                                        <th
+                                            v-for="(header, index) in previewData.headers"
+                                            :key="index"
+                                            class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200"
+                                        >
+                                            {{ header }}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr v-for="(row, rowIndex) in previewData.rows" :key="rowIndex" class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 border-r border-gray-200">{{ rowIndex + 1 }}</td>
+                                        <td
+                                            v-for="(header, headerIndex) in previewData.headers"
+                                            :key="headerIndex"
+                                            class="px-3 py-2 text-xs text-gray-900 border-r border-gray-200"
+                                        >
+                                            {{ row[header] || '-' }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Preview/Results -->
+                    <div v-if="importResult" class="mt-6">
+                        <h4 class="font-medium text-gray-900 mb-3">نتایج Import:</h4>
+                        <div class="space-y-2">
+                            <div v-if="importResult.success > 0" class="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <p class="text-sm text-green-800">
+                                    <strong>موفق:</strong> {{ importResult.success }} مخاطب با موفقیت وارد شد
+                                </p>
+                            </div>
+                            <div v-if="importResult.failed > 0" class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <p class="text-sm text-red-800">
+                                    <strong>ناموفق:</strong> {{ importResult.failed }} مخاطب با خطا مواجه شد
+                                </p>
+                            </div>
+                            <div v-if="importResult.errors && importResult.errors.length > 0" class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <p class="text-sm text-yellow-800 font-medium mb-2">خطاها:</p>
+                                <ul class="text-xs text-yellow-700 space-y-1 list-disc list-inside max-h-40 overflow-y-auto">
+                                    <li v-for="(error, index) in importResult.errors" :key="index">{{ error }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                    <button
+                        @click="closeImportModal"
+                        class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    >
+                        انصراف
+                    </button>
+                    <button
+                        @click="importCustomers"
+                        :disabled="!selectedFile || importForm.processing"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {{ importForm.processing ? 'در حال Import...' : 'Import' }}
+                    </button>
+                </div>
+            </div>
+        </div>
     </AppLayout>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { debounce } from 'lodash-es';
 
@@ -292,6 +428,19 @@ const props = defineProps({
     industries: Array,
     filters: Object,
 });
+
+const showImportModal = ref(false);
+const selectedFile = ref(null);
+const fileInput = ref(null);
+const importResult = ref(null);
+const previewData = ref(null);
+const isLoadingPreview = ref(false);
+
+const importForm = useForm({
+    file: null,
+});
+
+const page = usePage();
 
 const filters = ref({
     search: props.filters?.search || '',
@@ -321,6 +470,114 @@ const updateStatus = (customer) => {
         preserveState: true,
         preserveScroll: true,
     });
+};
+
+const handleFileSelect = async (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        selectedFile.value = file;
+        importForm.file = file;
+        importResult.value = null;
+        previewData.value = null;
+        
+        // Load preview
+        await loadPreview(file);
+    }
+};
+
+const loadPreview = async (file) => {
+    isLoadingPreview.value = true;
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        // Get CSRF token from Inertia props
+        const csrfToken = page.props.csrf_token || '';
+        
+        const response = await fetch(route('customers.import-preview'), {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+            body: formData,
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            previewData.value = data;
+        } else {
+            alert('خطا در خواندن فایل: ' + (data.message || 'خطای ناشناخته'));
+        }
+    } catch (error) {
+        console.error('Preview error:', error);
+        alert('خطا در بارگذاری preview: ' + error.message);
+    } finally {
+        isLoadingPreview.value = false;
+    }
+};
+
+const importCustomers = () => {
+    if (!selectedFile.value) {
+        alert('لطفا ابتدا یک فایل انتخاب کنید');
+        return;
+    }
+
+        importForm.post(route('customers.import'), {
+        preserveState: false, // Don't preserve state to ensure flash messages are loaded
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: (page) => {
+            console.log('Import success response:', page.props.flash);
+            // Check for import result
+            if (page.props.flash?.import_result) {
+                importResult.value = page.props.flash.import_result;
+                console.log('Import result:', importResult.value);
+                if (importResult.value.success > 0) {
+                    // Reload customers list after successful import
+                    setTimeout(() => {
+                        router.reload({ only: ['customers'] });
+                    }, 2000);
+                }
+            } else if (page.props.flash?.error) {
+                // Show error message
+                importResult.value = {
+                    success: 0,
+                    failed: 0,
+                    errors: [page.props.flash.error],
+                };
+            } else {
+                // No result, show generic message with debug info
+                console.warn('No import_result in flash:', page.props.flash);
+                importResult.value = {
+                    success: 0,
+                    failed: 0,
+                    errors: ['خطای ناشناخته در import - لطفا لاگ‌ها را بررسی کنید'],
+                };
+            }
+        },
+        onError: (errors) => {
+            console.error('Import errors:', errors);
+            importResult.value = {
+                success: 0,
+                failed: 0,
+                errors: Object.values(errors).flat() || ['خطا در ارسال فایل'],
+            };
+        },
+    });
+};
+
+const closeImportModal = () => {
+    showImportModal.value = false;
+    selectedFile.value = null;
+    importResult.value = null;
+    previewData.value = null;
+    isLoadingPreview.value = false;
+    importForm.reset();
+    if (fileInput.value) {
+        fileInput.value.value = '';
+    }
 };
 
 const updateIndustry = (customer) => {

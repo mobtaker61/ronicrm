@@ -22,6 +22,8 @@ Route::middleware('auth')->group(function () {
     // Customers
     Route::resource('customers', \App\Http\Controllers\CustomerController::class);
     Route::patch('customers/{customer}/quick-update', [\App\Http\Controllers\CustomerController::class, 'quickUpdate'])->name('customers.quick-update');
+    Route::post('customers/import', [\App\Http\Controllers\CustomerController::class, 'import'])->name('customers.import');
+    Route::post('customers/import-preview', [\App\Http\Controllers\CustomerController::class, 'importPreview'])->name('customers.import-preview');
     Route::post('customers/{customer}/notes', [\App\Http\Controllers\CustomerNoteController::class, 'store'])->name('customers.notes.store');
     Route::delete('customers/notes/{note}', [\App\Http\Controllers\CustomerNoteController::class, 'destroy'])->name('customers.notes.destroy');
     Route::post('customers/{customer}/contacts', [\App\Http\Controllers\CustomerContactController::class, 'store'])->name('customers.contacts.store');
