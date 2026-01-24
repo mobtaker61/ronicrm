@@ -175,19 +175,14 @@ class CampaignController extends Controller
                     // Send message directly (no queue, immediate execution)
                     $this->sendMessageToRecipient($recipient, $campaign);
                 } catch (\Exception $e) {
-                    Log::error('Error sending campaign message: ' . $e->getMessage(), [
-                        'recipient_id' => $recipient->id,
-                        'campaign_id' => $campaign->id,
-                        'trace' => $e->getTraceAsString(),
-                    ]);
-                    // Update recipient status to failed
+                    // Update recipient status to failed using query builder
                     try {
-                        $recipient->update([
+                        CampaignRecipient::where('id', $recipient->id)->update([
                             'status' => 'failed',
                             'error_message' => $e->getMessage(),
                         ]);
                     } catch (\Exception $updateException) {
-                        Log::error('Error updating recipient status: ' . $updateException->getMessage());
+                        // Silent fail - recipient update error
                     }
                 }
             }
@@ -202,19 +197,14 @@ class CampaignController extends Controller
                     // Send message directly (no queue, immediate execution)
                     $this->sendMessageToRecipient($recipient, $campaign);
                 } catch (\Exception $e) {
-                    Log::error('Error sending campaign message: ' . $e->getMessage(), [
-                        'recipient_id' => $recipient->id,
-                        'campaign_id' => $campaign->id,
-                        'trace' => $e->getTraceAsString(),
-                    ]);
-                    // Update recipient status to failed
+                    // Update recipient status to failed using query builder
                     try {
-                        $recipient->update([
+                        CampaignRecipient::where('id', $recipient->id)->update([
                             'status' => 'failed',
                             'error_message' => $e->getMessage(),
                         ]);
                     } catch (\Exception $updateException) {
-                        Log::error('Error updating recipient status: ' . $updateException->getMessage());
+                        // Silent fail - recipient update error
                     }
                 }
             }
@@ -237,7 +227,7 @@ class CampaignController extends Controller
                 $phone = $whatsappContact?->value;
                 
                 if (!$phone) {
-                    $recipient->update([
+                    CampaignRecipient::where('id', $recipient->id)->update([
                         'status' => 'failed',
                         'error_message' => 'No WhatsApp contact found',
                     ]);
@@ -259,7 +249,7 @@ class CampaignController extends Controller
                 $email = $customer->email ?? $customer->contacts()->where('type', 'email')->first()?->value;
                 
                 if (!$email) {
-                    $recipient->update([
+                    CampaignRecipient::where('id', $recipient->id)->update([
                         'status' => 'failed',
                         'error_message' => 'No email address found',
                     ]);
@@ -284,16 +274,22 @@ class CampaignController extends Controller
                     $updateData['error_message'] = $result['warning'];
                 }
                 
-                $recipient->update($updateData);
+                // Update recipient status directly using query builder to bypass model cache
+                CampaignRecipient::where('id', $recipient->id)->update($updateData);
             } else {
-                $recipient->update([
+                // Update recipient status directly using query builder to bypass model cache
+                CampaignRecipient::where('id', $recipient->id)->update([
                     'status' => 'failed',
                     'error_message' => $result['error'] ?? 'Unknown error',
                 ]);
             }
         } catch (\Exception $e) {
-            Log::error('Campaign message sending failed: ' . $e->getMessage());
-            $recipient->update([
+            // Only log critical errors (not timeouts)
+            if (!str_contains($e->getMessage(), 'timed out')) {
+                Log::error('Campaign message sending failed: ' . $e->getMessage());
+            }
+            // Update recipient status directly using query builder
+            CampaignRecipient::where('id', $recipient->id)->update([
                 'status' => 'failed',
                 'error_message' => $e->getMessage(),
             ]);
@@ -314,13 +310,12 @@ class CampaignController extends Controller
 
     public function getStatus(Campaign $campaign)
     {
-        // Refresh campaign and recipients from database to get latest status
-        $campaign->refresh();
-        $campaign->load(['recipients.customer']);
+        // Get fresh recipients from database (bypass cache)
+        $recipients = CampaignRecipient::where('campaign_id', $campaign->id)
+            ->with('customer')
+            ->get();
         
-        $recipients = $campaign->recipients->map(function ($recipient) {
-            // Refresh recipient to get latest status
-            $recipient->refresh();
+        $recipientsData = $recipients->map(function ($recipient) {
             return [
                 'id' => $recipient->id,
                 'customer_name' => $recipient->customer->name ?? 'Unknown',
@@ -330,24 +325,28 @@ class CampaignController extends Controller
             ];
         });
 
-        $total = $campaign->recipients->count();
-        $sent = $campaign->recipients->where('status', 'sent')->count();
-        $delivered = $campaign->recipients->where('status', 'delivered')->count();
-        $failed = $campaign->recipients->where('status', 'failed')->count();
-        $pending = $campaign->recipients->where('status', 'pending')->count();
+        $total = $recipients->count();
+        $sent = $recipients->where('status', 'sent')->count();
+        $delivered = $recipients->where('status', 'delivered')->count();
+        $failed = $recipients->where('status', 'failed')->count();
+        $pending = $recipients->where('status', 'pending')->count();
         
         // Campaign is completed when there are no pending recipients
         $isCompleted = $pending === 0 && $total > 0;
         
         // Update campaign status if completed
-        if ($isCompleted && $campaign->status === 'running') {
-            $campaign->update([
-                'status' => 'completed',
-                'completed_at' => now(),
-            ]);
-            // Refresh campaign to get updated status
+        if ($isCompleted) {
             $campaign->refresh();
+            if ($campaign->status === 'running') {
+                $campaign->update([
+                    'status' => 'completed',
+                    'completed_at' => now(),
+                ]);
+            }
         }
+        
+        // Refresh campaign to get latest status
+        $campaign->refresh();
 
         return response()->json([
             'campaign_id' => $campaign->id,
@@ -358,7 +357,7 @@ class CampaignController extends Controller
             'failed' => $failed,
             'pending' => $pending,
             'is_completed' => $isCompleted,
-            'recipients' => $recipients,
+            'recipients' => $recipientsData,
         ]);
     }
 

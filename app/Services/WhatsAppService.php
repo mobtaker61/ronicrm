@@ -64,14 +64,6 @@ class WhatsAppService
                 $postData['message'] = $message;
             }
 
-            Log::info('Sending WhatsApp message via Ronibot', [
-                'to' => $phone,
-                'has_file' => !empty($fileUrl),
-                'file_url' => $fileUrl,
-                'message' => $message,
-                'post_data' => $postData,
-            ]);
-
             /** @var \Illuminate\Http\Client\Response $response */
             // Increase timeout to 120 seconds for file uploads
             $timeout = $fileUrl ? 120 : 60;
@@ -91,12 +83,7 @@ class WhatsAppService
                         $error = implode(' | ', $errors);
                     }
                     
-                    Log::error('WhatsApp API returned error in response', [
-                        'response' => $responseData,
-                        'error' => $error,
-                    ]);
-                    
-                    return [
+                return [
                         'success' => false,
                         'error' => $error,
                         'status' => 'failed',
@@ -104,10 +91,6 @@ class WhatsAppService
                     ];
                 }
                 
-                Log::info('WhatsApp message sent successfully', [
-                    'response' => $responseData,
-                ]);
-
                 return [
                     'success' => true,
                     'message_id' => $responseData['message_id'] ?? null,
@@ -120,18 +103,6 @@ class WhatsAppService
             $responseJson = $response->json();
             $error = ($responseJson && isset($responseJson['error'])) ? $responseJson['error'] : ($responseBody ?: 'Unknown error');
             
-            Log::error('WhatsApp API Error', [
-                'status' => $response->status(),
-                'error' => $error,
-                'response' => $responseBody,
-                'request_data' => [
-                    'to' => $phone,
-                    'has_file' => !empty($fileUrl),
-                    'file_url' => $fileUrl,
-                    'message' => $message,
-                ],
-            ]);
-
             return [
                 'success' => false,
                 'error' => $error,
@@ -140,11 +111,6 @@ class WhatsAppService
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             // Handle timeout specifically - message might have been sent
             $errorMessage = $e->getMessage();
-            Log::warning('WhatsApp API Connection Exception (possible timeout)', [
-                'error' => $errorMessage,
-                'to' => $phone,
-                'has_file' => !empty($fileUrl),
-            ]);
             
             // If it's a timeout, we can't be sure if message was sent or not
             // But since user reported messages were sent despite timeout, we'll mark as sent
@@ -164,9 +130,10 @@ class WhatsAppService
                 'status' => 'failed',
             ];
         } catch (\Exception $e) {
-            Log::error('WhatsApp API Exception: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-            ]);
+            // Only log critical errors
+            if (!str_contains($e->getMessage(), 'timed out')) {
+                Log::error('WhatsApp API Exception: ' . $e->getMessage());
+            }
 
             return [
                 'success' => false,

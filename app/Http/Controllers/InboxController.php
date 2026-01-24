@@ -194,13 +194,6 @@ class InboxController extends Controller
                 
                 // Determine file type based on MIME type or extension
                 $fileType = $this->getFileType($file);
-                
-                Log::info('Media file uploaded for WhatsApp', [
-                    'path' => $path,
-                    'url' => $mediaUrl,
-                    'file_type' => $fileType,
-                    'mime_type' => $file->getMimeType(),
-                ]);
             }
 
             // Message is optional if media is provided
@@ -217,25 +210,11 @@ class InboxController extends Controller
             // Note: WhatsAppService will add a default message "Image" if message is empty and file exists
             $messageToSend = $message ?: '';
             
-            Log::info('Preparing to send WhatsApp message', [
-                'to_phone' => $validated['to_phone'],
-                'has_media' => !empty($mediaUrl),
-                'media_url' => $mediaUrl,
-                'has_message' => !empty($messageToSend),
-                'message' => $messageToSend,
-            ]);
-            
             $result = $whatsappService->sendMessage(
                 $validated['to_phone'],
                 $messageToSend,
                 $mediaUrl
             );
-
-            Log::info('WhatsApp send result', [
-                'success' => $result['success'] ?? false,
-                'error' => $result['error'] ?? null,
-                'message_id' => $result['message_id'] ?? null,
-            ]);
 
             // Always save the message to database, even if API call fails
             // This ensures the message appears in the inbox
@@ -253,15 +232,6 @@ class InboxController extends Controller
                 'direction' => 'outgoing',
                 'status' => $result['success'] ? 'sent' : 'failed', // Mark as failed if API call failed
             ]);
-            
-            Log::info('Outgoing WhatsApp message saved to database', [
-                'message_id' => $savedMessage->id,
-                'has_media' => !empty($mediaUrl),
-                'media_url' => $mediaUrl,
-                'has_message' => !empty($messageToSend),
-                'message' => $messageToSend,
-                'api_success' => $result['success'] ?? false,
-            ]);
 
             if ($result['success']) {
                 // Use Inertia redirect to preserve state and show the new message
@@ -269,12 +239,10 @@ class InboxController extends Controller
                     ->with('success', 'Message sent successfully.')
                     ->with('refresh', true); // Signal to frontend to refresh messages
             } else {
-                Log::error('Failed to send WhatsApp message via API', [
-                    'error' => $result['error'] ?? 'Unknown error',
-                    'to_phone' => $validated['to_phone'],
-                    'has_media' => !empty($mediaUrl),
-                    'message_saved_id' => $savedMessage->id,
-                ]);
+                // Only log critical errors (not timeouts)
+                if (!str_contains($result['error'] ?? '', 'timed out')) {
+                    Log::error('Failed to send WhatsApp message via API: ' . ($result['error'] ?? 'Unknown error'));
+                }
                 // Still redirect to show the message in inbox, but with error notification
                 return redirect()->route('inbox.index', ['phone' => $validated['to_phone']])
                     ->with('error', 'Message saved but failed to send via WhatsApp: ' . ($result['error'] ?? 'Unknown error'));
