@@ -42,6 +42,22 @@ Route::middleware('auth')->group(function () {
     Route::post('/inbox/send', [\App\Http\Controllers\InboxController::class, 'sendMessage'])->name('inbox.send');
     Route::post('/inbox/create-customer', [\App\Http\Controllers\InboxController::class, 'createCustomer'])->name('inbox.create-customer');
 
+    // Scrap Tasks (Web Scraping)
+    Route::get('/scrap-tasks', [\App\Http\Controllers\ScrapTaskController::class, 'index'])->name('scrap-tasks.index');
+    Route::get('/scrap-tasks/create', [\App\Http\Controllers\ScrapTaskController::class, 'create'])->name('scrap-tasks.create');
+    Route::post('/scrap-tasks', [\App\Http\Controllers\ScrapTaskController::class, 'store'])->name('scrap-tasks.store');
+    Route::get('/scrap-tasks/{scrapTask}/edit', [\App\Http\Controllers\ScrapTaskController::class, 'edit'])->name('scrap-tasks.edit');
+    Route::put('/scrap-tasks/{scrapTask}', [\App\Http\Controllers\ScrapTaskController::class, 'update'])->name('scrap-tasks.update');
+    Route::get('/scrap-tasks/{scrapTask}', [\App\Http\Controllers\ScrapTaskController::class, 'show'])->name('scrap-tasks.show');
+    Route::delete('/scrap-tasks/{scrapTask}', [\App\Http\Controllers\ScrapTaskController::class, 'destroy'])->name('scrap-tasks.destroy');
+    Route::get('/scrap-tasks/{scrapTask}/result-urls', [\App\Http\Controllers\ScrapTaskController::class, 'resultUrls'])->name('scrap-tasks.result-urls');
+    Route::post('/scrap-tasks/{scrapTask}/run', [\App\Http\Controllers\ScrapTaskController::class, 'run'])->name('scrap-tasks.run');
+    Route::post('/scrap-tasks/{scrapTask}/run-sync', [\App\Http\Controllers\ScrapTaskController::class, 'runSync'])->name('scrap-tasks.run-sync');
+    Route::post('/scrap-tasks/{scrapTask}/reset', [\App\Http\Controllers\ScrapTaskController::class, 'reset'])->name('scrap-tasks.reset');
+    Route::get('/scrap-tasks/{scrapTask}/test-list-selector', [\App\Http\Controllers\ScrapTaskController::class, 'testListSelector'])->name('scrap-tasks.test-list-selector');
+    Route::get('/scrap-tasks/{scrapTask}/run-status', [\App\Http\Controllers\ScrapTaskController::class, 'runStatus'])->name('scrap-tasks.run-status');
+    Route::get('/scrap-tasks/{scrapTask}/export-excel', [\App\Http\Controllers\ScrapTaskController::class, 'exportExcel'])->name('scrap-tasks.export-excel');
+
     // Reports
     Route::get('/reports', [\App\Http\Controllers\ReportController::class, 'index'])->name('reports.index');
 
