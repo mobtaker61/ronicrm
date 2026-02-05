@@ -114,7 +114,7 @@ class ScrapTaskController extends Controller
         }
 
         return redirect()->route('scrap-tasks.show', $task)
-            ->with('success', 'تسک اسکرپ با موفقیت ایجاد شد.');
+            ->with('success', 'Scraping task created successfully.');
     }
 
     public function edit(ScrapTask $scrapTask): Response
@@ -220,7 +220,7 @@ class ScrapTaskController extends Controller
         }
 
         return redirect()->route('scrap-tasks.show', $scrapTask)
-            ->with('success', 'تسک اسکرپ به‌روزرسانی شد.');
+            ->with('success', 'Scraping task updated successfully.');
     }
 
     public function show(ScrapTask $scrapTask): Response
@@ -242,7 +242,7 @@ class ScrapTaskController extends Controller
     {
         $scrapTask->delete();
         return redirect()->route('scrap-tasks.index')
-            ->with('success', 'تسک اسکرپ حذف شد.');
+            ->with('success', 'Scraping task deleted.');
     }
 
     /**
@@ -252,7 +252,7 @@ class ScrapTaskController extends Controller
     {
         if (! in_array($scrapTask->status, ['draft', 'failed', 'completed'], true)) {
             return redirect()->route('scrap-tasks.show', $scrapTask)
-                ->with('error', 'فقط تسک‌های پیش‌نویس، ناموفق یا تکمیل‌شده قابل اجرا هستند.');
+                ->with('error', 'Only draft, failed, or completed tasks can be run.');
         }
 
         $scrapTask->update([
@@ -264,7 +264,7 @@ class ScrapTaskController extends Controller
         RunScrapTaskJob::dispatch($scrapTask);
 
         return redirect()->route('scrap-tasks.show', $scrapTask, 303)
-            ->with('success', 'اجرای تسک شروع شد. در صورت اجرای Queue Worker پیشرفت به‌صورت زنده نمایش داده می‌شود.');
+            ->with('success', 'Task started. If a queue worker is running, live progress will be shown.');
     }
 
     /**
@@ -274,7 +274,7 @@ class ScrapTaskController extends Controller
     {
         if (! in_array($scrapTask->status, ['draft', 'failed', 'completed'], true)) {
             return redirect()->route('scrap-tasks.show', $scrapTask)
-                ->with('error', 'فقط تسک‌های پیش‌نویس، ناموفق یا تکمیل‌شده قابل اجرا هستند.');
+                ->with('error', 'Only draft, failed, or completed tasks can be run.');
         }
 
         $scrapTask->update([
@@ -297,12 +297,12 @@ class ScrapTaskController extends Controller
             if (! $url) {
                 $scrapTask->update(['status' => 'failed', 'completed_at' => now()]);
                 return redirect()->route('scrap-tasks.show', $scrapTask)
-                    ->with('error', 'آدرسی برای این تسک ثبت نشده است.');
+                    ->with('error', 'No URL configured for this task.');
             }
             if (! $config) {
                 $scrapTask->update(['status' => 'failed', 'completed_at' => now()]);
                 return redirect()->route('scrap-tasks.show', $scrapTask)
-                    ->with('error', 'تنظیمات سلکتور لیست یافت نشد.');
+                    ->with('error', 'List selector config not found.');
             }
             $html = $scraper->fetchHtml($url->url);
             if ($html === null) {
@@ -311,9 +311,9 @@ class ScrapTaskController extends Controller
                     'scrap_task_url_id' => $url->id,
                     'extracted_data' => ['items' => []],
                     'status' => 'failed',
-                    'error_message' => 'دریافت صفحه با خطا مواجه شد.',
+                    'error_message' => 'Failed to fetch page.',
                 ]);
-                $url->update(['status' => 'failed', 'error_message' => 'دریافت صفحه با خطا مواجه شد.']);
+                $url->update(['status' => 'failed', 'error_message' => 'Failed to fetch page.']);
             } else {
                 $countCheck = $scraper->countListMatches($html, [
                     'selector_type' => $config->selector_type,
@@ -358,9 +358,9 @@ class ScrapTaskController extends Controller
                         'scrap_task_url_id' => $url->id,
                         'extracted_data' => null,
                         'status' => 'failed',
-                        'error_message' => 'دریافت صفحه با خطا مواجه شد.',
+                        'error_message' => 'Failed to fetch page.',
                     ]);
-                    $url->update(['status' => 'failed', 'error_message' => 'دریافت صفحه با خطا مواجه شد.']);
+                    $url->update(['status' => 'failed', 'error_message' => 'Failed to fetch page.']);
                     continue;
                 }
 
@@ -381,7 +381,7 @@ class ScrapTaskController extends Controller
         ]);
 
         return redirect()->route('scrap-tasks.show', $scrapTask)
-            ->with('success', 'اجرای تسک انجام شد.');
+            ->with('success', 'Task finished.');
     }
 
     /**
@@ -391,7 +391,7 @@ class ScrapTaskController extends Controller
     {
         if ($scrapTask->status !== 'running') {
             return redirect()->route('scrap-tasks.show', $scrapTask)
-                ->with('error', 'فقط تسک‌های در حال اجرا قابل بازنشانی هستند.');
+                ->with('error', 'Only running tasks can be reset.');
         }
 
         $scrapTask->update(['status' => 'failed']);
@@ -401,7 +401,7 @@ class ScrapTaskController extends Controller
         }
 
         return redirect()->route('scrap-tasks.show', $scrapTask)
-            ->with('success', 'وضعیت تسک بازنشانی شد. می‌توانید دوباره اجرا کنید.');
+            ->with('success', 'Task reset. You can run it again.');
     }
 
     /**
@@ -410,7 +410,7 @@ class ScrapTaskController extends Controller
     public function resultUrls(ScrapTask $scrapTask): \Illuminate\Http\JsonResponse
     {
         if ($scrapTask->type !== ScrapTask::TYPE_LIST) {
-            return response()->json(['message' => 'فقط تسک نوع لیست'], 400);
+            return response()->json(['message' => 'Only for list-type tasks.'], 400);
         }
 
         $result = $scrapTask->results()->first();
@@ -426,14 +426,14 @@ class ScrapTaskController extends Controller
     public function testListSelector(ScrapTask $scrapTask): \Illuminate\Http\JsonResponse
     {
         if ($scrapTask->type !== ScrapTask::TYPE_LIST) {
-            return response()->json(['success' => false, 'message' => 'فقط برای تسک نوع لیست'], 400);
+            return response()->json(['success' => false, 'message' => 'Only for list-type tasks.'], 400);
         }
 
         $scrapTask->load(['urls', 'listConfig']);
         $url = $scrapTask->urls->first();
         $config = $scrapTask->listConfig;
         if (! $url || ! $config) {
-            return response()->json(['success' => false, 'message' => 'آدرس یا سلکتور لیست تعریف نشده'], 400);
+            return response()->json(['success' => false, 'message' => 'List URL or selector is not configured.'], 400);
         }
 
         $scraper = new WebScraperService();
@@ -442,7 +442,7 @@ class ScrapTaskController extends Controller
             return response()->json([
                 'success' => false,
                 'count' => 0,
-                'message' => 'دریافت صفحه با خطا مواجه شد.',
+                'message' => 'Failed to fetch page.',
             ]);
         }
 
@@ -455,8 +455,8 @@ class ScrapTaskController extends Controller
             'success' => true,
             'count' => $count,
             'message' => $count > 0
-                ? "تعداد المان‌های مطابق با سلکتور: {$count}"
-                : 'هیچ المانی با این سلکتور در HTML دریافتی یافت نشد. ممکن است محتوا با JavaScript بارگذاری شود.',
+                ? "Matched elements: {$count}"
+                : 'No matching elements found in fetched HTML. The page might be rendered via JavaScript.',
         ]);
     }
 
@@ -517,7 +517,7 @@ class ScrapTaskController extends Controller
             return response()->streamDownload(function () use ($items) {
                 $out = fopen('php://output', 'w');
                 fprintf($out, "\xEF\xBB\xBF");
-                fputcsv($out, ['#', 'مقدار']);
+                fputcsv($out, ['#', 'Value']);
                 foreach ($items as $i => $val) {
                     fputcsv($out, [$i + 1, is_array($val) ? implode(' | ', $val) : (string) $val]);
                 }
@@ -531,7 +531,7 @@ class ScrapTaskController extends Controller
         return response()->streamDownload(function () use ($params, $results) {
             $out = fopen('php://output', 'w');
             fprintf($out, "\xEF\xBB\xBF");
-            $headers = ['#', 'آدرس', ...$params->pluck('name')->all(), 'وضعیت'];
+            $headers = ['#', 'URL', ...$params->pluck('name')->all(), 'Status'];
             fputcsv($out, $headers);
 
             foreach ($results as $i => $r) {
@@ -543,7 +543,7 @@ class ScrapTaskController extends Controller
                     $v = ($r->extracted_data ?? [])[$p->name] ?? '';
                     $row[] = is_array($v) ? implode(' | ', $v) : (string) $v;
                 }
-                $row[] = $r->status === 'success' ? 'موفق' : ($r->status === 'failed' ? 'ناموفق' : 'در انتظار');
+                $row[] = $r->status === 'success' ? 'Success' : ($r->status === 'failed' ? 'Failed' : 'Pending');
                 fputcsv($out, $row);
             }
             fclose($out);

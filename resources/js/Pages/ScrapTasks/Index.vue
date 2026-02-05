@@ -1,10 +1,10 @@
 <template>
     <AppLayout>
         <template #header>
-            تسک‌های اسکرپ وب
+            Web Scraping Tasks
         </template>
 
-        <div class="space-y-6">
+        <div class="space-y-6" dir="ltr">
             <div v-if="$page.props.flash?.success" class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
                 {{ $page.props.flash.success }}
             </div>
@@ -13,12 +13,12 @@
             </div>
 
             <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900">تسک‌های استخراج وب</h2>
+                <h2 class="text-2xl font-bold text-gray-900">Web Scraping</h2>
                 <Link
                     :href="route('scrap-tasks.create')"
                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                    تسک جدید
+                    New Task
                 </Link>
             </div>
 
@@ -26,13 +26,13 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">نام</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">نوع</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">وضعیت</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">تعداد URL</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">پارامترها / سلکتور</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">تاریخ ایجاد</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">عملیات</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URLs</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fields / Selector</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -49,7 +49,7 @@
                                         'bg-slate-100 text-slate-800': task.type === 'detail',
                                     }"
                                 >
-                                    {{ task.type === 'list' ? 'لیست' : 'جزئیات' }}
+                                    {{ task.type === 'list' ? 'List' : 'Detail' }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
@@ -69,11 +69,11 @@
                                 {{ task.urls?.length ?? 0 }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <template v-if="task.type === 'list'">سلکتور لیست</template>
-                                <template v-else>{{ task.extract_params?.length ?? 0 }} پارامتر</template>
+                                <template v-if="task.type === 'list'">List selector</template>
+                                <template v-else>{{ task.extract_params?.length ?? 0 }} fields</template>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {{ new Date(task.created_at).toLocaleDateString('fa-IR') }}
+                                {{ new Date(task.created_at).toLocaleDateString('en-US') }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <div class="flex flex-wrap gap-2">
@@ -81,13 +81,13 @@
                                         :href="route('scrap-tasks.show', task.id)"
                                         class="text-blue-600 hover:text-blue-900"
                                     >
-                                        مشاهده / گزارش
+                                        View / Report
                                     </Link>
                                     <Link
                                         :href="route('scrap-tasks.edit', task.id)"
                                         class="text-indigo-600 hover:text-indigo-900"
                                     >
-                                        ویرایش
+                                        Edit
                                     </Link>
                                     <button
                                         v-if="['draft', 'failed', 'completed'].includes(task.status)"
@@ -95,7 +95,7 @@
                                         @click="runTask(task)"
                                         class="text-green-600 hover:text-green-900"
                                     >
-                                        {{ task.status === 'completed' ? 'اجرای مجدد' : 'اجرا' }}
+                                        {{ task.status === 'completed' ? 'Re-run' : 'Run' }}
                                     </button>
                                     <button
                                         v-if="task.status === 'running'"
@@ -103,7 +103,7 @@
                                         @click="resetTask(task)"
                                         class="text-amber-600 hover:text-amber-900"
                                     >
-                                        بازنشانی
+                                        Reset
                                     </button>
                                     <button
                                         v-if="task.status === 'draft'"
@@ -111,7 +111,7 @@
                                         @click="deleteTask(task)"
                                         class="text-red-600 hover:text-red-900"
                                     >
-                                        حذف
+                                        Delete
                                     </button>
                                 </div>
                             </td>
@@ -120,13 +120,13 @@
                 </table>
 
                 <div v-if="tasks.data?.length === 0" class="p-8 text-center text-gray-500">
-                    هنوز تسکی ثبت نشده است. با «تسک جدید» یک تسک اسکرپ ایجاد کنید.
+                    No tasks yet. Click “New Task” to create one.
                 </div>
 
                 <div v-if="tasks.data?.length > 0" class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
                     <div class="flex items-center justify-between">
                         <div class="text-sm text-gray-700">
-                            {{ tasks.from }} تا {{ tasks.to }} از {{ tasks.total }} نتیجه
+                            {{ tasks.from }} to {{ tasks.to }} of {{ tasks.total }}
                         </div>
                         <div class="flex space-x-2">
                             <Link
@@ -134,14 +134,14 @@
                                 :href="tasks.prev_page_url"
                                 class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                             >
-                                قبلی
+                                Previous
                             </Link>
                             <Link
                                 v-if="tasks.next_page_url"
                                 :href="tasks.next_page_url"
                                 class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                             >
-                                بعدی
+                                Next
                             </Link>
                         </div>
                     </div>
@@ -160,24 +160,24 @@ defineProps({
 });
 
 const statusLabel = (status) => {
-    const map = { draft: 'پیش‌نویس', running: 'در حال اجرا', completed: 'تکمیل', failed: 'ناموفق' };
+    const map = { draft: 'Draft', running: 'Running', completed: 'Completed', failed: 'Failed' };
     return map[status] ?? status;
 };
 
 const runTask = (task) => {
-    if (confirm(`اجرای تسک «${task.name}» را شروع کنیم؟`)) {
+    if (confirm(`Start task “${task.name}”?`)) {
         router.post(route('scrap-tasks.run', task.id));
     }
 };
 
 const resetTask = (task) => {
-    if (confirm(`وضعیت تسک «${task.name}» بازنشانی شود؟`)) {
+    if (confirm(`Reset task “${task.name}”?`)) {
         router.post(route('scrap-tasks.reset', task.id));
     }
 };
 
 const deleteTask = (task) => {
-    if (confirm(`آیا از حذف تسک «${task.name}» اطمینان دارید؟`)) {
+    if (confirm(`Delete task “${task.name}”?`)) {
         router.delete(route('scrap-tasks.destroy', task.id));
     }
 };

@@ -1,10 +1,10 @@
 <template>
     <AppLayout>
         <template #header>
-            ویرایش تسک اسکرپ
+            Edit Scraping Task
         </template>
 
-        <div class="max-w-4xl mx-auto">
+        <div class="max-w-4xl mx-auto" dir="ltr">
             <form @submit.prevent="submit" class="bg-white rounded-lg shadow p-6 space-y-6">
                 <div v-if="Object.keys(form.errors).length" class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
                     <ul class="list-disc list-inside">
@@ -13,45 +13,45 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">نوع تسک *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Task type *</label>
                     <div class="flex gap-6">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input v-model="form.type" type="radio" value="list" class="rounded border-gray-300" />
-                            <span>استخراج لیست</span>
-                            <span class="text-xs text-gray-500">— یک آدرس، استخراج المان‌های تکراری</span>
+                            <span>List extraction</span>
+                            <span class="text-xs text-gray-500">— one URL, extract repeating elements</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input v-model="form.type" type="radio" value="detail" class="rounded border-gray-300" />
-                            <span>استخراج جزئیات</span>
-                            <span class="text-xs text-gray-500">— چند آدرس، چند پارامتر برای هر صفحه</span>
+                            <span>Detail extraction</span>
+                            <span class="text-xs text-gray-500">— multiple URLs, multiple fields per page</span>
                         </label>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">نام تسک *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Task name *</label>
                     <input
                         v-model="form.name"
                         type="text"
                         required
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="مثلاً: استخراج محصولات فروشگاه"
+                        placeholder="e.g. Scrape store products"
                     />
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">توضیحات (اختیاری)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description (optional)</label>
                     <textarea
                         v-model="form.description"
                         rows="2"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="توضیح کوتاه درباره هدف تسک"
+                        placeholder="Short description of the task"
                     />
                 </div>
 
                 <template v-if="form.type === 'list'">
                     <div class="border-t pt-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">آدرس صفحه *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Page URL *</label>
                         <input
                             v-model="form.listUrl"
                             type="url"
@@ -61,8 +61,8 @@
                         />
                     </div>
                     <div class="border-t pt-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">سلکتور المان‌های تکراری *</label>
-                        <p class="text-xs text-gray-500 mb-2">XPath یا class یا id که به چند المان اشاره می‌کند.</p>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Repeating elements selector *</label>
+                        <p class="text-xs text-gray-500 mb-2">XPath / class / id that matches multiple elements.</p>
                         <div class="flex flex-wrap items-center gap-3 p-4 bg-gray-50 rounded-lg">
                             <select
                                 v-model="form.list_config.selector_type"
@@ -82,14 +82,14 @@
                                 v-model="form.list_config.value_kind"
                                 class="px-3 py-2 border border-gray-300 rounded-md text-sm"
                             >
-                                <option value="text">متن المنت</option>
-                                <option value="attribute">ویژگی (attribute)</option>
+                                <option value="text">Element text</option>
+                                <option value="attribute">Attribute</option>
                             </select>
                             <input
                                 v-if="form.list_config.value_kind === 'attribute'"
                                 v-model="form.list_config.value_attr"
                                 type="text"
-                                placeholder="مثلاً href یا src"
+                                placeholder="e.g. href or src"
                                 class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm"
                             />
                         </div>
@@ -99,17 +99,17 @@
                 <template v-else>
                 <div class="border-t pt-6">
                     <div class="flex justify-between items-center mb-2">
-                        <label class="block text-sm font-medium text-gray-700">آدرس‌های صفحه (هر خط یک URL) *</label>
+                        <label class="block text-sm font-medium text-gray-700">Page URLs (one per line) *</label>
                         <div class="flex flex-wrap gap-2">
                             <button
                                 type="button"
                                 @click="pasteUrls"
                                 class="text-sm text-blue-600 hover:text-blue-800"
                             >
-                                چسباندن از کلیپبورد
+                                Paste from clipboard
                             </button>
                             <label class="text-sm text-blue-600 hover:text-blue-800 cursor-pointer">
-                                ایمپورت از فایل
+                                Import from file
                                 <input type="file" accept=".txt,.csv" class="hidden" @change="importUrlsFromFile" />
                             </label>
                             <template v-if="listTasks?.length">
@@ -118,9 +118,9 @@
                                     v-model="selectedListTaskId"
                                     class="text-sm border border-gray-300 rounded px-2 py-1"
                                 >
-                                    <option value="">انتخاب تسک لیست...</option>
+                                    <option value="">Select a list task...</option>
                                     <option v-for="t in listTasks" :key="t.id" :value="t.id">
-                                        {{ t.name }} ({{ t.items_count }} آدرس)
+                                        {{ t.name }} ({{ t.items_count }} urls)
                                     </option>
                                 </select>
                                 <button
@@ -129,7 +129,7 @@
                                     :disabled="!selectedListTaskId || loadListUrlsLoading"
                                     class="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
                                 >
-                                    {{ loadListUrlsLoading ? 'در حال بارگذاری...' : 'بارگذاری آدرس‌ها از این تسک' }}
+                                    {{ loadListUrlsLoading ? 'Loading...' : 'Load URLs from this task' }}
                                 </button>
                             </template>
                         </div>
@@ -141,24 +141,24 @@
                         placeholder="https://example.com/page1&#10;https://example.com/page2&#10;..."
                     />
                     <p class="mt-1 text-xs text-gray-500">
-                        هر URL در یک خط. می‌توانید از تسک لیست، فایل یا کلیپبورد بارگذاری کنید.
+                        One URL per line. You can load from a list task, file, or clipboard.
                     </p>
-                    <p v-if="urlCount > 0" class="mt-1 text-sm text-gray-600">{{ urlCount }} آدرس تشخیص داده شد.</p>
+                    <p v-if="urlCount > 0" class="mt-1 text-sm text-gray-600">{{ urlCount }} URLs detected.</p>
                 </div>
 
                 <div class="border-t pt-6">
                     <div class="flex justify-between items-center mb-2">
-                        <label class="block text-sm font-medium text-gray-700">پارامترهای استخراج *</label>
+                        <label class="block text-sm font-medium text-gray-700">Extraction fields *</label>
                         <button
                             type="button"
                             @click="addParam"
                             class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
                         >
-                            + افزودن پارامتر
+                            + Add field
                         </button>
                     </div>
                     <p class="text-xs text-gray-500 mb-3">
-                        برای هر فیلدی که می‌خواهید از صفحه استخراج شود، یک پارامتر تعریف کنید.
+                        Define the fields you want to extract from each page.
                     </p>
                     <div class="space-y-4">
                         <div
@@ -169,7 +169,7 @@
                             <input
                                 v-model="param.name"
                                 type="text"
-                                placeholder="نام فیلد"
+                                placeholder="Field name"
                                 class="flex-1 min-w-[120px] px-3 py-2 border border-gray-300 rounded-md text-sm"
                             />
                             <select
@@ -190,7 +190,7 @@
                                 type="button"
                                 @click="removeParam(index)"
                                 class="p-2 text-red-600 hover:bg-red-50 rounded"
-                                title="حذف"
+                                title="Remove"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -199,7 +199,7 @@
                         </div>
                     </div>
                     <p v-if="form.extract_params.length === 0" class="text-sm text-amber-600 mt-2">
-                        حداقل یک پارامتر استخراج اضافه کنید.
+                        Add at least one field.
                     </p>
                 </div>
                 </template>
@@ -210,13 +210,13 @@
                         :disabled="!canSubmit"
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        ذخیره تغییرات
+                        Save changes
                     </button>
                     <Link
                         :href="route('scrap-tasks.show', task.id)"
                         class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                     >
-                        انصراف
+                        Cancel
                     </Link>
                 </div>
             </form>
@@ -297,7 +297,7 @@ async function pasteUrls() {
         const text = await navigator.clipboard.readText();
         form.urlText = (form.urlText ? form.urlText + '\n' : '') + text;
     } catch {
-        alert('دسترسی به کلیپبورد ممکن نیست.');
+        alert('Clipboard access is not available.');
     }
 }
 
@@ -320,7 +320,7 @@ async function loadUrlsFromListTask() {
         const urls = Array.isArray(data?.urls) ? data.urls : [];
         form.urlText = urls.join('\n');
     } catch {
-        alert('بارگذاری آدرس‌ها از تسک لیست با خطا مواجه شد.');
+        alert('Failed to load URLs from the list task.');
     } finally {
         loadListUrlsLoading.value = false;
     }
@@ -330,11 +330,11 @@ function submit() {
     if (form.type === 'list') {
         const url = (form.listUrl || '').trim();
         if (!/^https?:\/\//i.test(url)) {
-            alert('یک آدرس معتبر وارد کنید.');
+            alert('Please enter a valid URL.');
             return;
         }
         if (!(form.list_config?.selector_value || '').trim()) {
-            alert('سلکتور المان‌های تکراری را پر کنید.');
+            alert('Please fill the repeating elements selector.');
             return;
         }
         form.transform(() => ({
@@ -354,12 +354,12 @@ function submit() {
     const lines = (form.urlText || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     const urls = lines.filter(line => /^https?:\/\//i.test(line));
     if (urls.length < 1) {
-        alert('حداقل یک آدرس معتبر در هر خط وارد کنید.');
+        alert('Please enter at least one valid URL, one per line.');
         return;
     }
     const params = form.extract_params.filter(p => p.name && p.selector_value);
     if (params.length < 1) {
-        alert('حداقل یک پارامتر استخراج با نام و مقدار سلکتور پر کنید.');
+        alert('Please add at least one extraction field (name + selector).');
         return;
     }
     form.transform(() => ({
