@@ -171,6 +171,15 @@
                                 />
                                 <label for="share_enabled" class="ml-2 text-sm text-gray-700">Enable public share link</label>
                             </div>
+                            <div class="flex items-center">
+                                <input
+                                    v-model="form.allow_excel_export"
+                                    type="checkbox"
+                                    id="allow_excel_export"
+                                    class="h-4 w-4 text-blue-600 rounded border-gray-300"
+                                />
+                                <label for="allow_excel_export" class="ml-2 text-sm text-gray-700">Allow Excel export of contacts on share page</label>
+                            </div>
                         </div>
                         <div class="flex justify-end gap-3 mt-6">
                             <button
@@ -215,6 +224,7 @@ const form = useForm({
     end_date: '',
     location: '',
     is_share_enabled: true,
+    allow_excel_export: true,
 });
 
 function getShareUrl(project) {
@@ -232,6 +242,7 @@ function openCreateModal() {
     editingProject.value = null;
     form.reset();
     form.is_share_enabled = true;
+    form.allow_excel_export = true;
     showModal.value = true;
 }
 
@@ -243,6 +254,7 @@ function editProject(project) {
     form.end_date = project.end_date ? project.end_date.slice(0, 10) : '';
     form.location = project.location || '';
     form.is_share_enabled = project.is_share_enabled !== false;
+    form.allow_excel_export = project.allow_excel_export !== false;
     showModal.value = true;
 }
 

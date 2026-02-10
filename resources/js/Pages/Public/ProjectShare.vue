@@ -1,6 +1,7 @@
 <template>
-    <div class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-5xl mx-auto">
+    <PublicLayout app-name="RoniCRM">
+        <div class="bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-5xl mx-auto">
             <!-- Project Info Card -->
             <div class="bg-white rounded-xl shadow-lg p-6 mb-8 border border-gray-100">
                 <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ project.name }}</h1>
@@ -19,8 +20,18 @@
 
             <!-- Customers List -->
             <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
-                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
+                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex flex-wrap items-center justify-between gap-3">
                     <h2 class="text-lg font-semibold text-gray-900">Contacts in this project ({{ customers.length }})</h2>
+                    <a
+                        v-if="project.allow_excel_export && customers.length > 0"
+                        :href="exportExcelUrl"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Export to Excel
+                    </a>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -69,7 +80,8 @@
             </div>
 
             <div class="mt-6 text-center text-sm text-gray-500">
-                <p>RoniCRM – Project Share</p>
+                    <p>RoniCRM – Project Share</p>
+                </div>
             </div>
         </div>
 
@@ -176,18 +188,24 @@
                         <h5 class="font-semibold text-gray-700 mb-1">Notes</h5>
                         <p class="text-gray-600">{{ cardCustomer.notes }}</p>
                     </div>
+</div>
                 </div>
             </div>
-        </div>
-    </div>
+    </PublicLayout>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
+import PublicLayout from '@/Layouts/PublicLayout.vue';
 
 const props = defineProps({
     project: Object,
     customers: Array,
+});
+
+const exportExcelUrl = computed(() => {
+    if (!props.project?.share_token) return '';
+    return `/p/${props.project.share_token}/export-excel`;
 });
 
 const showCardModal = ref(false);

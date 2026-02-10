@@ -1,16 +1,17 @@
 <template>
-    <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-        <!-- Success Message -->
-        <div v-if="$page.props.flash?.success" class="max-w-5xl mx-auto mb-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
-            {{ $page.props.flash.success }}
-        </div>
+    <PublicLayout app-name="RoniCRM">
+        <div class="bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+            <!-- Success Message -->
+            <div v-if="$page.props.flash?.success" class="max-w-5xl mx-auto mb-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+                {{ $page.props.flash.success }}
+            </div>
 
-        <!-- Error Message -->
-        <div v-if="$page.props.flash?.error" class="max-w-5xl mx-auto mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-            {{ $page.props.flash.error }}
-        </div>
+            <!-- Error Message -->
+            <div v-if="$page.props.flash?.error" class="max-w-5xl mx-auto mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+                {{ $page.props.flash.error }}
+            </div>
 
-        <div class="max-w-5xl mx-auto">
+            <div class="max-w-5xl mx-auto">
             <div class="grid grid-cols-1 lg:grid-cols-6 gap-6">
                 <!-- Avatar & QR Code Card (Left Column - 1/6) -->
                 <div class="lg:col-span-1">
@@ -265,6 +266,7 @@
             <div class="mt-6 text-center text-sm text-gray-500">
                 <p>Powered by RoniCRM</p>
             </div>
+            </div>
         </div>
 
         <!-- Share via WhatsApp Modal -->
@@ -325,11 +327,12 @@
                 </form>
             </div>
         </div>
-    </div>
+    </PublicLayout>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import PublicLayout from '@/Layouts/PublicLayout.vue';
 import { useForm } from '@inertiajs/vue3';
 import QRCode from 'qrcode';
 

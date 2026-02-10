@@ -15,6 +15,7 @@ class Project extends Model
         'location',
         'share_token',
         'is_share_enabled',
+        'allow_excel_export',
     ];
 
     protected function casts(): array
@@ -23,6 +24,7 @@ class Project extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'is_share_enabled' => 'boolean',
+            'allow_excel_export' => 'boolean',
         ];
     }
 

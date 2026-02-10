@@ -29,9 +29,11 @@ class ProjectController extends Controller
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'location' => 'nullable|string|max:255',
             'is_share_enabled' => 'nullable|boolean',
+            'allow_excel_export' => 'nullable|boolean',
         ]);
 
         $validated['is_share_enabled'] = $request->boolean('is_share_enabled', true);
+        $validated['allow_excel_export'] = $request->boolean('allow_excel_export', true);
 
         Project::create($validated);
 
@@ -48,9 +50,11 @@ class ProjectController extends Controller
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'location' => 'nullable|string|max:255',
             'is_share_enabled' => 'nullable|boolean',
+            'allow_excel_export' => 'nullable|boolean',
         ]);
 
         $validated['is_share_enabled'] = $request->boolean('is_share_enabled', true);
+        $validated['allow_excel_export'] = $request->boolean('allow_excel_export', true);
 
         $project->update($validated);
 

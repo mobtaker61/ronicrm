@@ -15,6 +15,7 @@ Route::post('/c/{shareKey}/share-via-whatsapp', [\App\Http\Controllers\PublicCus
 // Public project share (no auth)
 Route::get('/p/{shareToken}', [\App\Http\Controllers\PublicProjectShareController::class, 'show'])->name('public.project.share');
 Route::get('/p/{shareToken}/customer/{shareKey}', [\App\Http\Controllers\PublicProjectShareController::class, 'getCustomer'])->name('public.project.customer');
+Route::get('/p/{shareToken}/export-excel', [\App\Http\Controllers\PublicProjectShareController::class, 'exportExcel'])->name('public.project.export-excel');
 
 Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
