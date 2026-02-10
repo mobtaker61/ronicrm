@@ -77,6 +77,25 @@
                     />
                 </div>
 
+                <!-- Email Attachments -->
+                <div v-if="form.type === 'email'" class="border-t pt-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">پیوست ایمیل (اختیاری)</label>
+                    <input
+                        type="file"
+                        ref="emailAttachmentsInput"
+                        multiple
+                        @change="handleEmailAttachmentsChange"
+                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    <p class="mt-1 text-xs text-gray-500">حداکثر ۲۰ مگابایت برای هر فایل. چند فایل می‌توانید انتخاب کنید.</p>
+                    <ul v-if="emailAttachmentFiles.length" class="mt-2 space-y-1">
+                        <li v-for="(f, i) in emailAttachmentFiles" :key="i" class="flex items-center justify-between text-sm text-gray-600">
+                            <span>{{ f.name }} ({{ formatFileSize(f.size) }})</span>
+                            <button type="button" @click="removeEmailAttachment(i)" class="text-red-600 hover:text-red-800">حذف</button>
+                        </li>
+                    </ul>
+                </div>
+
                 <!-- File Upload (for WhatsApp) -->
                 <div v-if="form.type === 'whatsapp'" class="border-t pt-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Attachment (Optional)</label>
@@ -556,9 +575,12 @@ const form = useForm({
     subject: '',
     content: '',
     image: null,
+    attachments: [],
     scheduled_at: null,
     recipient_entries: [],
 });
+const emailAttachmentsInput = ref(null);
+const emailAttachmentFiles = ref([]);
 
 const scheduleNow = ref(true);
 const editorMode = ref('html');
@@ -713,9 +735,15 @@ function toggleEntry(entry) {
 const handleTypeChange = () => {
     if (form.type === 'whatsapp') {
         form.subject = '';
+        form.attachments = [];
+        emailAttachmentFiles.value = [];
+        if (emailAttachmentsInput.value) emailAttachmentsInput.value.value = '';
+    } else if (form.type === 'email') {
+        form.image = null;
+        imagePreview.value = null;
+        selectedFile.value = null;
     }
     editorMode.value = 'html';
-    
     // Clear selected recipients when campaign type changes
     form.recipient_entries = [];
 };
@@ -909,6 +937,19 @@ const insertVariable = (varName) => {
         textarea.setSelectionRange(newPos, newPos);
     }, 0);
 };
+
+function handleEmailAttachmentsChange(event) {
+    const files = event.target.files;
+    if (files && files.length) {
+        form.attachments = Array.from(files);
+        emailAttachmentFiles.value = Array.from(files);
+    }
+}
+function removeEmailAttachment(index) {
+    form.attachments.splice(index, 1);
+    emailAttachmentFiles.value.splice(index, 1);
+    if (emailAttachmentsInput.value) emailAttachmentsInput.value.value = '';
+}
 
 const submit = () => {
     form.transform((data) => {

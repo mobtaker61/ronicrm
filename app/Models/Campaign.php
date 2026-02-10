@@ -20,6 +20,7 @@ class Campaign extends Model
         'content',
         'subject',
         'image',
+        'attachments',
     ];
 
     protected function casts(): array
@@ -30,6 +31,7 @@ class Campaign extends Model
             'completed_at' => 'datetime',
             'status' => 'string',
             'type' => 'string',
+            'attachments' => 'array',
         ];
     }
 

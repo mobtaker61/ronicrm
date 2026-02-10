@@ -34,7 +34,7 @@ class EmailService
         }
     }
 
-    public function sendHtmlEmail(string $to, string $subject, string $htmlContent, ?string $from = null): array
+    public function sendHtmlEmail(string $to, string $subject, string $htmlContent, ?string $from = null, ?array $attachments = null): array
     {
         try {
             $smtpSettings = Setting::get('smtp', []);
@@ -49,7 +49,7 @@ class EmailService
             $fromName = config('mail.from.name');
 
             // ارسال فقط به گیرنده؛ بدون BCC به خود (تا اینباکس پر نشود). محتوا به صورت HTML صحیح ارسال می‌شود.
-            $mailable = new \App\Mail\CampaignHtmlMail($subject, $htmlContent, $to, $from, $fromName);
+            $mailable = new \App\Mail\CampaignHtmlMail($subject, $htmlContent, $to, $from, $fromName, $attachments ?? []);
             Mail::send($mailable);
 
             // فقط از طریق IMAP در پوشه Sent سرور ذخیره شود (بدون کپی در اینباکس)
@@ -114,91 +114,97 @@ class EmailService
             // برای Gmail و برخی سرویس‌ها، نام folder ممکن است متفاوت باشد
             $encryptionFlag = $imapEncryption === 'ssl' ? '/ssl' : ($imapEncryption === 'tls' ? '/tls' : '');
             
-            // امتحان کردن نام‌های مختلف برای Sent folder
-            $sentFolders = ['INBOX.Sent', 'INBOX/Sent', 'Sent', 'Sent Items'];
-            $imap = null;
-            $mailbox = null;
-
             // ابتدا به IMAP متصل شو بدون folder خاص
             $connectionString = "{{$imapHost}:{$imapPort}/imap{$encryptionFlag}}";
             
-            Log::info('Attempting IMAP connection');
-            Log::info('Host: ' . $imapHost . ', Port: ' . $imapPort . ', Encryption: ' . $imapEncryption);
-            Log::info('Connection string: ' . $connectionString);
+            Log::info('Attempting IMAP connection', ['host' => $imapHost, 'port' => $imapPort]);
             
             $imap = @imap_open($connectionString, $username, $password, OP_HALFOPEN);
             
             if (!$imap) {
                 $error = imap_last_error();
                 Log::warning('IMAP initial connection failed: ' . ($error ?: 'Unknown error'));
-                Log::warning('Please check: 1) IMAP host/port are correct, 2) Username/password are correct, 3) IMAP is enabled on your email server');
                 return;
             }
             
             Log::info('IMAP connection successful');
 
-            // لیست تمام folder ها را بگیر
+            // لیست تمام folder ها را بگیر و پوشه Sent را پیدا کن (Gmail: [Gmail]/Sent Mail، Outlook: Sent Items و غیره)
             $folders = @imap_list($imap, $connectionString, "*");
             $sentMailbox = null;
             
-            Log::info('Searching for Sent folder in ' . ($folders ? count($folders) : 0) . ' folders');
-            
             if ($folders) {
-                foreach ($folders as $folder) {
-                    $folderName = imap_utf7_decode($folder);
-                    // بررسی نام‌های مختلف برای Sent folder
-                    if (stripos($folderName, 'Sent') !== false || 
-                        stripos($folderName, 'INBOX.Sent') !== false ||
-                        stripos($folderName, 'INBOX/Sent') !== false) {
-                        $sentMailbox = $folder;
-                        Log::info('Found Sent folder: ' . $folderName);
-                        break;
+                // اول به دنبال نام‌های شناخته‌شده بگرد (Gmail، Outlook)
+                $preferredNames = ['[Gmail]/Sent Mail', 'Sent Mail', 'INBOX.Sent', 'INBOX/Sent', 'Sent Items', 'Sent'];
+                foreach ($preferredNames as $preferred) {
+                    foreach ($folders as $folder) {
+                        $folderName = imap_utf7_decode($folder);
+                        if (stripos($folderName, $preferred) !== false || $folderName === $connectionString . $preferred) {
+                            $sentMailbox = $folder;
+                            Log::info('Found Sent folder: ' . $folderName);
+                            break 2;
+                        }
                     }
                 }
-            } else {
-                Log::warning('No folders found or imap_list failed: ' . imap_last_error());
+                // اگر پیدا نشد، هر پوشه‌ای که در نامش Sent باشد
+                if (!$sentMailbox) {
+                    foreach ($folders as $folder) {
+                        $folderName = imap_utf7_decode($folder);
+                        if (stripos($folderName, 'Sent') !== false) {
+                            $sentMailbox = $folder;
+                            Log::info('Using Sent folder: ' . $folderName);
+                            break;
+                        }
+                    }
+                }
             }
             
-            // اگر Sent folder پیدا نشد، نام‌های استاندارد را امتحان کن
             if (!$sentMailbox) {
-                foreach ($sentFolders as $sentFolder) {
-                    $testMailbox = $connectionString . $sentFolder;
-                    // بررسی وجود folder
-                    $testFolders = @imap_list($imap, $connectionString, $sentFolder);
-                    if ($testFolders && count($testFolders) > 0) {
-                        $sentMailbox = $testMailbox;
-                        Log::info('Using Sent folder: ' . $sentFolder);
+                // fallback: نام‌های معمول را امتحان کن
+                foreach (['[Gmail]/Sent Mail', 'INBOX.Sent', 'Sent', 'Sent Items'] as $try) {
+                    $full = $connectionString . $try;
+                    $list = @imap_list($imap, $connectionString, $try);
+                    if ($list && count($list) > 0) {
+                        $sentMailbox = $list[0];
+                        Log::info('Using Sent folder (fallback): ' . $try);
                         break;
                     }
                 }
             }
             
-            // اگر هنوز پیدا نشد، از INBOX.Sent استفاده کن (Gmail style)
             if (!$sentMailbox) {
                 $sentMailbox = $connectionString . 'INBOX.Sent';
-                Log::info('Using default Sent folder: INBOX.Sent');
+                Log::info('Using default Sent: INBOX.Sent');
             }
             
             $mailbox = $sentMailbox;
 
-            // ساخت header ایمیل با فرمت RFC 2822
+            // دامنه برای Message-ID (از آدرس ایمیل فرستنده)
+            $domain = (\is_string($from) && str_contains($from, '@')) ? explode('@', $from)[1] : 'localhost';
+            $messageId = '<' . time() . '.' . uniqid() . '@' . $domain . '>';
+
+            // ساخت header ایمیل با فرمت RFC 2822 و خط‌های \r\n
             $headers = "From: {$fromName} <{$from}>\r\n";
             $headers .= "To: {$to}\r\n";
             $headers .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
             $headers .= "Date: " . date('r') . "\r\n";
-            $headers .= "Message-ID: <" . time() . "." . uniqid() . "@" . parse_url($from, PHP_URL_HOST) . ">\r\n";
+            $headers .= "Message-ID: {$messageId}\r\n";
             $headers .= "MIME-Version: 1.0\r\n";
             $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
             $headers .= "Content-Transfer-Encoding: 8bit\r\n";
 
-            // ذخیره ایمیل در Sent folder
-            $message = $headers . "\r\n" . $htmlContent;
+            // بدنه با خط‌های \r\n (برخی سرورها فقط این را می‌پذیرند)
+            $body = str_replace(["\r\n", "\r", "\n"], ["\n", "\n", "\r\n"], $htmlContent);
+            $message = $headers . "\r\n" . $body;
             
-            Log::info('Attempting to save email to Sent folder');
-            Log::info('Mailbox: ' . $mailbox);
-            Log::info('Message size: ' . strlen($message) . ' bytes');
+            // برخی سرورها انتهای پیام را با \r\n می‌خواهند
+            if (!str_ends_with($message, "\r\n")) {
+                $message .= "\r\n";
+            }
             
-            $result = @imap_append($imap, $mailbox, $message);
+            Log::info('Attempting to save email to Sent folder', ['mailbox' => $mailbox, 'size' => strlen($message)]);
+            
+            $result = @imap_append($imap, $mailbox, $message, '\\Seen');
             
             if (!$result) {
                 $error = imap_last_error();

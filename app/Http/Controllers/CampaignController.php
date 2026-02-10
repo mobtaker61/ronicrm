@@ -65,6 +65,8 @@ class CampaignController extends Controller
             'subject' => 'nullable|string|max:255',
             'content' => 'required|string',
             'image' => 'nullable|file|max:51200', // 50MB max - accept all file types
+            'attachments' => 'nullable|array',
+            'attachments.*' => 'file|max:20480', // 20MB per file for email attachments
             'scheduled_at' => 'nullable|date',
             'recipient_entries' => 'required', // JSON string (frontend always stringifies) or array
             'filters' => 'nullable|array',
@@ -111,6 +113,15 @@ class CampaignController extends Controller
             }
         }
 
+        // پیوست‌های ایمیل (فقط برای کمپین نوع email)
+        $attachmentList = [];
+        if ($validated['type'] === 'email' && $request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $path = $file->store('campaign-attachments', 'public');
+                $attachmentList[] = ['path' => $path, 'name' => $file->getClientOriginalName()];
+            }
+        }
+
         $campaign = Campaign::create([
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
@@ -120,6 +131,7 @@ class CampaignController extends Controller
             'subject' => $validated['subject'] ?? null,
             'content' => $validated['content'],
             'image' => $imagePath,
+            'attachments' => $attachmentList ?: null,
             'created_by' => Auth::id(),
         ]);
 
@@ -295,7 +307,7 @@ class CampaignController extends Controller
                 $content = $this->replaceVariables($campaign->content ?? '', $customer);
                 $subject = $campaign->subject ? $this->replaceVariables($campaign->subject, $customer) : 'Campaign Message';
                 
-                $result = $emailService->sendHtmlEmail($email, $subject, $content);
+                $result = $emailService->sendHtmlEmail($email, $subject, $content, null, $campaign->attachments);
                 if ($result && $result['success']) {
                     CampaignLog::create([
                         'campaign_id' => $campaign->id,
