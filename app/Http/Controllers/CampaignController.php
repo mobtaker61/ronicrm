@@ -65,13 +65,14 @@ class CampaignController extends Controller
             'content' => 'required|string',
             'image' => 'nullable|file|max:51200', // 50MB max - accept all file types
             'scheduled_at' => 'nullable|date',
-            'recipient_entries' => 'required', // array or JSON string (when form has file)
+            'recipient_entries' => 'required', // JSON string (frontend always stringifies) or array
             'filters' => 'nullable|array',
         ]);
 
         $recipientEntries = $validated['recipient_entries'];
         if (is_string($recipientEntries)) {
-            $recipientEntries = json_decode($recipientEntries, true) ?: [];
+            $decoded = json_decode($recipientEntries, true);
+            $recipientEntries = is_array($decoded) ? $decoded : [];
         }
         if (! is_array($recipientEntries) || count($recipientEntries) < 1) {
             return redirect()->back()->withErrors(['recipient_entries' => ['At least one recipient is required.']])->withInput();

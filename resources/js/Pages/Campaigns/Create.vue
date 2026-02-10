@@ -913,7 +913,7 @@ const insertVariable = (varName) => {
 const submit = () => {
     form.transform((data) => {
         const payload = { ...data };
-        if (payload.recipient_entries && Array.isArray(payload.recipient_entries) && payload.image) {
+        if (payload.recipient_entries && Array.isArray(payload.recipient_entries)) {
             payload.recipient_entries = JSON.stringify(payload.recipient_entries);
         }
         return payload;
