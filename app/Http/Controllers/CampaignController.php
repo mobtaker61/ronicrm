@@ -8,9 +8,11 @@ use App\Models\CampaignRecipient;
 use App\Models\CampaignTemplate;
 use App\Models\Customer;
 use App\Models\Industry;
+use App\Models\Project;
 use App\Services\EmailService;
 use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -47,7 +49,8 @@ class CampaignController extends Controller
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get(),
-            'customers' => Customer::with(['contacts', 'industry'])->orderBy('name')->get(),
+            'projects' => Project::orderBy('name')->get(),
+            'customers' => Customer::with(['contacts', 'industry', 'project'])->orderBy('name')->get(),
         ]);
     }
 
@@ -62,10 +65,27 @@ class CampaignController extends Controller
             'content' => 'required|string',
             'image' => 'nullable|file|max:51200', // 50MB max - accept all file types
             'scheduled_at' => 'nullable|date',
-            'recipient_ids' => 'required|array|min:1',
-            'recipient_ids.*' => 'exists:customers,id',
+            'recipient_entries' => 'required', // array or JSON string (when form has file)
             'filters' => 'nullable|array',
         ]);
+
+        $recipientEntries = $validated['recipient_entries'];
+        if (is_string($recipientEntries)) {
+            $recipientEntries = json_decode($recipientEntries, true) ?: [];
+        }
+        if (! is_array($recipientEntries) || count($recipientEntries) < 1) {
+            return redirect()->back()->withErrors(['recipient_entries' => ['At least one recipient is required.']])->withInput();
+        }
+        foreach ($recipientEntries as $entry) {
+            $cid = (int) ($entry['customer_id'] ?? 0);
+            if (! $cid || ! Customer::where('id', $cid)->exists()) {
+                return redirect()->back()->withErrors(['recipient_entries' => ['Invalid customer in recipient list.']])->withInput();
+            }
+            $contactId = isset($entry['customer_contact_id']) ? (int) $entry['customer_contact_id'] : null;
+            if ($contactId && ! \App\Models\CustomerContact::where('id', $contactId)->where('customer_id', $cid)->exists()) {
+                return redirect()->back()->withErrors(['recipient_entries' => ['Invalid contact for customer.']])->withInput();
+            }
+        }
 
         // Handle file upload (image, document, etc.)
         $imagePath = null;
@@ -98,13 +118,14 @@ class CampaignController extends Controller
             'subject' => $validated['subject'] ?? null,
             'content' => $validated['content'],
             'image' => $imagePath,
-            'created_by' => auth()->id(),
+            'created_by' => Auth::id(),
         ]);
 
-        // Create recipients
-        foreach ($validated['recipient_ids'] as $customerId) {
+        // Create recipients (one per contact method)
+        foreach ($recipientEntries as $entry) {
             $campaign->recipients()->create([
-                'customer_id' => $customerId,
+                'customer_id' => (int) $entry['customer_id'],
+                'customer_contact_id' => ! empty($entry['customer_contact_id']) ? (int) $entry['customer_contact_id'] : null,
                 'status' => 'pending',
             ]);
         }
@@ -118,6 +139,7 @@ class CampaignController extends Controller
         $campaign->load([
             'recipients.customer.contacts',
             'recipients.customer.industry',
+            'recipients.customerContact',
             'creator',
             'logs'
         ]);
@@ -147,8 +169,8 @@ class CampaignController extends Controller
             'started_at' => now(),
         ]);
 
-        // Load recipients with customer data
-        $campaign->load(['recipients.customer.contacts']);
+        // Load recipients with customer and contact data
+        $campaign->load(['recipients.customer.contacts', 'recipients.customerContact']);
 
         // Start sending messages in background without queue
         $pendingRecipients = $campaign->recipients->where('status', 'pending');
@@ -222,10 +244,15 @@ class CampaignController extends Controller
 
             if ($campaign->type === 'whatsapp') {
                 $whatsappService = app(WhatsAppService::class);
-                // Get WhatsApp contact (not phone, as they are separate entities)
-                $whatsappContact = $customer->contacts()->where('type', 'whatsapp')->first();
-                $phone = $whatsappContact?->value;
-                
+                $phone = null;
+                if ($recipient->customer_contact_id) {
+                    $contact = $recipient->customerContact;
+                    $phone = $contact?->type === 'whatsapp' ? $contact->value : null;
+                }
+                if (!$phone) {
+                    $whatsappContact = $customer->contacts()->where('type', 'whatsapp')->first();
+                    $phone = $whatsappContact?->value;
+                }
                 if (!$phone) {
                     CampaignRecipient::where('id', $recipient->id)->update([
                         'status' => 'failed',
@@ -246,8 +273,14 @@ class CampaignController extends Controller
                 $result = $whatsappService->sendMessage($phone, $message, $imageUrl);
             } elseif ($campaign->type === 'email') {
                 $emailService = app(EmailService::class);
-                $email = $customer->email ?? $customer->contacts()->where('type', 'email')->first()?->value;
-                
+                $email = null;
+                if ($recipient->customer_contact_id) {
+                    $contact = $recipient->customerContact;
+                    $email = $contact?->type === 'email' ? $contact->value : null;
+                }
+                if (!$email) {
+                    $email = $customer->email ?? $customer->contacts()->where('type', 'email')->first()?->value;
+                }
                 if (!$email) {
                     CampaignRecipient::where('id', $recipient->id)->update([
                         'status' => 'failed',

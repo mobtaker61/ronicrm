@@ -169,11 +169,15 @@
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    <div v-if="recipient.customer?.contacts && recipient.customer.contacts.length > 0">
+                                    <template v-if="recipient.customer_contact">
+                                        <span class="text-xs text-gray-400">{{ recipient.customer_contact.type }}:</span> {{ recipient.customer_contact.value }}
+                                    </template>
+                                    <template v-else-if="recipient.customer?.contacts && recipient.customer.contacts.length > 0">
                                         <div v-for="contact in recipient.customer.contacts.slice(0, 1)" :key="contact.id">
                                             <span class="text-xs text-gray-400">{{ contact.type }}:</span> {{ contact.value }}
                                         </div>
-                                    </div>
+                                    </template>
+                                    <template v-else-if="recipient.customer?.email">email: {{ recipient.customer.email }}</template>
                                     <span v-else>-</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">

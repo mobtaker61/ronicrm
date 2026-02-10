@@ -11,6 +11,7 @@ class CampaignRecipient extends Model
     protected $fillable = [
         'campaign_id',
         'customer_id',
+        'customer_contact_id',
         'status',
         'sent_at',
         'delivered_at',
@@ -38,6 +39,11 @@ class CampaignRecipient extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function customerContact(): BelongsTo
+    {
+        return $this->belongsTo(CustomerContact::class, 'customer_contact_id');
     }
 
     public function logs(): HasMany

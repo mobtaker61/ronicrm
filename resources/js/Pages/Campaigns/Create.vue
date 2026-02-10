@@ -310,16 +310,29 @@
                     <!-- Filtered Count Info -->
                     <div v-if="form.type" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p class="text-sm text-blue-800">
-                            <strong>Filtered by Campaign Type:</strong> 
-                            Showing <span class="font-semibold">{{ filteredCustomers.length }}</span> 
-                            {{ form.type === 'whatsapp' ? 'customers with WhatsApp contact' : 'customers with email' }} 
-                            (out of {{ props.customers.length }} total customers)
+                            <strong>By campaign type:</strong>
+                            <span class="font-semibold">{{ recipientEntries.length }}</span>
+                            {{ form.type === 'whatsapp' ? 'WhatsApp contact(s)' : 'email(s)' }}
+                            (one row per contact method; count is number of messages to be sent)
                         </p>
                     </div>
                     
                     <!-- Filter Options -->
                     <div class="mb-4 p-4 bg-gray-50 rounded-lg">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Project</label>
+                                <select
+                                    v-model="recipientFilters.project_id"
+                                    @change="filterRecipients"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">All Projects</option>
+                                    <option v-for="project in projects" :key="project.id" :value="project.id">
+                                        {{ project.name }}
+                                    </option>
+                                </select>
+                            </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Industry</label>
                                 <select
@@ -380,18 +393,18 @@
                                 </button>
                             </div>
                             <div class="text-sm text-gray-600">
-                                Selected: <span class="font-semibold">{{ form.recipient_ids.length }}</span> recipients
+                                Selected: <span class="font-semibold">{{ form.recipient_entries.length }}</span> (messages to send)
                             </div>
                         </div>
                     </div>
 
-                    <!-- Recipients List -->
+                    <!-- Recipients List (one row per contact method) -->
                     <div v-if="!form.type" class="p-8 text-center text-gray-500 border border-gray-200 rounded-lg">
                         <p>Please select the campaign type first to see available recipients.</p>
                     </div>
-                    <div v-else-if="filteredCustomers.length === 0" class="p-8 text-center text-gray-500 border border-gray-200 rounded-lg">
+                    <div v-else-if="recipientEntries.length === 0" class="p-8 text-center text-gray-500 border border-gray-200 rounded-lg">
                         <p>No recipients found matching the selected filters.</p>
-                        <p class="text-sm mt-2">Try adjusting your filters or check if customers have {{ form.type === 'whatsapp' ? 'WhatsApp contact' : 'email' }} information.</p>
+                        <p class="text-sm mt-2">Try adjusting your filters or check if customers have {{ form.type === 'whatsapp' ? 'WhatsApp' : 'email' }} contact(s).</p>
                     </div>
                     <div v-else class="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                         <table class="min-w-full divide-y divide-gray-200">
@@ -407,45 +420,40 @@
                                     </th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact (to send to)</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                <tr v-for="customer in filteredCustomers" :key="customer.id">
+                                <tr v-for="entry in recipientEntries" :key="entry.key">
                                     <td class="px-4 py-3">
                                         <input
                                             type="checkbox"
-                                            :value="customer.id"
-                                            v-model="form.recipient_ids"
+                                            :checked="isEntrySelected(entry)"
+                                            @change="toggleEntry(entry)"
                                             class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                         />
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-gray-900">{{ customer.name }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-900">{{ entry.customer.name }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-500">
                                         <span class="px-2 py-1 text-xs rounded-full"
-                                            :class="customer.type === 'person' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'"
+                                            :class="entry.customer.type === 'person' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'"
                                         >
-                                            {{ customer.type || 'person' }}
+                                            {{ entry.customer.type || 'person' }}
                                         </span>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-500">
-                                        <div v-if="customer.contacts && customer.contacts.length > 0">
-                                            <div v-for="contact in customer.contacts.slice(0, 1)" :key="contact.id">
-                                                <span class="text-xs text-gray-400">{{ contact.type }}:</span> {{ contact.value }}
-                                            </div>
-                                        </div>
-                                        <span v-else class="text-gray-400">-</span>
+                                        <span class="text-xs text-gray-400">{{ entry.contact ? entry.contact.type : 'email' }}:</span> {{ entry.contact ? entry.contact.value : entry.customer.email }}
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-500">
                                         <span class="px-2 py-1 text-xs rounded-full"
                                             :class="{
-                                                'bg-yellow-100 text-yellow-800': customer.status === 'lead',
-                                                'bg-blue-100 text-blue-800': customer.status === 'prospect',
-                                                'bg-green-100 text-green-800': customer.status === 'customer',
+                                                'bg-yellow-100 text-yellow-800': entry.customer.status === 'lead',
+                                                'bg-blue-100 text-blue-800': entry.customer.status === 'prospect',
+                                                'bg-green-100 text-green-800': entry.customer.status === 'customer',
                                             }"
                                         >
-                                            {{ customer.status }}
+                                            {{ entry.customer.status }}
                                         </span>
                                     </td>
                                 </tr>
@@ -498,7 +506,7 @@
                     </Link>
                     <button
                         type="submit"
-                        :disabled="form.processing || form.recipient_ids.length === 0"
+                        :disabled="form.processing || form.recipient_entries.length === 0"
                         class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {{ form.processing ? 'Creating...' : 'Create Campaign' }}
@@ -517,6 +525,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 const props = defineProps({
     templates: Array,
     industries: Array,
+    projects: Array,
     customers: Array,
 });
 
@@ -548,7 +557,7 @@ const form = useForm({
     content: '',
     image: null,
     scheduled_at: null,
-    recipient_ids: [],
+    recipient_entries: [],
 });
 
 const scheduleNow = ref(true);
@@ -556,6 +565,7 @@ const editorMode = ref('html');
 const imagePreview = ref(null);
 const selectedFile = ref(null);
 const recipientFilters = ref({
+    project_id: '',
     industry_id: '',
     status: '',
     type: '',
@@ -623,13 +633,82 @@ const filteredCustomers = computed(() => {
         filtered = filtered.filter(c => c.type === recipientFilters.value.type);
     }
 
+    // Filter by project
+    if (recipientFilters.value.project_id) {
+        filtered = filtered.filter(c => (c.project_id || '') === recipientFilters.value.project_id || c.project_id === parseInt(recipientFilters.value.project_id));
+    }
+
     return filtered;
 });
 
-const allSelected = computed(() => {
-    return filteredCustomers.value.length > 0 && 
-           filteredCustomers.value.every(c => form.recipient_ids.includes(c.id));
+// One row per contact method matching campaign type (WhatsApp -> whatsapp contacts, Email -> email contacts + main email)
+const recipientEntries = computed(() => {
+    const list = [];
+    const custs = filteredCustomers.value;
+    if (form.type === 'whatsapp') {
+        custs.forEach(c => {
+            if (c.contacts && Array.isArray(c.contacts)) {
+                c.contacts.filter(contact => contact.type === 'whatsapp').forEach(contact => {
+                    list.push({
+                        key: `${c.id}-${contact.id}`,
+                        customer: c,
+                        contact,
+                        customer_id: c.id,
+                        customer_contact_id: contact.id,
+                    });
+                });
+            }
+        });
+    } else if (form.type === 'email') {
+        custs.forEach(c => {
+            const emailContacts = (c.contacts && Array.isArray(c.contacts)) ? c.contacts.filter(contact => contact.type === 'email') : [];
+            emailContacts.forEach(contact => {
+                list.push({
+                    key: `${c.id}-${contact.id}`,
+                    customer: c,
+                    contact,
+                    customer_id: c.id,
+                    customer_contact_id: contact.id,
+                });
+            });
+            if (c.email && emailContacts.length === 0) {
+                list.push({
+                    key: `${c.id}-main`,
+                    customer: c,
+                    contact: null,
+                    customer_id: c.id,
+                    customer_contact_id: null,
+                });
+            }
+        });
+    }
+    return list;
 });
+
+const allSelected = computed(() => {
+    return recipientEntries.value.length > 0 &&
+           recipientEntries.value.every(entry => isEntrySelected(entry));
+});
+
+function isEntrySelected(entry) {
+    return form.recipient_entries.some(
+        e => e.customer_id === entry.customer_id && (e.customer_contact_id || null) === (entry.customer_contact_id || null)
+    );
+}
+
+function toggleEntry(entry) {
+    const idx = form.recipient_entries.findIndex(
+        e => e.customer_id === entry.customer_id && (e.customer_contact_id || null) === (entry.customer_contact_id || null)
+    );
+    if (idx >= 0) {
+        form.recipient_entries.splice(idx, 1);
+    } else {
+        form.recipient_entries.push({
+            customer_id: entry.customer_id,
+            customer_contact_id: entry.customer_contact_id || null,
+        });
+    }
+}
 
 const handleTypeChange = () => {
     if (form.type === 'whatsapp') {
@@ -638,8 +717,7 @@ const handleTypeChange = () => {
     editorMode.value = 'html';
     
     // Clear selected recipients when campaign type changes
-    // because the filtered list will change
-    form.recipient_ids = [];
+    form.recipient_entries = [];
 };
 
 const handleImageChange = (event) => {
@@ -724,20 +802,18 @@ const filterRecipients = () => {
 };
 
 const selectAll = () => {
-    filteredCustomers.value.forEach(customer => {
-        if (!form.recipient_ids.includes(customer.id)) {
-            form.recipient_ids.push(customer.id);
+    recipientEntries.value.forEach(entry => {
+        if (!isEntrySelected(entry)) {
+            form.recipient_entries.push({
+                customer_id: entry.customer_id,
+                customer_contact_id: entry.customer_contact_id || null,
+            });
         }
     });
 };
 
 const deselectAll = () => {
-    filteredCustomers.value.forEach(customer => {
-        const index = form.recipient_ids.indexOf(customer.id);
-        if (index > -1) {
-            form.recipient_ids.splice(index, 1);
-        }
-    });
+    form.recipient_entries = [];
 };
 
 const toggleAll = (event) => {
@@ -835,6 +911,14 @@ const insertVariable = (varName) => {
 };
 
 const submit = () => {
-    form.post(route('campaigns.store'));
+    form.transform((data) => {
+        const payload = { ...data };
+        if (payload.recipient_entries && Array.isArray(payload.recipient_entries) && payload.image) {
+            payload.recipient_entries = JSON.stringify(payload.recipient_entries);
+        }
+        return payload;
+    }).post(route('campaigns.store'), {
+        forceFormData: true,
+    });
 };
 </script>
