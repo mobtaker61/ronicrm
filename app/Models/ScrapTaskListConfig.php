@@ -13,6 +13,11 @@ class ScrapTaskListConfig extends Model
         'selector_value',
         'value_kind',
         'value_attr',
+        'delay_seconds',
+        'pagination_type',
+        'pagination_selector_type',
+        'pagination_selector_value',
+        'max_pages',
     ];
 
     public function scrapTask(): BelongsTo

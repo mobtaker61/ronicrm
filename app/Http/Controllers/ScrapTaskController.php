@@ -95,6 +95,11 @@ class ScrapTaskController extends Controller
                 'selector_value' => $cfg['selector_value'],
                 'value_kind' => $cfg['value_kind'] ?? 'text',
                 'value_attr' => $valueAttr,
+                'delay_seconds' => isset($cfg['delay_seconds']) && $cfg['delay_seconds'] !== '' ? (int) $cfg['delay_seconds'] : null,
+                'pagination_type' => $cfg['pagination_type'] ?? null,
+                'pagination_selector_type' => $cfg['pagination_selector_type'] ?? null,
+                'pagination_selector_value' => $cfg['pagination_selector_value'] ?? null,
+                'max_pages' => isset($cfg['max_pages']) && $cfg['max_pages'] !== '' ? (int) $cfg['max_pages'] : null,
             ]);
         } else {
             foreach ($validated['urls'] as $url) {
@@ -159,8 +164,18 @@ class ScrapTaskController extends Controller
             $rules['list_config.selector_value'] = 'required|string|max:500';
             $rules['list_config.value_kind'] = 'required|in:text,attribute';
             $rules['list_config.value_attr'] = 'nullable|string|max:50';
+            $rules['list_config.delay_seconds'] = 'nullable|integer|min:0|max:300';
+            $rules['list_config.pagination_type'] = 'nullable|in:next_page,load_more';
+            $rules['list_config.pagination_selector_type'] = 'nullable|in:xpath,class,id';
+            $rules['list_config.pagination_selector_value'] = 'nullable|string|max:500';
+            $rules['list_config.max_pages'] = 'nullable|integer|min:1|max:1000';
             if ($request->input('list_config.value_kind') === 'attribute') {
                 $rules['list_config.value_attr'] = 'required|string|max:50';
+            }
+            if ($request->input('list_config.pagination_type')) {
+                $rules['list_config.pagination_selector_type'] = 'required|in:xpath,class,id';
+                $rules['list_config.pagination_selector_value'] = 'required|string|max:500';
+                $rules['list_config.max_pages'] = 'required|integer|min:1|max:1000';
             }
         } else {
             $rules['urls'] = 'required|array|min:1';
@@ -201,6 +216,11 @@ class ScrapTaskController extends Controller
                 'selector_value' => $cfg['selector_value'],
                 'value_kind' => $cfg['value_kind'] ?? 'text',
                 'value_attr' => $valueAttr,
+                'delay_seconds' => isset($cfg['delay_seconds']) && $cfg['delay_seconds'] !== '' ? (int) $cfg['delay_seconds'] : null,
+                'pagination_type' => $cfg['pagination_type'] ?? null,
+                'pagination_selector_type' => $cfg['pagination_selector_type'] ?? null,
+                'pagination_selector_value' => $cfg['pagination_selector_value'] ?? null,
+                'max_pages' => isset($cfg['max_pages']) && $cfg['max_pages'] !== '' ? (int) $cfg['max_pages'] : null,
             ]);
         } else {
             foreach ($validated['urls'] as $url) {
@@ -304,17 +324,40 @@ class ScrapTaskController extends Controller
                 return redirect()->route('scrap-tasks.show', $scrapTask)
                     ->with('error', 'List selector config not found.');
             }
-            $html = $scraper->fetchHtml($url->url);
-            if ($html === null) {
-                ScrapTaskResult::create([
-                    'scrap_task_id' => $scrapTask->id,
-                    'scrap_task_url_id' => $url->id,
-                    'extracted_data' => ['items' => []],
-                    'status' => 'failed',
-                    'error_message' => 'Failed to fetch page.',
+            // Use extractListWithPagination if pagination is configured, otherwise use extractList
+            if ($config->pagination_type && $config->pagination_selector_value && $config->max_pages) {
+                $list = $scraper->extractListWithPagination($url->url, [
+                    'selector_type' => $config->selector_type,
+                    'selector_value' => $config->selector_value,
+                    'value_kind' => $config->value_kind,
+                    'value_attr' => $config->value_attr ?? '',
+                    'delay_seconds' => $config->delay_seconds,
+                    'pagination_type' => $config->pagination_type,
+                    'pagination_selector_type' => $config->pagination_selector_type,
+                    'pagination_selector_value' => $config->pagination_selector_value,
+                    'max_pages' => $config->max_pages,
                 ]);
-                $url->update(['status' => 'failed', 'error_message' => 'Failed to fetch page.']);
             } else {
+                $html = $scraper->fetchHtml($url->url);
+                if ($html === null) {
+                    ScrapTaskResult::create([
+                        'scrap_task_id' => $scrapTask->id,
+                        'scrap_task_url_id' => $url->id,
+                        'extracted_data' => ['items' => []],
+                        'status' => 'failed',
+                        'error_message' => 'Failed to fetch page.',
+                    ]);
+                    $url->update(['status' => 'failed', 'error_message' => 'Failed to fetch page.']);
+                    $scrapTask->update(['status' => 'completed', 'completed_at' => now()]);
+                    return redirect()->route('scrap-tasks.show', $scrapTask)
+                        ->with('error', 'Failed to fetch page.');
+                }
+
+                // Apply delay if configured
+                if ($config->delay_seconds && $config->delay_seconds > 0) {
+                    sleep($config->delay_seconds);
+                }
+
                 $countCheck = $scraper->countListMatches($html, [
                     'selector_type' => $config->selector_type,
                     'selector_value' => $config->selector_value,
@@ -335,14 +378,15 @@ class ScrapTaskController extends Controller
                     'task_id' => $scrapTask->id,
                     'items_count' => count($list),
                 ]);
-                ScrapTaskResult::create([
-                    'scrap_task_id' => $scrapTask->id,
-                    'scrap_task_url_id' => $url->id,
-                    'extracted_data' => ['items' => $list],
-                    'status' => 'success',
-                ]);
-                $url->update(['status' => 'success']);
             }
+
+            ScrapTaskResult::create([
+                'scrap_task_id' => $scrapTask->id,
+                'scrap_task_url_id' => $url->id,
+                'extracted_data' => ['items' => $list],
+                'status' => 'success',
+            ]);
+            $url->update(['status' => 'success']);
         } else {
             $params = $scrapTask->extractParams->map(fn ($p) => [
                 'name' => $p->name,

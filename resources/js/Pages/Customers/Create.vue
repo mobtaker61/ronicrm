@@ -128,6 +128,19 @@
                     </div>
 
                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Project</label>
+                        <select
+                            v-model="form.project_id"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option :value="null">No project</option>
+                            <option v-for="project in projects" :key="project.id" :value="project.id">
+                                {{ project.name }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Status *</label>
                         <select
                             v-model="form.status"
@@ -339,6 +352,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
     industries: Array,
+    projects: Array,
     socialMediaTypes: Array,
 });
 
@@ -351,6 +365,7 @@ const form = useForm({
     company_name: '',
     address: '',
     industry_id: null,
+    project_id: null,
     status: 'lead',
     source: 'other',
     contact_person: '',

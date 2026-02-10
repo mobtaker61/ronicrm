@@ -174,6 +174,152 @@ class WebScraperService
     }
 
     /**
+     * Extract list with pagination support. Handles delay and pagination (next_page or load_more).
+     * Returns array of all extracted items from all pages.
+     */
+    public function extractListWithPagination(string $startUrl, array $config): array
+    {
+        $allItems = [];
+        $currentUrl = $startUrl;
+        $maxPages = $config['max_pages'] ?? 1;
+        $delaySeconds = $config['delay_seconds'] ?? 0;
+        $paginationType = $config['pagination_type'] ?? null;
+
+        for ($page = 1; $page <= $maxPages; $page++) {
+            // Fetch current page
+            $html = $this->fetchHtml($currentUrl);
+            if ($html === null) {
+                Log::warning('WebScraperService::extractListWithPagination failed to fetch', ['url' => $currentUrl, 'page' => $page]);
+                break;
+            }
+
+            // Apply delay if configured
+            if ($delaySeconds > 0) {
+                sleep($delaySeconds);
+            }
+
+            // Extract items from current page
+            $pageItems = $this->extractList($html, $config, $currentUrl);
+            $allItems = array_merge($allItems, $pageItems);
+
+            Log::info('WebScraperService::extractListWithPagination page extracted', [
+                'page' => $page,
+                'items_count' => count($pageItems),
+                'total_items' => count($allItems),
+            ]);
+
+            // If no pagination or last page, stop
+            if (! $paginationType || $page >= $maxPages) {
+                break;
+            }
+
+            // Find next page URL
+            $nextUrl = $this->findNextPageUrl($html, $config, $currentUrl);
+            if (! $nextUrl || $nextUrl === $currentUrl) {
+                Log::info('WebScraperService::extractListWithPagination no more pages', ['current_url' => $currentUrl]);
+                break;
+            }
+
+            $currentUrl = $nextUrl;
+        }
+
+        return array_values(array_filter($allItems));
+    }
+
+    /**
+     * Find next page URL from HTML based on pagination config.
+     */
+    private function findNextPageUrl(string $html, array $config, string $currentUrl): ?string
+    {
+        $paginationType = $config['pagination_type'] ?? null;
+        $selectorType = $config['pagination_selector_type'] ?? 'xpath';
+        $selectorValue = trim($config['pagination_selector_value'] ?? '');
+
+        if (! $paginationType || $selectorValue === '') {
+            return null;
+        }
+
+        $dom = new DOMDocument();
+        libxml_use_internal_errors(true);
+        $loaded = @$dom->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+        libxml_clear_errors();
+        if (! $loaded) {
+            return null;
+        }
+
+        $xpath = new DOMXPath($dom);
+        $expr = $this->selectorToXPath($selectorType, $selectorValue);
+        $nodes = $xpath->query($expr);
+
+        if ($nodes->length === 0) {
+            return null;
+        }
+
+        $node = $nodes->item(0);
+        if (! $node instanceof \DOMElement) {
+            return null;
+        }
+
+        // For next_page: usually an <a> tag with href
+        if ($paginationType === 'next_page') {
+            $href = $node->getAttribute('href');
+            if ($href) {
+                if ($this->looksLikeRelativeUrl($href)) {
+                    return $this->resolveRelativeUrl($href, $currentUrl);
+                }
+
+                return $href;
+            }
+        }
+
+        // For load_more: could be href, data-url, data-href, or onclick with URL
+        if ($paginationType === 'load_more') {
+            // Try href first
+            $href = $node->getAttribute('href');
+            if ($href && $href !== '#' && $href !== 'javascript:void(0)') {
+                if ($this->looksLikeRelativeUrl($href)) {
+                    return $this->resolveRelativeUrl($href, $currentUrl);
+                }
+
+                return $href;
+            }
+
+            // Try data-url
+            $dataUrl = $node->getAttribute('data-url');
+            if ($dataUrl) {
+                if ($this->looksLikeRelativeUrl($dataUrl)) {
+                    return $this->resolveRelativeUrl($dataUrl, $currentUrl);
+                }
+
+                return $dataUrl;
+            }
+
+            // Try data-href
+            $dataHref = $node->getAttribute('data-href');
+            if ($dataHref) {
+                if ($this->looksLikeRelativeUrl($dataHref)) {
+                    return $this->resolveRelativeUrl($dataHref, $currentUrl);
+                }
+
+                return $dataHref;
+            }
+
+            // Try onclick (extract URL from JavaScript)
+            $onclick = $node->getAttribute('onclick');
+            if ($onclick && preg_match('/["\']([^"\']+)["\']/', $onclick, $matches)) {
+                $url = $matches[1];
+                if ($this->looksLikeRelativeUrl($url)) {
+                    return $this->resolveRelativeUrl($url, $currentUrl);
+                }
+
+                return $url;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Count how many nodes match the list selector (without extracting values). Useful for preview/progress.
      */
     public function countListMatches(string $html, array $config): int

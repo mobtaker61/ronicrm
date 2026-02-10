@@ -19,6 +19,7 @@ class Customer extends Model
         'phone',
         'address',
         'industry_id',
+        'project_id',
         'status',
         'source',
         'contact_person',
@@ -40,6 +41,11 @@ class Customer extends Model
     public function industry(): BelongsTo
     {
         return $this->belongsTo(Industry::class);
+    }
+
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
     }
 
     public function contacts(): HasMany

@@ -94,6 +94,68 @@
                             />
                         </div>
                     </div>
+                    <div class="border-t pt-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Delay before extraction (seconds)</label>
+                        <p class="text-xs text-gray-500 mb-2">Wait time to allow dynamic content to load. Leave empty for no delay.</p>
+                        <input
+                            v-model.number="form.list_config.delay_seconds"
+                            type="number"
+                            min="0"
+                            max="300"
+                            class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            placeholder="0"
+                        />
+                    </div>
+                    <div class="border-t pt-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Pagination</label>
+                        <p class="text-xs text-gray-500 mb-2">If the list is paginated, configure how to navigate pages.</p>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Pagination type</label>
+                                <select
+                                    v-model="form.list_config.pagination_type"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                >
+                                    <option value="">None (single page)</option>
+                                    <option value="next_page">Next Page (link/button)</option>
+                                    <option value="load_more">Load More (button)</option>
+                                </select>
+                            </div>
+                            <template v-if="form.list_config.pagination_type">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Pagination selector *</label>
+                                    <div class="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                                        <select
+                                            v-model="form.list_config.pagination_selector_type"
+                                            class="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                        >
+                                            <option value="xpath">XPath</option>
+                                            <option value="class">Class</option>
+                                            <option value="id">ID</option>
+                                        </select>
+                                        <input
+                                            v-model="form.list_config.pagination_selector_value"
+                                            type="text"
+                                            :placeholder="form.list_config.pagination_selector_type === 'xpath' ? '//a[@class=\'next\']' : form.list_config.pagination_selector_type === 'class' ? 'next-page' : 'load-more-btn'"
+                                            class="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Max pages *</label>
+                                    <input
+                                        v-model.number="form.list_config.max_pages"
+                                        type="number"
+                                        min="1"
+                                        max="1000"
+                                        class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                        placeholder="10"
+                                    />
+                                    <p class="text-xs text-gray-500 mt-1">Maximum number of pages to scrape.</p>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
                 </template>
 
                 <template v-else>
@@ -245,7 +307,22 @@ const initialListConfig = task.list_config ? {
     selector_value: task.list_config.selector_value || '',
     value_kind: task.list_config.value_kind || 'text',
     value_attr: task.list_config.value_attr || '',
-} : { selector_type: 'xpath', selector_value: '', value_kind: 'text', value_attr: '' };
+    delay_seconds: task.list_config.delay_seconds || null,
+    pagination_type: task.list_config.pagination_type || '',
+    pagination_selector_type: task.list_config.pagination_selector_type || 'xpath',
+    pagination_selector_value: task.list_config.pagination_selector_value || '',
+    max_pages: task.list_config.max_pages || null,
+} : {
+    selector_type: 'xpath',
+    selector_value: '',
+    value_kind: 'text',
+    value_attr: '',
+    delay_seconds: null,
+    pagination_type: '',
+    pagination_selector_type: 'xpath',
+    pagination_selector_value: '',
+    max_pages: null,
+};
 const initialUrlText = task.type === 'detail' && task.urls?.length
     ? task.urls.map(u => u.url).join('\n')
     : '';
@@ -347,6 +424,11 @@ function submit() {
                 selector_value: form.list_config.selector_value.trim(),
                 value_kind: form.list_config.value_kind,
                 value_attr: form.list_config.value_kind === 'attribute' ? (form.list_config.value_attr || 'href') : null,
+                delay_seconds: form.list_config.delay_seconds || null,
+                pagination_type: form.list_config.pagination_type || null,
+                pagination_selector_type: form.list_config.pagination_type ? form.list_config.pagination_selector_type : null,
+                pagination_selector_value: form.list_config.pagination_type ? form.list_config.pagination_selector_value?.trim() : null,
+                max_pages: form.list_config.pagination_type ? (form.list_config.max_pages || null) : null,
             },
         })).put(route('scrap-tasks.update', task.id));
         return;

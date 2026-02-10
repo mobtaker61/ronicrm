@@ -12,12 +12,22 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::get('/c/{shareKey}', [\App\Http\Controllers\PublicCustomerCardController::class, 'show'])->name('public.customer.card');
 Route::post('/c/{shareKey}/share-via-whatsapp', [\App\Http\Controllers\PublicCustomerCardController::class, 'shareViaWhatsApp'])->name('public.customer.share-via-whatsapp');
 
+// Public project share (no auth)
+Route::get('/p/{shareToken}', [\App\Http\Controllers\PublicProjectShareController::class, 'show'])->name('public.project.share');
+Route::get('/p/{shareToken}/customer/{shareKey}', [\App\Http\Controllers\PublicProjectShareController::class, 'getCustomer'])->name('public.project.customer');
+
 Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Industries
     Route::resource('industries', \App\Http\Controllers\IndustryController::class)->except(['show', 'create', 'edit']);
+
+    // Projects
+    Route::get('/projects', [\App\Http\Controllers\ProjectController::class, 'index'])->name('projects.index');
+    Route::post('/projects', [\App\Http\Controllers\ProjectController::class, 'store'])->name('projects.store');
+    Route::put('/projects/{project}', [\App\Http\Controllers\ProjectController::class, 'update'])->name('projects.update');
+    Route::delete('/projects/{project}', [\App\Http\Controllers\ProjectController::class, 'destroy'])->name('projects.destroy');
 
     // Customers
     Route::resource('customers', \App\Http\Controllers\CustomerController::class);

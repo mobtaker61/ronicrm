@@ -127,6 +127,21 @@
                     </Link>
 
                     <Link
+                        :href="getRoute('projects.index')"
+                        :class="[
+                            'flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                            isCurrentRoute('/projects')
+                                ? 'bg-blue-50 text-blue-700' 
+                                : 'text-gray-700 hover:bg-gray-100'
+                        ]"
+                    >
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        </svg>
+                        Projects
+                    </Link>
+
+                    <Link
                         :href="getRoute('reports.index')"
                         :class="[
                             'flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
@@ -257,6 +272,7 @@ const getRoute = (name) => {
         'campaigns.index': '/campaigns',
         'campaign-templates.index': '/campaign-templates',
         'industries.index': '/industries',
+        'projects.index': '/projects',
         'reports.index': '/reports',
         'settings.index': '/settings',
     };

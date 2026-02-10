@@ -39,31 +39,54 @@ class RunScrapTaskJob implements ShouldQueue
                 $task->update(['status' => 'completed', 'completed_at' => now()]);
                 return;
             }
-            $html = $scraper->fetchHtml($url->url);
-            if ($html === null) {
-                ScrapTaskResult::create([
-                    'scrap_task_id' => $task->id,
-                    'scrap_task_url_id' => $url->id,
-                    'extracted_data' => ['items' => []],
-                    'status' => 'failed',
-                    'error_message' => 'دریافت صفحه با خطا مواجه شد.',
+            // Use extractListWithPagination if pagination is configured, otherwise use extractList
+            if ($config->pagination_type && $config->pagination_selector_value && $config->max_pages) {
+                $list = $scraper->extractListWithPagination($url->url, [
+                    'selector_type' => $config->selector_type,
+                    'selector_value' => $config->selector_value,
+                    'value_kind' => $config->value_kind,
+                    'value_attr' => $config->value_attr ?? '',
+                    'delay_seconds' => $config->delay_seconds,
+                    'pagination_type' => $config->pagination_type,
+                    'pagination_selector_type' => $config->pagination_selector_type,
+                    'pagination_selector_value' => $config->pagination_selector_value,
+                    'max_pages' => $config->max_pages,
                 ]);
-                $url->update(['status' => 'failed', 'error_message' => 'دریافت صفحه با خطا مواجه شد.']);
             } else {
+                $html = $scraper->fetchHtml($url->url);
+                if ($html === null) {
+                    ScrapTaskResult::create([
+                        'scrap_task_id' => $task->id,
+                        'scrap_task_url_id' => $url->id,
+                        'extracted_data' => ['items' => []],
+                        'status' => 'failed',
+                        'error_message' => 'Failed to fetch page.',
+                    ]);
+                    $url->update(['status' => 'failed', 'error_message' => 'Failed to fetch page.']);
+                    $task->update(['status' => 'completed', 'completed_at' => now()]);
+                    return;
+                }
+
+                // Apply delay if configured
+                if ($config->delay_seconds && $config->delay_seconds > 0) {
+                    sleep($config->delay_seconds);
+                }
+
                 $list = $scraper->extractList($html, [
                     'selector_type' => $config->selector_type,
                     'selector_value' => $config->selector_value,
                     'value_kind' => $config->value_kind,
                     'value_attr' => $config->value_attr ?? '',
                 ], $url->url);
-                ScrapTaskResult::create([
-                    'scrap_task_id' => $task->id,
-                    'scrap_task_url_id' => $url->id,
-                    'extracted_data' => ['items' => $list],
-                    'status' => 'success',
-                ]);
-                $url->update(['status' => 'success']);
             }
+
+            ScrapTaskResult::create([
+                'scrap_task_id' => $task->id,
+                'scrap_task_url_id' => $url->id,
+                'extracted_data' => ['items' => $list],
+                'status' => 'success',
+            ]);
+            $url->update(['status' => 'success']);
         } else {
             $params = $task->extractParams->map(fn ($p) => [
                 'name' => $p->name,

@@ -29,6 +29,10 @@ export function useRoute() {
             'industries.store': '/industries',
             'industries.update': (id) => `/industries/${id}`,
             'industries.destroy': (id) => `/industries/${id}`,
+            'projects.index': '/projects',
+            'projects.store': '/projects',
+            'projects.update': (id) => `/projects/${id}`,
+            'projects.destroy': (id) => `/projects/${id}`,
             'reports.index': '/reports',
         };
         

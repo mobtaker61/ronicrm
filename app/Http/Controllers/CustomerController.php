@@ -6,8 +6,10 @@ use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\CustomerSocialMedia;
 use App\Models\Industry;
+use App\Models\Project;
 use App\Models\SocialMediaType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -18,7 +20,7 @@ class CustomerController extends Controller
 {
     public function index(Request $request): Response
     {
-        $query = Customer::with(['industry', 'creator', 'contacts']);
+        $query = Customer::with(['industry', 'project', 'creator', 'contacts']);
 
         // Filters
         if ($request->has('search') && $request->search) {
@@ -48,12 +50,17 @@ class CustomerController extends Controller
             $query->where('source', $request->source);
         }
 
+        if ($request->has('project_id') && $request->project_id) {
+            $query->where('project_id', $request->project_id);
+        }
+
         $customers = $query->orderBy('created_at', 'desc')->paginate(25);
 
         return Inertia::render('Customers/Index', [
             'customers' => $customers,
             'industries' => Industry::orderBy('name')->get(),
-            'filters' => $request->only(['search', 'type', 'industry_id', 'status', 'source']),
+            'projects' => Project::orderBy('name')->get(),
+            'filters' => $request->only(['search', 'type', 'industry_id', 'project_id', 'status', 'source']),
         ]);
     }
 
@@ -61,6 +68,7 @@ class CustomerController extends Controller
     {
         return Inertia::render('Customers/Create', [
             'industries' => Industry::orderBy('name')->get(),
+            'projects' => Project::orderBy('name')->get(),
             'socialMediaTypes' => SocialMediaType::where('is_active', true)->orderBy('sort_order')->get(),
         ]);
     }
@@ -78,6 +86,7 @@ class CustomerController extends Controller
             'phone' => 'nullable|string|max:255',
             'address' => 'nullable|string',
             'industry_id' => 'nullable|exists:industries,id',
+            'project_id' => 'nullable|exists:projects,id',
             'status' => 'required|in:lead,prospect,customer,inactive',
             'source' => 'required|in:website,referral,advertisement,social_media,other',
             'contact_person' => 'nullable|string|max:255',
@@ -97,8 +106,8 @@ class CustomerController extends Controller
             $validated['avatar'] = $request->file('avatar')->store('avatars', 'public');
         }
 
-        $validated['created_by'] = auth()->id();
-        $validated['updated_by'] = auth()->id();
+        $validated['created_by'] = Auth::id();
+        $validated['updated_by'] = Auth::id();
 
         $contacts = $validated['contacts'] ?? [];
         $socialMedia = $validated['social_media'] ?? [];
@@ -203,6 +212,7 @@ class CustomerController extends Controller
         return Inertia::render('Customers/Edit', [
             'customer' => $customer,
             'industries' => Industry::orderBy('name')->get(),
+            'projects' => Project::orderBy('name')->get(),
             'socialMediaTypes' => SocialMediaType::where('is_active', true)->orderBy('sort_order')->get(),
         ]);
     }
@@ -220,6 +230,7 @@ class CustomerController extends Controller
             'phone' => 'nullable|string|max:255',
             'address' => 'nullable|string',
             'industry_id' => 'nullable|exists:industries,id',
+            'project_id' => 'nullable|exists:projects,id',
             'status' => 'required|in:lead,prospect,customer,inactive',
             'source' => 'required|in:website,referral,advertisement,social_media,other',
             'contact_person' => 'nullable|string|max:255',
@@ -240,7 +251,7 @@ class CustomerController extends Controller
         if ($request->hasFile('avatar')) {
             // Delete old avatar if exists
             if ($customer->avatar) {
-                \Storage::disk('public')->delete($customer->avatar);
+                Storage::disk('public')->delete($customer->avatar);
             }
             $validated['avatar'] = $request->file('avatar')->store('avatars', 'public');
         } else {
@@ -249,7 +260,7 @@ class CustomerController extends Controller
             unset($validated['avatar']);
         }
 
-        $validated['updated_by'] = auth()->id();
+        $validated['updated_by'] = Auth::id();
 
         $contacts = $validated['contacts'] ?? [];
         $socialMedia = $validated['social_media'] ?? [];
@@ -308,7 +319,7 @@ class CustomerController extends Controller
             'industry_id' => 'sometimes|nullable|exists:industries,id',
         ]);
 
-        $validated['updated_by'] = auth()->id();
+        $validated['updated_by'] = Auth::id();
 
         $customer->update($validated);
 
@@ -435,15 +446,15 @@ class CustomerController extends Controller
                         'language' => trim($rowData['language'] ?? ''),
                         'contact_person' => trim($rowData['contact_person'] ?? ''),
                         'notes' => trim($rowData['notes'] ?? ''),
-                        'created_by' => auth()->id(),
-                        'updated_by' => auth()->id(),
+                        'created_by' => Auth::id(),
+                        'updated_by' => Auth::id(),
                     ];
 
                     // Handle industry
                     if (!empty($rowData['industry_name'])) {
                         $industry = Industry::firstOrCreate(
                             ['name' => trim($rowData['industry_name'])],
-                            ['created_by' => auth()->id(), 'updated_by' => auth()->id()]
+                            ['created_by' => Auth::id(), 'updated_by' => Auth::id()]
                         );
                         $customerData['industry_id'] = $industry->id;
                     } elseif (!empty($rowData['industry_id'])) {

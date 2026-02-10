@@ -34,7 +34,7 @@
 
             <!-- Filters -->
             <div class="bg-white rounded-lg shadow p-4 md:p-6">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
                         <input
@@ -69,6 +69,20 @@
                             <option value="">All Industries</option>
                             <option v-for="industry in industries" :key="industry.id" :value="industry.id">
                                 {{ industry.name }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Project</label>
+                        <select
+                            v-model="filters.project_id"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            @change="applyFilters"
+                        >
+                            <option value="">All Projects</option>
+                            <option v-for="project in projects" :key="project.id" :value="project.id">
+                                {{ project.name }}
                             </option>
                         </select>
                     </div>
@@ -115,6 +129,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Industry</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
@@ -177,6 +192,9 @@
                                         {{ industry.name }}
                                     </option>
                                 </select>
+                            </td>
+                            <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ customer.project ? customer.project.name : '-' }}
                             </td>
                             <td class="px-3 md:px-6 py-4 whitespace-nowrap">
                                 <select
@@ -426,6 +444,7 @@ import { debounce } from 'lodash-es';
 const props = defineProps({
     customers: Object,
     industries: Array,
+    projects: Array,
     filters: Object,
 });
 
@@ -446,6 +465,7 @@ const filters = ref({
     search: props.filters?.search || '',
     type: props.filters?.type || '',
     industry_id: props.filters?.industry_id || '',
+    project_id: props.filters?.project_id || '',
     status: props.filters?.status || '',
     source: props.filters?.source || '',
 });
