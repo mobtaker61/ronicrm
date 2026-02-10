@@ -46,28 +46,17 @@ class EmailService
             }
 
             $from = $from ?? config('mail.from.address');
+            $fromName = config('mail.from.name');
 
-            Mail::html($htmlContent, function ($message) use ($to, $subject, $from, $smtpSettings) {
-                $message->to($to)
-                    ->subject($subject)
-                    ->from($from, config('mail.from.name'));
-                
-                // اگر save_to_sent فعال باشد، یک کپی به فرستنده بفرست (BCC)
-                // این روش ایمیل را به inbox می‌فرستد، نه sent folder
-                // برای sent folder نیاز به IMAP extension است
-                if ($smtpSettings['save_to_sent'] ?? false) {
-                    $message->bcc($from);
-                }
-            });
+            // ارسال فقط به گیرنده؛ بدون BCC به خود (تا اینباکس پر نشود). محتوا به صورت HTML صحیح ارسال می‌شود.
+            $mailable = new \App\Mail\CampaignHtmlMail($subject, $htmlContent, $to, $from, $fromName);
+            Mail::send($mailable);
 
-            // اگر IMAP فعال باشد و extension نصب باشد، ایمیل را در Sent folder ذخیره کن
-            if (($smtpSettings['save_to_sent'] ?? false)) {
-                if (function_exists('imap_open') && !empty($smtpSettings['imap_host'])) {
-                    $this->saveToSentFolder($from, $to, $subject, $htmlContent, $smtpSettings);
-                } else {
-                    // اگر IMAP extension نصب نیست، فقط BCC کار می‌کند
-                    Log::info('IMAP extension not available or IMAP host not configured. Using BCC only.');
-                }
+            // فقط از طریق IMAP در پوشه Sent سرور ذخیره شود (بدون کپی در اینباکس)
+            if (($smtpSettings['save_to_sent'] ?? false) && function_exists('imap_open') && !empty($smtpSettings['imap_host'])) {
+                $this->saveToSentFolder($from, $to, $subject, $htmlContent, $smtpSettings);
+            } elseif (($smtpSettings['save_to_sent'] ?? false)) {
+                Log::info('IMAP extension not available or IMAP host not configured. Email sent via SMTP only; not saved to Sent folder.');
             }
 
             return [
