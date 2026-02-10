@@ -134,6 +134,22 @@
                         </div>
                     </div>
 
+                    <!-- Language, Gender (person), Contact Person (company) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                        <div v-if="cardCustomer.language">
+                            <h5 class="text-sm font-semibold text-gray-700 mb-1">Language</h5>
+                            <p class="text-gray-600 text-sm">{{ cardCustomer.language }}</p>
+                        </div>
+                        <div v-if="cardCustomer.type === 'person' && cardCustomer.gender">
+                            <h5 class="text-sm font-semibold text-gray-700 mb-1">Gender</h5>
+                            <p class="text-gray-600 text-sm capitalize">{{ cardCustomer.gender }}</p>
+                        </div>
+                        <div v-if="cardCustomer.type === 'company' && cardCustomer.contact_person">
+                            <h5 class="text-sm font-semibold text-gray-700 mb-1">Contact Person</h5>
+                            <p class="text-gray-600 text-sm">{{ cardCustomer.contact_person }}</p>
+                        </div>
+                    </div>
+
                     <!-- Contacts -->
                     <div v-if="cardCustomer.contacts && cardCustomer.contacts.length" class="mb-4">
                         <h5 class="text-sm font-semibold text-gray-700 mb-2">Contact Information</h5>
