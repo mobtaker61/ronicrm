@@ -215,6 +215,30 @@
                 </div>
             </div>
 
+            <!-- Email sent log (for email campaigns: visible record of what was sent) -->
+            <div v-if="campaign.type === 'email' && campaign.logs && sentLogs.length > 0" class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Sent emails log</h3>
+                <p class="text-sm text-gray-500 mb-4">Emails sent from this campaign (also stored on your mail server if SMTP is configured).</p>
+                <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">To</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sent at</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr v-for="log in sentLogs" :key="log.id">
+                                <td class="px-6 py-3 text-sm text-gray-900">{{ log.details?.to || '-' }}</td>
+                                <td class="px-6 py-3 text-sm text-gray-600">{{ log.details?.subject || '-' }}</td>
+                                <td class="px-6 py-3 text-sm text-gray-500">{{ log.details?.sent_at ? formatDate(log.details.sent_at) : (log.created_at ? formatDate(log.created_at) : '-') }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Actions -->
             <div class="flex justify-between items-center">
                 <Link
@@ -368,6 +392,11 @@ const progressPercentage = computed(() => {
     if (statusCounts.value.total === 0) return 0;
     const completed = statusCounts.value.sent + statusCounts.value.delivered + statusCounts.value.failed;
     return Math.round((completed / statusCounts.value.total) * 100);
+});
+
+const sentLogs = computed(() => {
+    if (!props.campaign.logs || !Array.isArray(props.campaign.logs)) return [];
+    return props.campaign.logs.filter(log => log.action === 'sent');
 });
 
 const formatDate = (date) => {

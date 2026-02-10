@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\SendCampaignMessage;
 use App\Models\Campaign;
+use App\Models\CampaignLog;
 use App\Models\CampaignRecipient;
 use App\Models\CampaignTemplate;
 use App\Models\Customer;
@@ -295,6 +296,18 @@ class CampaignController extends Controller
                 $subject = $campaign->subject ? $this->replaceVariables($campaign->subject, $customer) : 'Campaign Message';
                 
                 $result = $emailService->sendHtmlEmail($email, $subject, $content);
+                if ($result && $result['success']) {
+                    CampaignLog::create([
+                        'campaign_id' => $campaign->id,
+                        'recipient_id' => $recipient->id,
+                        'action' => 'sent',
+                        'details' => [
+                            'to' => $email,
+                            'subject' => $subject,
+                            'sent_at' => now()->toIso8601String(),
+                        ],
+                    ]);
+                }
             }
 
             if ($result && $result['success']) {

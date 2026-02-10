@@ -37,8 +37,15 @@ class EmailService
     public function sendHtmlEmail(string $to, string $subject, string $htmlContent, ?string $from = null): array
     {
         try {
-            $from = $from ?? config('mail.from.address');
             $smtpSettings = Setting::get('smtp', []);
+
+            if (! empty($smtpSettings['host']) && ! empty($smtpSettings['username']) && ! empty($smtpSettings['password'])) {
+                $this->applySmtpConfigFromSettings($smtpSettings);
+            } else {
+                Log::warning('EmailService: SMTP not configured in Settings. Using default mailer (' . config('mail.default') . '). Configure SMTP in Settings to actually send emails.');
+            }
+
+            $from = $from ?? config('mail.from.address');
 
             Mail::html($htmlContent, function ($message) use ($to, $subject, $from, $smtpSettings) {
                 $message->to($to)
@@ -76,6 +83,22 @@ class EmailService
                 'status' => 'failed',
             ];
         }
+    }
+
+    private function applySmtpConfigFromSettings(array $smtpSettings): void
+    {
+        config([
+            'mail.default' => 'smtp',
+            'mail.mailers.smtp.transport' => 'smtp',
+            'mail.mailers.smtp.host' => $smtpSettings['host'],
+            'mail.mailers.smtp.port' => $smtpSettings['port'] ?? 587,
+            'mail.mailers.smtp.encryption' => $smtpSettings['encryption'] ?? 'tls',
+            'mail.mailers.smtp.username' => $smtpSettings['username'],
+            'mail.mailers.smtp.password' => $smtpSettings['password'],
+            'mail.from.address' => $smtpSettings['from_address'] ?? $smtpSettings['username'],
+            'mail.from.name' => $smtpSettings['from_name'] ?? 'RoniCRM',
+        ]);
+        app()->forgetInstance('mail.manager');
     }
 
     private function saveToSentFolder(string $from, string $to, string $subject, string $htmlContent, array $smtpSettings): void
