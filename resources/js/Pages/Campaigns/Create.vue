@@ -294,7 +294,7 @@
                         <div v-else class="border border-gray-300 rounded-md bg-white min-h-[200px] overflow-auto">
                             <div 
                                 class="p-4 email-preview" 
-                                v-html="form.content || '<p class=&quot;text-gray-400 italic&quot;>No content to preview. Start typing HTML in the editor above.</p>'"
+                                v-html="previewContent"
                             ></div>
                         </div>
                     </div>
@@ -581,6 +581,14 @@ const form = useForm({
 });
 const emailAttachmentsInput = ref(null);
 const emailAttachmentFiles = ref([]);
+
+// برای پیش‌نمایش: اگر محتوا شبیه HTML نبود (بدون تگ)، خط‌شکنی را با <br> نشان بده تا به‌هم نریزد
+const previewContent = computed(() => {
+    const c = form.content || '';
+    if (!c.trim()) return '<p class="text-gray-400 italic">No content to preview. Start typing HTML in the editor above.</p>';
+    if (c.includes('<') && c.includes('>')) return c;
+    return c.replace(/\n/g, '<br>');
+});
 
 const scheduleNow = ref(true);
 const editorMode = ref('html');

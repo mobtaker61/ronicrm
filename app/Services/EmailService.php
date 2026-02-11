@@ -6,7 +6,6 @@ use App\Models\Setting;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\HtmlString;
 
 class EmailService
 {
@@ -50,11 +49,14 @@ class EmailService
             $from = $from ?? config('mail.from.address');
             $fromName = config('mail.from.name') ?: 'RoniCRM';
 
-            // ارسال با Mail::html() تا فقط بخش HTML ارسال شود و در کلاینت به‌درستی رندر شود (لینک‌ها و تگ‌ها)
+            // اگر محتوا جایی به صورت HTML entity ذخیره شده (مثلاً &lt; به‌جای <)، قبل از ارسال برگردان
+            $htmlContent = is_string($htmlContent) ? html_entity_decode($htmlContent, ENT_QUOTES | ENT_HTML5, 'UTF-8') : '';
+
+            // ارسال با Mail::html() تا فقط بخش HTML ارسال شود (لینک‌ها و تگ‌ها و خط‌شکنی)
             $bodyHtml = $this->wrapHtmlDocument($htmlContent);
             $attachmentsList = $attachments ?? [];
 
-            Mail::html(new HtmlString($bodyHtml), function ($message) use ($to, $subject, $from, $fromName, $attachmentsList) {
+            Mail::html($bodyHtml, function ($message) use ($to, $subject, $from, $fromName, $attachmentsList) {
                 $message->to($to)
                     ->subject($subject)
                     ->from($from, $fromName);
@@ -105,13 +107,19 @@ class EmailService
     }
 
     /**
-     * قرار دادن محتوا در قالب سند HTML تا در ایمیل به‌درستی به صورت HTML رندر شود (لینک‌ها، تگ‌ها، فرمت).
+     * قرار دادن محتوا در قالب سند HTML تا در ایمیل به‌درستی رندر شود.
+     * اگر محتوا شبیه HTML نبود (بدون تگ)، خط‌شکنی با \n به <br> تبدیل می‌شود تا در ایمیل به‌هم نریزد.
      */
     private function wrapHtmlDocument(string $html): string
     {
         $html = trim($html);
         if ($html === '') {
             return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body></body></html>';
+        }
+        // اگر محتوا تگ HTML ندارد، خط‌شکنی را با <br> حفظ کن (مثل متن ساده با Enter)
+        if (! str_contains($html, '<') || ! str_contains($html, '>')) {
+            $html = htmlspecialchars($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $html = str_replace(["\r\n", "\r", "\n"], '<br>', $html);
         }
         $lower = strtolower(substr($html, 0, 300));
         if (str_contains($lower, '<!doctype') || str_contains($lower, '<html')) {
