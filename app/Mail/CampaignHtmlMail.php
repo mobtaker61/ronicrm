@@ -41,7 +41,7 @@ class CampaignHtmlMail extends Mailable
         array $attachments = []
     ) {
         $this->subjectLine = $subject;
-        $this->htmlBody = $htmlContent;
+        $this->htmlBody = $this->ensureHtmlDocument($htmlContent);
         $this->recipientEmail = $to;
         $this->senderEmail = $fromAddress;
         $this->senderName = $fromName;
@@ -67,6 +67,22 @@ class CampaignHtmlMail extends Mailable
             with: [],
             htmlString: $this->htmlBody,
         );
+    }
+
+    /**
+     * اگر محتوا سند HTML کامل نباشد، آن را در قالب HTML با charset درست قرار می‌دهد تا لینک‌ها و تگ‌ها در ایمیل درست نمایش داده شوند.
+     */
+    private function ensureHtmlDocument(string $html): string
+    {
+        $html = trim($html);
+        if ($html === '') {
+            return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body></body></html>';
+        }
+        $lower = strtolower(substr($html, 0, 200));
+        if (str_contains($lower, '<!doctype') || str_contains($lower, '<html')) {
+            return $html;
+        }
+        return '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body>' . $html . '</body></html>';
     }
 
     /**

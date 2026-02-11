@@ -56,7 +56,11 @@ class EmailService
             if (($smtpSettings['save_to_sent'] ?? false) && function_exists('imap_open') && !empty($smtpSettings['imap_host'])) {
                 $this->saveToSentFolder($from, $to, $subject, $htmlContent, $smtpSettings);
             } elseif (($smtpSettings['save_to_sent'] ?? false)) {
-                Log::info('IMAP extension not available or IMAP host not configured. Email sent via SMTP only; not saved to Sent folder.');
+                if (empty($smtpSettings['imap_host'])) {
+                    Log::info('IMAP host is empty in Settings. Fill "IMAP Host" in Settings > SMTP to save copies to Sent folder.');
+                } else {
+                    Log::info('IMAP extension not available. Email sent via SMTP only; not saved to Sent folder.');
+                }
             }
 
             return [
