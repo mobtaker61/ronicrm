@@ -971,3 +971,15 @@ const submit = () => {
     });
 };
 </script>
+
+<style scoped>
+.email-preview :deep(p) { margin-bottom: 0.75rem; line-height: 1.6; }
+.email-preview :deep(p:last-child) { margin-bottom: 0; }
+.email-preview :deep(a) { color: #2563eb; text-decoration: underline; }
+.email-preview :deep(ul), .email-preview :deep(ol) { margin: 0.5rem 0; padding-left: 1.5rem; line-height: 1.6; }
+.email-preview :deep(li) { margin-bottom: 0.25rem; }
+.email-preview :deep(h1), .email-preview :deep(h2), .email-preview :deep(h3) { margin-top: 1rem; margin-bottom: 0.5rem; font-weight: 600; }
+.email-preview :deep(h1) { font-size: 1.25rem; }
+.email-preview :deep(h2) { font-size: 1.125rem; }
+.email-preview :deep(h3) { font-size: 1rem; }
+</style>

@@ -116,7 +116,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-500 mb-2">Message</p>
-                    <div v-if="campaign.type === 'email'" class="p-4 bg-gray-50 rounded-lg border border-gray-200" v-html="campaign.content"></div>
+                    <div v-if="campaign.type === 'email'" class="p-4 bg-gray-50 rounded-lg border border-gray-200 email-preview" v-html="campaignContentDisplay"></div>
                     <div v-else class="p-4 bg-gray-50 rounded-lg border border-gray-200 whitespace-pre-wrap">{{ campaign.content }}</div>
                 </div>
             </div>
@@ -382,6 +382,14 @@ const statusCounts = ref({
 const isCompleted = ref(false);
 const pollingInterval = ref(null);
 
+// نمایش محتوای ایمیل: اگر HTML نبود، خط‌شکنی با <br> تا به‌هم نریزد
+const campaignContentDisplay = computed(() => {
+    const c = props.campaign?.content || '';
+    if (!c.trim()) return '';
+    if (c.includes('<') && c.includes('>')) return c;
+    return c.replace(/\n/g, '<br>');
+});
+
 const canStartNow = computed(() => {
     if (!props.campaign.scheduled_at) return true;
     const scheduledDate = new Date(props.campaign.scheduled_at);
@@ -539,3 +547,15 @@ const deleteCampaign = () => {
     }
 };
 </script>
+
+<style scoped>
+.email-preview :deep(p) { margin-bottom: 0.75rem; line-height: 1.6; }
+.email-preview :deep(p:last-child) { margin-bottom: 0; }
+.email-preview :deep(a) { color: #2563eb; text-decoration: underline; }
+.email-preview :deep(ul), .email-preview :deep(ol) { margin: 0.5rem 0; padding-left: 1.5rem; line-height: 1.6; }
+.email-preview :deep(li) { margin-bottom: 0.25rem; }
+.email-preview :deep(h1), .email-preview :deep(h2), .email-preview :deep(h3) { margin-top: 1rem; margin-bottom: 0.5rem; font-weight: 600; }
+.email-preview :deep(h1) { font-size: 1.25rem; }
+.email-preview :deep(h2) { font-size: 1.125rem; }
+.email-preview :deep(h3) { font-size: 1rem; }
+</style>
