@@ -17,36 +17,55 @@ class CampaignHtmlMail extends Mailable
     /** @var array<int, array{path: string, name: string}> */
     public array $attachmentsList;
 
+    /** آدرس گیرنده (نام $to در والد استفاده شده) */
+    protected string $recipientEmail;
+
+    /** موضوع ایمیل (نام $subject در والد استفاده شده) */
+    protected string $subjectLine;
+
+    /** محتوای HTML */
+    protected string $htmlBody;
+
+    /** آدرس فرستنده */
+    protected string $senderEmail;
+
+    /** نام فرستنده */
+    protected string $senderName;
+
     public function __construct(
-        public string $subject,
-        public string $htmlContent,
-        public string $to,
-        public string $fromAddress,
-        public string $fromName = 'RoniCRM',
+        string $subject,
+        string $htmlContent,
+        string $to,
+        string $fromAddress,
+        string $fromName = 'RoniCRM',
         array $attachments = []
     ) {
+        $this->subjectLine = $subject;
+        $this->htmlBody = $htmlContent;
+        $this->recipientEmail = $to;
+        $this->senderEmail = $fromAddress;
+        $this->senderName = $fromName;
         $this->attachmentsList = is_array($attachments) ? $attachments : [];
     }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: $this->subject,
-            from: new \Illuminate\Mail\Mailables\Address($this->fromAddress, $this->fromName),
-            to: [new \Illuminate\Mail\Mailables\Address($this->to)],
+            subject: $this->subjectLine,
+            from: new \Illuminate\Mail\Mailables\Address($this->senderEmail, $this->senderName),
+            to: [new \Illuminate\Mail\Mailables\Address($this->recipientEmail)],
         );
     }
 
     public function content(): Content
     {
-        // استفاده از htmlString تا بدون وابستگی به فایل ویو، ایمیل حتماً به صورت HTML ارسال شود
         return new Content(
             view: null,
             html: null,
             text: null,
             markdown: null,
             with: [],
-            htmlString: $this->htmlContent,
+            htmlString: $this->htmlBody,
         );
     }
 
