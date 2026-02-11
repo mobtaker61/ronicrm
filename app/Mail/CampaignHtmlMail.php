@@ -25,7 +25,7 @@ class CampaignHtmlMail extends Mailable
         public string $fromName = 'RoniCRM',
         array $attachments = []
     ) {
-        $this->attachmentsList = $attachments;
+        $this->attachmentsList = is_array($attachments) ? $attachments : [];
     }
 
     public function envelope(): Envelope
@@ -39,9 +39,14 @@ class CampaignHtmlMail extends Mailable
 
     public function content(): Content
     {
+        // استفاده از htmlString تا بدون وابستگی به فایل ویو، ایمیل حتماً به صورت HTML ارسال شود
         return new Content(
-            view: 'emails.campaign-html',
-            with: ['content' => $this->htmlContent],
+            view: null,
+            html: null,
+            text: null,
+            markdown: null,
+            with: [],
+            htmlString: $this->htmlContent,
         );
     }
 
@@ -52,10 +57,21 @@ class CampaignHtmlMail extends Mailable
     {
         $out = [];
         foreach ($this->attachmentsList as $att) {
+            if (! is_array($att)) {
+                continue;
+            }
             $path = $att['path'] ?? null;
-            $name = $att['name'] ?? basename($path);
-            if ($path && Storage::disk('public')->exists($path)) {
-                $out[] = Attachment::fromStorageDisk('public', $path)->as($name);
+            $name = $att['name'] ?? ($path ? basename($path) : 'attachment');
+            if (! $path || ! is_string($path)) {
+                continue;
+            }
+            try {
+                if (Storage::disk('public')->exists($path)) {
+                    $out[] = Attachment::fromStorageDisk('public', $path)->as($name);
+                }
+            } catch (\Throwable $e) {
+                // در صورت خطا (مثلاً فایل حذف شده) از آن پیوست صرف‌نظر می‌کنیم
+                continue;
             }
         }
         return $out;

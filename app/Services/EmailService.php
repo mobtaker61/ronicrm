@@ -46,7 +46,7 @@ class EmailService
             }
 
             $from = $from ?? config('mail.from.address');
-            $fromName = config('mail.from.name');
+            $fromName = config('mail.from.name') ?: 'RoniCRM';
 
             // ارسال فقط به گیرنده؛ بدون BCC به خود (تا اینباکس پر نشود). محتوا به صورت HTML صحیح ارسال می‌شود.
             $mailable = new \App\Mail\CampaignHtmlMail($subject, $htmlContent, $to, $from, $fromName, $attachments ?? []);
@@ -65,6 +65,7 @@ class EmailService
             ];
         } catch (\Exception $e) {
             Log::error('Email sending error: ' . $e->getMessage());
+            Log::error('Email sending stack trace: ' . $e->getTraceAsString());
 
             return [
                 'success' => false,
