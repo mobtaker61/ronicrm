@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\Setting;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\HtmlString;
 
 class EmailService
 {
@@ -48,13 +50,36 @@ class EmailService
             $from = $from ?? config('mail.from.address');
             $fromName = config('mail.from.name') ?: 'RoniCRM';
 
-            // ارسال فقط به گیرنده؛ بدون BCC به خود (تا اینباکس پر نشود). محتوا به صورت HTML صحیح ارسال می‌شود.
-            $mailable = new \App\Mail\CampaignHtmlMail($subject, $htmlContent, $to, $from, $fromName, $attachments ?? []);
-            Mail::send($mailable);
+            // ارسال با Mail::html() تا فقط بخش HTML ارسال شود و در کلاینت به‌درستی رندر شود (لینک‌ها و تگ‌ها)
+            $bodyHtml = $this->wrapHtmlDocument($htmlContent);
+            $attachmentsList = $attachments ?? [];
+
+            Mail::html(new HtmlString($bodyHtml), function ($message) use ($to, $subject, $from, $fromName, $attachmentsList) {
+                $message->to($to)
+                    ->subject($subject)
+                    ->from($from, $fromName);
+                foreach ($attachmentsList as $att) {
+                    if (! is_array($att)) {
+                        continue;
+                    }
+                    $path = $att['path'] ?? null;
+                    $name = $att['name'] ?? ($path ? basename($path) : 'attachment');
+                    if ($path && is_string($path)) {
+                        try {
+                            if (Storage::disk('public')->exists($path)) {
+                                $fullPath = Storage::disk('public')->path($path);
+                                $message->attach($fullPath, ['as' => $name]);
+                            }
+                        } catch (\Throwable $e) {
+                            // در صورت خطا از این پیوست صرف‌نظر می‌کنیم
+                        }
+                    }
+                }
+            });
 
             // فقط از طریق IMAP در پوشه Sent سرور ذخیره شود (بدون کپی در اینباکس)
             if (($smtpSettings['save_to_sent'] ?? false) && function_exists('imap_open') && !empty($smtpSettings['imap_host'])) {
-                $this->saveToSentFolder($from, $to, $subject, $htmlContent, $smtpSettings);
+                $this->saveToSentFolder($from, $to, $subject, $bodyHtml, $smtpSettings);
             } elseif (($smtpSettings['save_to_sent'] ?? false)) {
                 if (empty($smtpSettings['imap_host'])) {
                     Log::info('IMAP host is empty in Settings. Fill "IMAP Host" in Settings > SMTP to save copies to Sent folder.');
@@ -77,6 +102,22 @@ class EmailService
                 'status' => 'failed',
             ];
         }
+    }
+
+    /**
+     * قرار دادن محتوا در قالب سند HTML تا در ایمیل به‌درستی به صورت HTML رندر شود (لینک‌ها، تگ‌ها، فرمت).
+     */
+    private function wrapHtmlDocument(string $html): string
+    {
+        $html = trim($html);
+        if ($html === '') {
+            return '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body></body></html>';
+        }
+        $lower = strtolower(substr($html, 0, 300));
+        if (str_contains($lower, '<!doctype') || str_contains($lower, '<html')) {
+            return $html;
+        }
+        return '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body>' . $html . '</body></html>';
     }
 
     private function applySmtpConfigFromSettings(array $smtpSettings): void
