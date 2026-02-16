@@ -48,24 +48,37 @@ class InstagramWebhookController extends Controller
 
     public function handle(Request $request): Response
     {
+        Log::channel('instagram')->info('Instagram webhook POST received');
+
         $rawBody = $request->getContent();
         $signature = $request->header('X-Hub-Signature-256', '');
         $appSecret = config('services.meta_instagram.client_secret', '');
         if ($appSecret !== '' && !$this->validateSignature($rawBody, $signature, $appSecret)) {
-            Log::channel('instagram')->warning('Instagram webhook signature invalid');
+            Log::channel('instagram')->warning('Instagram webhook signature invalid', [
+                'hint' => 'Use the same Instagram App Secret (Business login settings) in META_APP_SECRET',
+                'has_signature' => $signature !== '',
+            ]);
             return response('Forbidden', 403);
         }
 
         $data = $request->all();
-        if (empty($data['object']) || $data['object'] !== 'instagram') {
+        $object = $data['object'] ?? null;
+        if (empty($object) || $object !== 'instagram') {
+            Log::channel('instagram')->info('Webhook payload ignored', ['object' => $object]);
             return response('', 200);
         }
 
         $entries = $data['entry'] ?? [];
+        if (empty($entries)) {
+            Log::channel('instagram')->info('Webhook payload has no entries', ['keys' => array_keys($data)]);
+            return response('', 200);
+        }
+
         foreach ($entries as $entry) {
             $igAccountId = $entry['id'] ?? null;
             $connection = InstagramConnection::where('ig_business_account_id', $igAccountId)->first();
             if (!$connection) {
+                Log::channel('instagram')->warning('No connection for entry id', ['entry_id' => $igAccountId]);
                 continue;
             }
             $connection->update(['last_webhook_event_at' => now()]);
