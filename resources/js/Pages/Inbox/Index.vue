@@ -315,16 +315,16 @@
                                         rows="1"
                                         class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0 resize-none"
                                         :style="{ minHeight: '40px', maxHeight: '120px', height: '40px' }"
-                                        :disabled="sendForm.processing"
+                                        :disabled="sendingMessage"
                                         @input="autoResizeTextarea"
                                     ></textarea>
                                     <button
                                         type="button"
                                         @click="sendMessage"
-                                        :disabled="sendForm.processing || (!newMessage.trim() && !selectedFile)"
+                                        :disabled="sendingMessage || (!newMessage.trim() && !selectedFile)"
                                         class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex-shrink-0 whitespace-nowrap"
                                     >
-                                        {{ sendForm.processing ? 'Sending...' : 'Send' }}
+                                        {{ sendingMessage ? 'در حال ارسال...' : 'ارسال' }}
                                     </button>
                                 </div>
                             </form>
@@ -738,6 +738,7 @@ const selectConversation = (phone) => {
 };
 
 const showMediaPicker = ref(false);
+const sendingMessage = ref(false);
 
 const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -767,32 +768,36 @@ const sendMessage = () => {
         return;
     }
 
-    sendForm.to_phone = props.selectedPhone;
-    sendForm.message = newMessage.value || '';
-    
-    // If file is selected, it's already set in sendForm.media_file
-    if (!selectedFile.value) {
-        sendForm.media_file = null;
+    const formData = new FormData();
+    formData.append('to_phone', props.selectedPhone);
+    formData.append('message', newMessage.value || '');
+    if (selectedFile.value instanceof File) {
+        formData.append('media_file', selectedFile.value);
+    } else if (sendForm.media_url) {
+        formData.append('media_url', sendForm.media_url);
     }
 
-    sendForm.post(route('inbox.send'), {
-        preserveState: false, // Don't preserve state to ensure fresh data
+    sendingMessage.value = true;
+    router.post(route('inbox.send'), formData, {
+        preserveState: false,
         preserveScroll: false,
-        forceFormData: true, // Important for file uploads
-        onSuccess: (page) => {
+        forceFormData: true,
+        onSuccess: () => {
             newMessage.value = '';
             clearSelectedFile();
-            // Reset textarea height
             if (messageTextarea.value) {
                 messageTextarea.value.style.height = '40px';
             }
-            // Scroll to bottom after sending
-            nextTick(() => {
-                scrollToBottom();
-            });
+            nextTick(() => scrollToBottom());
         },
         onError: (errors) => {
             console.error('Error sending message:', errors);
+            if (errors?.media_file?.[0]) {
+                alert(errors.media_file[0]);
+            }
+        },
+        onFinish: () => {
+            sendingMessage.value = false;
         },
     });
 };

@@ -93,9 +93,9 @@ class InboxController extends Controller
                     ->orWhere('to_phone', $phone);
             })->count();
             
-            // Get customer name - use customer name if exists, otherwise use phone
+            // نمایش نام مخاطب اگر ذخیره شده و اسم واقعی دارد (نه فقط شماره)
             $displayName = $phone;
-            if ($customer) {
+            if ($customer && trim((string) ($customer->name ?? '')) !== '' && $customer->name !== $phone) {
                 $displayName = $customer->name;
             }
             
@@ -177,6 +177,12 @@ class InboxController extends Controller
      */
     public function sendMessage(Request $request)
     {
+        // Empty or "null" string for media_url would fail 'url' rule; normalize so validation passes
+        $mediaUrlInput = $request->input('media_url');
+        if ($mediaUrlInput !== null && (trim((string) $mediaUrlInput) === '' || $mediaUrlInput === 'null')) {
+            $request->merge(['media_url' => null]);
+        }
+
         $validated = $request->validate([
             'to_phone' => 'required|string',
             'message' => 'nullable|string|max:5000',
@@ -318,16 +324,42 @@ class InboxController extends Controller
      */
     protected function findCustomerByPhone(string $phone): ?Customer
     {
-        $phone = $this->formatPhone($phone);
+        $normalized = $this->formatPhone($phone);
+        if ($normalized === '') {
+            return null;
+        }
 
-        // Search in customer_contacts table only
+        $digitsOnly = preg_replace('/[^0-9]/', '', $phone);
+        $valuesToTry = array_unique(array_filter([$normalized, $digitsOnly], fn ($v) => $v !== ''));
+
+        if (empty($valuesToTry)) {
+            return null;
+        }
+
+        // اول تطبیق دقیق
         $contact = \App\Models\CustomerContact::where(function ($q) {
             $q->where('type', 'phone')->orWhere('type', 'whatsapp');
         })
-            ->where('value', $phone)
+            ->whereIn('value', $valuesToTry)
             ->first();
 
-        return $contact?->customer;
+        if ($contact) {
+            return $contact->customer;
+        }
+
+        // اگر پیدا نشد: تطبیق فقط با رقم‌ها (فرمت ذخیره ممکن است متفاوت باشد: فاصله، +، ۰ اول و...)
+        $contacts = \App\Models\CustomerContact::where(function ($q) {
+            $q->where('type', 'phone')->orWhere('type', 'whatsapp');
+        })->with('customer')->get();
+
+        foreach ($contacts as $c) {
+            $storedDigits = preg_replace('/[^0-9]/', '', (string) $c->value);
+            if ($storedDigits !== '' && $storedDigits === $normalized) {
+                return $c->customer;
+            }
+        }
+
+        return null;
     }
 
     /**
