@@ -1,7 +1,44 @@
 <template>
     <AppLayout>
         <template #header>
-            INBOX
+            <div class="flex items-center justify-between">
+                <span>INBOX</span>
+                <div class="flex rounded-lg border border-gray-200 overflow-hidden">
+                    <a
+                        :href="route('inbox.index', { channel: 'whatsapp' })"
+                        :class="[
+                            'px-4 py-2 text-sm font-medium',
+                            channel === 'whatsapp'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white text-gray-700 hover:bg-gray-50'
+                        ]"
+                    >
+                        WhatsApp
+                    </a>
+                    <a
+                        :href="route('inbox.index', { channel: 'telegram' })"
+                        :class="[
+                            'px-4 py-2 text-sm font-medium border-l border-gray-200',
+                            channel === 'telegram'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white text-gray-700 hover:bg-gray-50'
+                        ]"
+                    >
+                        Telegram
+                    </a>
+                    <a
+                        :href="route('inbox.index', { channel: 'instagram' })"
+                        :class="[
+                            'px-4 py-2 text-sm font-medium border-l border-gray-200',
+                            channel === 'instagram'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white text-gray-700 hover:bg-gray-50'
+                        ]"
+                    >
+                        Instagram
+                    </a>
+                </div>
+            </div>
         </template>
 
         <!-- Success/Error Messages -->
@@ -27,7 +64,7 @@
                                 @input="searchCustomers"
                                 @focus="showSearchResults = true"
                                 type="text"
-                                placeholder="Search or enter phone number..."
+                                :placeholder="channel === 'telegram' ? 'Search by name or Telegram...' : (channel === 'instagram' ? 'Search by name or Instagram...' : 'Search or enter phone number...')"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                             
@@ -56,13 +93,13 @@
                                     </div>
                                     <div class="flex-1 min-w-0">
                                         <p class="text-sm font-semibold text-gray-900 truncate">{{ result.name }}</p>
-                                        <p class="text-xs text-gray-500">{{ result.phone }}</p>
+                                        <p class="text-xs text-gray-500">{{ result.phone || result.chat_id || result.ig_user_id }}</p>
                                     </div>
                                 </div>
                                 
-                                <!-- Send to New Number Button -->
+                                <!-- Send to New Number (WhatsApp only) -->
                                 <div
-                                    v-if="searchPhone.trim() && searchResults.length === 0"
+                                    v-if="channel === 'whatsapp' && searchPhone.trim() && searchResults.length === 0"
                                     class="px-4 py-3 border-t border-gray-200"
                                 >
                                     <button
@@ -83,11 +120,11 @@
                     <div class="flex-1 overflow-y-auto">
                         <div
                             v-for="conv in filteredConversations"
-                            :key="conv.phone"
-                            @click="selectConversation(conv.phone)"
+                            :key="conv.phone || conv.chat_id || conv.ig_user_id"
+                            @click="selectConversation(conv.phone || conv.chat_id || conv.ig_user_id)"
                             :class="[
                                 'px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors',
-                                selectedPhone === conv.phone ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
+                                selectedContact === (conv.phone || conv.chat_id) ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
                             ]"
                         >
                             <div class="flex items-center space-x-3">
@@ -145,7 +182,7 @@
 
                 <!-- Messages Area (Middle) - 50% -->
                 <div class="w-[50%] flex flex-col bg-gray-50 min-w-0 flex-shrink-0">
-                    <div v-if="selectedPhone" class="flex-1 flex flex-col min-h-0">
+                    <div v-if="selectedContact" class="flex-1 flex flex-col min-h-0">
                         <!-- Conversation Header (Sticky) -->
                         <div class="flex-shrink-0 bg-white px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                             <div class="flex items-center space-x-3 min-w-0">
@@ -158,13 +195,13 @@
                                     v-else
                                     class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold border-2 border-gray-200 flex-shrink-0"
                                 >
-                                    {{ getDisplayName(selectedConversation)?.charAt(0).toUpperCase() || selectedPhone?.charAt(0) || '?' }}
+                                    {{ getDisplayName(selectedConversation)?.charAt(0).toUpperCase() || selectedContact?.toString()?.charAt(0) || '?' }}
                                 </div>
                                 <div class="min-w-0">
                                     <h2 class="text-lg font-semibold text-gray-900 truncate">
                                         {{ getDisplayName(selectedConversation) }}
                                     </h2>
-                                    <p v-if="!hasCustomer" class="text-sm text-gray-500 truncate">{{ selectedPhone }}</p>
+                                    <p v-if="!hasCustomer" class="text-sm text-gray-500 truncate">{{ channel === 'instagram' ? selectedIgUserId : (channel === 'telegram' ? selectedChatId : selectedPhone) }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center space-x-2 flex-shrink-0">
@@ -350,13 +387,13 @@
                                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                                 />
                             </svg>
-                            <p class="text-lg">Search for a contact or enter a phone number to start a conversation</p>
+                            <p class="text-lg">{{ channel === 'telegram' ? 'Search for a contact with Telegram or open a conversation from the list' : (channel === 'instagram' ? 'Connect Meta App for Instagram DMs, or open a conversation from the list' : 'Search for a contact or enter a phone number to start a conversation') }}</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Customer Info Panel (Right Side) - 30% -->
-                <div v-if="selectedPhone" class="w-[30%] bg-white border-l border-gray-200 flex flex-col min-w-0 flex-shrink-0 overflow-hidden">
+                <div v-if="selectedContact" class="w-[30%] bg-white border-l border-gray-200 flex flex-col min-w-0 flex-shrink-0 overflow-hidden">
                     <div v-if="selectedCustomer" class="flex-1 overflow-y-auto p-6">
                         <!-- Customer Header -->
                         <div class="mb-6 pb-6 border-b border-gray-200">
@@ -374,7 +411,7 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <h2 class="text-xl font-bold text-gray-900 truncate">{{ selectedCustomer.name }}</h2>
-                                    <p class="text-sm text-gray-500">{{ selectedPhone }}</p>
+                                    <p class="text-sm text-gray-500">{{ channel === 'instagram' ? selectedIgUserId : (channel === 'telegram' ? selectedChatId : selectedPhone) }}</p>
                                 </div>
                             </div>
                             <Link
@@ -497,10 +534,10 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Phone
+                                {{ channel === 'telegram' ? 'Telegram Chat ID' : (channel === 'instagram' ? 'Instagram User ID' : 'Phone') }}
                             </label>
                             <input
-                                :value="selectedPhone"
+                                :value="channel === 'instagram' ? selectedIgUserId : (channel === 'telegram' ? selectedChatId : selectedPhone)"
                                 type="text"
                                 disabled
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
@@ -543,6 +580,10 @@ import MediaPickerModal from '@/Components/MediaPickerModal.vue';
 import { debounce } from 'lodash-es';
 
 const props = defineProps({
+    channel: {
+        type: String,
+        default: 'whatsapp',
+    },
     conversations: {
         type: Array,
         default: () => [],
@@ -555,6 +596,14 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    selectedChatId: {
+        type: String,
+        default: null,
+    },
+    selectedIgUserId: {
+        type: String,
+        default: null,
+    },
     searchResults: {
         type: Array,
         default: () => [],
@@ -563,6 +612,13 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+});
+
+const channel = computed(() => props.channel || 'whatsapp');
+const selectedContact = computed(() => {
+    if (channel.value === 'telegram') return props.selectedChatId || null;
+    if (channel.value === 'instagram') return props.selectedIgUserId || null;
+    return props.selectedPhone || null;
 });
 
 const searchPhone = ref('');
@@ -585,14 +641,19 @@ const customerForm = useForm({
     phone: props.selectedPhone,
     name: '',
     email: '',
+    channel: props.channel || 'whatsapp',
+    chat_id: props.selectedChatId || '',
+    ig_user_id: props.selectedIgUserId || '',
 });
 
 // جستجو با حداقل ۲ کاراکتر و درخواست فقط searchResults از سرور
 const searchCustomers = debounce(() => {
     const q = searchPhone.value.trim();
     if (q.length >= 2) {
-        const params = { search_phone: q };
-        if (props.selectedPhone) params.phone = props.selectedPhone;
+        const params = { search_phone: q, channel: channel.value };
+        if (channel.value === 'telegram' && props.selectedChatId) params.chat_id = props.selectedChatId;
+        if (channel.value === 'instagram' && props.selectedIgUserId) params.ig_user_id = props.selectedIgUserId;
+        if (channel.value === 'whatsapp' && props.selectedPhone) params.phone = props.selectedPhone;
         router.get(route('inbox.index'), params, {
             preserveState: true,
             preserveScroll: true,
@@ -612,7 +673,7 @@ watch(() => searchPhone.value, () => {
     }
 });
 
-// لیست مکالمات: اگر جستجو خالی است همه را نشان بده، وگرنه فقط مواردی که نام یا شماره با جستجو تطابق دارد
+// لیست مکالمات: اگر جستجو خالی است همه را نشان بده، وگرنه فقط مواردی که نام یا شناسه با جستجو تطابق دارد
 const filteredConversations = computed(() => {
     const list = props.conversations || [];
     const q = searchPhone.value.trim().toLowerCase();
@@ -620,27 +681,26 @@ const filteredConversations = computed(() => {
     return list.filter((c) => {
         const name = (c.name || '').toLowerCase();
         const phone = (c.phone || '').replace(/\D/g, '');
+        const chatId = (c.chat_id || '').toString();
+        const igUserId = (c.ig_user_id || '').toString();
         const qDigits = q.replace(/\D/g, '');
-        return name.includes(q) || (qDigits.length >= 2 && phone.includes(qDigits));
+        return name.includes(q) || (qDigits.length >= 2 && (phone.includes(qDigits) || chatId.includes(q) || igUserId.includes(q)));
     });
 });
 
 const selectedConversation = computed(() => {
-    return props.conversations.find(c => c.phone === props.selectedPhone);
+    return props.conversations.find(c =>
+        (channel.value === 'telegram' && c.chat_id === props.selectedChatId) ||
+        (channel.value === 'instagram' && c.ig_user_id === props.selectedIgUserId) ||
+        (channel.value === 'whatsapp' && c.phone === props.selectedPhone)
+    );
 });
 
 const getDisplayName = (conversation) => {
-    if (!conversation) return props.selectedPhone;
-    // If customer exists and has a name (not just phone number), use it
-    if (conversation.customer_id && conversation.name && conversation.name !== conversation.phone) {
-        return conversation.name;
-    }
-    // If name is different from phone, use name
-    if (conversation.name && conversation.name !== conversation.phone) {
-        return conversation.name;
-    }
-    // Otherwise return phone number
-    return conversation.phone || props.selectedPhone;
+    if (!conversation) return selectedContact.value;
+    const id = channel.value === 'telegram' ? conversation.chat_id : (channel.value === 'instagram' ? conversation.ig_user_id : conversation.phone);
+    if (conversation.name && conversation.name !== id) return conversation.name;
+    return id || selectedContact.value;
 };
 
 const hasCustomer = computed(() => {
@@ -718,20 +778,25 @@ const clearSelectedFile = () => {
 };
 
 const selectCustomerFromSearch = (customer) => {
-    const phone = customer.phone;
+    const id = channel.value === 'telegram' ? customer.chat_id : (channel.value === 'instagram' ? customer.ig_user_id : customer.phone);
+    if (!id) return;
     showSearchResults.value = false;
     searchPhone.value = '';
-    selectConversation(phone);
+    selectConversation(id);
 };
 
-const startNewConversation = (phone) => {
+const startNewConversation = (phoneOrChatId) => {
     showSearchResults.value = false;
     searchPhone.value = '';
-    selectConversation(phone);
+    selectConversation(phoneOrChatId);
 };
 
-const selectConversation = (phone) => {
-    router.get(route('inbox.index'), { phone }, {
+const selectConversation = (contactId) => {
+    const params = { channel: channel.value };
+    if (channel.value === 'telegram') params.chat_id = contactId;
+    else if (channel.value === 'instagram') params.ig_user_id = contactId;
+    else params.phone = contactId;
+    router.get(route('inbox.index'), params, {
         preserveState: true,
         preserveScroll: false,
     });
@@ -764,14 +829,21 @@ const onMediaSelect = (file) => {
 };
 
 const sendMessage = () => {
-    if ((!newMessage.value.trim() && !selectedFile.value) || !props.selectedPhone) {
+    if ((!newMessage.value.trim() && !selectedFile.value) || !selectedContact.value) {
         return;
     }
 
     const formData = new FormData();
     const token = typeof window !== 'undefined' && document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     if (token) formData.append('_token', token);
-    formData.append('to_phone', props.selectedPhone);
+    formData.append('channel', channel.value);
+    if (channel.value === 'telegram') {
+        formData.append('to_chat_id', selectedContact.value);
+    } else if (channel.value === 'instagram') {
+        formData.append('to_ig_user_id', selectedContact.value);
+    } else {
+        formData.append('to_phone', selectedContact.value);
+    }
     formData.append('message', newMessage.value || '');
     if (selectedFile.value instanceof File) {
         formData.append('media_file', selectedFile.value);
@@ -810,7 +882,10 @@ const scrollToBottom = () => {
 };
 
 const createCustomer = () => {
-    customerForm.phone = props.selectedPhone;
+    customerForm.phone = channel.value === 'whatsapp' ? props.selectedPhone : '';
+    customerForm.channel = channel.value;
+    customerForm.chat_id = channel.value === 'telegram' ? props.selectedChatId : '';
+    customerForm.ig_user_id = channel.value === 'instagram' ? props.selectedIgUserId : '';
     customerForm.post(route('inbox.create-customer'), {
         preserveState: true,
         preserveScroll: true,

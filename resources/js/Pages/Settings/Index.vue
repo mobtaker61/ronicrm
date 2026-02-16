@@ -51,6 +51,17 @@
                             Ronibot Settings
                         </button>
                         <button
+                            @click="activeTab = 'telegram'"
+                            :class="[
+                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
+                                activeTab === 'telegram'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ]"
+                        >
+                            Telegram (Inbox)
+                        </button>
+                        <button
                             v-if="isAdmin"
                             @click="activeTab = 'users'"
                             :class="[
@@ -642,6 +653,65 @@
                         </div>
                     </form>
                 </div>
+
+                <!-- Telegram Settings Tab -->
+                <div v-if="activeTab === 'telegram'" class="p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-6">Telegram (Inbox)</h2>
+                    <form @submit.prevent="saveTelegramSettings" class="space-y-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <label class="flex items-center space-x-2">
+                                    <input
+                                        v-model="telegramForm.enabled"
+                                        type="checkbox"
+                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span class="text-sm font-medium text-gray-700">Enable Telegram Inbox</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Bot Token *</label>
+                                <input
+                                    v-model="telegramForm.bot_token"
+                                    type="text"
+                                    required
+                                    placeholder="123456:ABC-DEF..."
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <p class="mt-1 text-xs text-gray-500">Create a bot via @BotFather and paste the token here.</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Webhook URL</label>
+                                <input
+                                    v-model="telegramForm.webhook_url"
+                                    type="url"
+                                    :placeholder="telegramWebhookPlaceholder"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <p class="mt-1 text-xs text-gray-500">URL for receiving incoming messages (e.g. https://yourdomain.com/telegram-webhook)</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between pt-4 border-t">
+                            <button
+                                type="button"
+                                @click="testTelegram"
+                                :disabled="telegramForm.processing || testTelegramForm.processing || !telegramForm.bot_token"
+                                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {{ testTelegramForm.processing ? 'Testing...' : 'Test Bot Token' }}
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="telegramForm.processing"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {{ telegramForm.processing ? 'Saving...' : 'Save Telegram Settings' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -764,6 +834,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    telegramSettings: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const activeTab = ref('social-media');
@@ -815,6 +889,16 @@ const ronibotForm = useForm({
     webhook_url: props.ronibotSettings.webhook_url || 'https://crm.roniplus.ae/wpwebhook',
     enabled: props.ronibotSettings.enabled || false,
 });
+
+const telegramForm = useForm({
+    bot_token: props.telegramSettings.bot_token || '',
+    webhook_url: props.telegramSettings.webhook_url || '',
+    enabled: props.telegramSettings.enabled || false,
+});
+
+const telegramWebhookPlaceholder = typeof window !== 'undefined' && window.location?.origin
+    ? `${window.location.origin}/telegram-webhook`
+    : 'https://yourdomain.com/telegram-webhook';
 
 const editSocialMediaType = (type) => {
     editingType.value = type;
@@ -877,8 +961,26 @@ const saveRonibotSettings = () => {
     ronibotForm.post(route('settings.ronibot.update'), {
         preserveState: true,
         preserveScroll: true,
-        onSuccess: () => {
-            // Success message is handled by flash
+        onSuccess: () => {},
+    });
+};
+
+const saveTelegramSettings = () => {
+    telegramForm.post(route('settings.telegram.update'), {
+        preserveState: true,
+        preserveScroll: true,
+        onSuccess: () => {},
+    });
+};
+
+const testTelegramForm = useForm({});
+const testTelegram = () => {
+    testTelegramForm.post(route('settings.telegram.test'), {
+        preserveState: true,
+        preserveScroll: true,
+        onSuccess: () => {},
+        onError: (errors) => {
+            console.error('Telegram Test Error:', errors);
         },
     });
 };

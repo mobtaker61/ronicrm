@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\CustomerContact;
+use App\Models\InstagramMessage;
+use App\Models\TelegramMessage;
 use App\Models\WhatsAppMessage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,93 +17,225 @@ use Inertia\Response;
 class InboxController extends Controller
 {
     /**
-     * Display the inbox page
+     * Display the inbox page (WhatsApp or Telegram channel).
      */
     public function index(Request $request): Response
     {
-        $selectedPhone = $request->get('phone');
+        $channel = $request->get('channel', 'whatsapp');
+        $selectedContact = $request->get('phone');
+        if ($channel === 'telegram') {
+            $selectedContact = $request->get('chat_id', $selectedContact);
+        }
+        if ($channel === 'instagram') {
+            $selectedContact = $request->get('ig_user_id', $selectedContact);
+        }
         $searchPhone = trim((string) $request->get('search_phone', ''));
 
-        // جستجوی مخاطبان بر اساس نام یا شماره تلفن (حداقل ۲ کاراکتر)
         $searchResults = [];
         if (strlen($searchPhone) >= 2) {
             $searchTerm = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchPhone);
             $phoneDigits = preg_replace('/[^0-9]/', '', $searchPhone);
 
-            $query = Customer::query()
-                ->where(function ($q) use ($searchTerm, $phoneDigits) {
-                    $q->where('name', 'like', '%' . $searchTerm . '%');
-                    if (strlen($phoneDigits) >= 2) {
-                        $q->orWhereHas('contacts', function ($cq) use ($phoneDigits) {
-                            $cq->where(function ($cq) {
-                                $cq->where('type', 'phone')->orWhere('type', 'whatsapp');
-                            })->where('value', 'like', '%' . $phoneDigits . '%');
-                        });
+            if ($channel === 'telegram') {
+                $query = Customer::query()
+                    ->where('name', 'like', '%' . $searchTerm . '%')
+                    ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
+                        $cq->where('type', 'telegram')->where('value', 'like', '%' . $searchTerm . '%');
+                    });
+                $searchResults = $query->limit(15)->get()->map(function ($customer) {
+                    $tg = $customer->contacts()->where('type', 'telegram')->first();
+                    if (!$tg) {
+                        return null;
                     }
-                });
-
-            $searchResults = $query->limit(15)->get()->map(function ($customer) {
-                $phoneContact = $customer->contacts()->where(function ($q) {
-                    $q->where('type', 'phone')->orWhere('type', 'whatsapp');
-                })->first();
-                return [
-                    'id' => $customer->id,
-                    'name' => $customer->name,
-                    'phone' => $phoneContact?->value,
-                    'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
-                ];
-            })->filter(fn ($r) => ! empty($r['phone']))->values()->all();
+                    return [
+                        'id' => $customer->id,
+                        'name' => $customer->name,
+                        'phone' => null,
+                        'chat_id' => $tg->value,
+                        'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
+                    ];
+                })->filter(fn ($r) => $r && !empty($r['chat_id']))->values()->all();
+            } else {
+                $query = Customer::query()
+                    ->where(function ($q) use ($searchTerm, $phoneDigits) {
+                        $q->where('name', 'like', '%' . $searchTerm . '%');
+                        if (strlen($phoneDigits) >= 2) {
+                            $q->orWhereHas('contacts', function ($cq) use ($phoneDigits) {
+                                $cq->where(function ($cq) {
+                                    $cq->where('type', 'phone')->orWhere('type', 'whatsapp');
+                                })->where('value', 'like', '%' . $phoneDigits . '%');
+                            });
+                        }
+                    });
+                $searchResults = $query->limit(15)->get()->map(function ($customer) {
+                    $phoneContact = $customer->contacts()->where(function ($q) {
+                        $q->where('type', 'phone')->orWhere('type', 'whatsapp');
+                    })->first();
+                    return [
+                        'id' => $customer->id,
+                        'name' => $customer->name,
+                        'phone' => $phoneContact?->value,
+                        'chat_id' => null,
+                        'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
+                    ];
+                })->filter(fn ($r) => !empty($r['phone']))->values()->all();
+            }
+            if ($channel === 'instagram') {
+                $query = Customer::query()
+                    ->where('name', 'like', '%' . $searchTerm . '%')
+                    ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
+                        $cq->where('type', 'instagram')->where('value', 'like', '%' . $searchTerm . '%');
+                    });
+                $searchResults = $query->limit(15)->get()->map(function ($customer) {
+                    $ig = $customer->contacts()->where('type', 'instagram')->first();
+                    if (!$ig) {
+                        return null;
+                    }
+                    return [
+                        'id' => $customer->id,
+                        'name' => $customer->name,
+                        'phone' => null,
+                        'chat_id' => null,
+                        'ig_user_id' => $ig->value,
+                        'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
+                    ];
+                })->filter(fn ($r) => $r && !empty($r['ig_user_id']))->values()->all();
+            }
         }
-        
-        // Get list of unique conversations (both incoming and outgoing)
-        // For incoming: from_phone is the sender (conversation partner)
-        // For outgoing: to_phone is the recipient (conversation partner)
-        $incomingPhones = WhatsAppMessage::incoming()
-            ->select('from_phone as phone')
-            ->distinct()
-            ->pluck('phone');
-            
+
+        if ($channel === 'telegram') {
+            $conversations = $this->buildTelegramConversations();
+            $messages = [];
+            $selectedCustomer = null;
+            if ($selectedContact) {
+                $messages = TelegramMessage::forChat($selectedContact)
+                    ->orderBy('created_at', 'asc')
+                    ->get()
+                    ->map(function ($msg) {
+                        return [
+                            'id' => $msg->id,
+                            'message' => $msg->message,
+                            'message_type' => $msg->message_type,
+                            'media_url' => $msg->media_url,
+                            'direction' => $msg->direction,
+                            'status' => $msg->status,
+                            'created_at' => $msg->created_at,
+                            'read_at' => $msg->read_at,
+                        ];
+                    });
+                TelegramMessage::forChat($selectedContact)->whereNull('read_at')
+                    ->update(['read_at' => now(), 'status' => 'read']);
+                $selectedCustomer = $this->findCustomerByTelegramChatId($selectedContact);
+                if ($selectedCustomer) {
+                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                    if ($selectedCustomer->avatar) {
+                        $selectedCustomer->avatar = asset('storage/' . $selectedCustomer->avatar);
+                    }
+                }
+            }
+        } elseif ($channel === 'instagram') {
+            $conversations = $this->buildInstagramConversations();
+            $messages = [];
+            $selectedCustomer = null;
+            if ($selectedContact) {
+                $messages = InstagramMessage::forIgUser($selectedContact)
+                    ->orderBy('created_at', 'asc')
+                    ->get()
+                    ->map(function ($msg) {
+                        return [
+                            'id' => $msg->id,
+                            'message' => $msg->message,
+                            'message_type' => $msg->message_type,
+                            'media_url' => $msg->media_url,
+                            'direction' => $msg->direction,
+                            'status' => $msg->status,
+                            'created_at' => $msg->created_at,
+                            'read_at' => $msg->read_at,
+                        ];
+                    });
+                InstagramMessage::forIgUser($selectedContact)->whereNull('read_at')
+                    ->update(['read_at' => now(), 'status' => 'read']);
+                $selectedCustomer = $this->findCustomerByInstagramId($selectedContact);
+                if ($selectedCustomer) {
+                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                    if ($selectedCustomer->avatar) {
+                        $selectedCustomer->avatar = asset('storage/' . $selectedCustomer->avatar);
+                    }
+                }
+            }
+        } else {
+            $conversations = $this->buildWhatsAppConversations();
+            $messages = [];
+            $selectedCustomer = null;
+            if ($selectedContact) {
+                $messages = WhatsAppMessage::where(function ($q) use ($selectedContact) {
+                    $q->where('from_phone', $selectedContact)->orWhere('to_phone', $selectedContact);
+                })
+                    ->orderBy('created_at', 'asc')
+                    ->get()
+                    ->map(function ($msg) {
+                        $mediaUrl = $msg->media_url;
+                        if ($mediaUrl && !str_starts_with($mediaUrl, 'http')) {
+                            $mediaUrl = asset('storage/' . ltrim($mediaUrl, '/'));
+                        }
+                        return [
+                            'id' => $msg->id,
+                            'message' => $msg->message,
+                            'message_type' => $msg->message_type,
+                            'media_url' => $mediaUrl,
+                            'direction' => $msg->direction,
+                            'status' => $msg->status,
+                            'created_at' => $msg->created_at,
+                            'read_at' => $msg->read_at,
+                        ];
+                    });
+                WhatsAppMessage::where('from_phone', $selectedContact)
+                    ->whereNull('read_at')
+                    ->update(['read_at' => now(), 'status' => 'read']);
+                $selectedCustomer = $this->findCustomerByPhone($selectedContact);
+                if ($selectedCustomer) {
+                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                    if ($selectedCustomer->avatar) {
+                        $selectedCustomer->avatar = asset('storage/' . $selectedCustomer->avatar);
+                    }
+                }
+            }
+        }
+
+        return Inertia::render('Inbox/Index', [
+            'channel' => $channel,
+            'conversations' => $conversations,
+            'messages' => $messages,
+            'selectedPhone' => $channel === 'whatsapp' ? $selectedContact : null,
+            'selectedChatId' => $channel === 'telegram' ? $selectedContact : null,
+            'selectedIgUserId' => $channel === 'instagram' ? $selectedContact : null,
+            'searchResults' => $searchResults,
+            'selectedCustomer' => $selectedCustomer ?? null,
+        ]);
+    }
+
+    protected function buildWhatsAppConversations(): \Illuminate\Support\Collection
+    {
+        $incomingPhones = WhatsAppMessage::incoming()->select('from_phone as phone')->distinct()->pluck('phone');
         $outgoingPhones = WhatsAppMessage::where('direction', 'outgoing')
-            ->select('from_phone as phone') // This is actually the recipient's phone in our case
-            ->whereNotNull('from_phone')
-            ->distinct()
-            ->pluck('phone');
-        
-        // Combine and get unique phone numbers
+            ->select('from_phone as phone')->whereNotNull('from_phone')->distinct()->pluck('phone');
         $allPhones = $incomingPhones->merge($outgoingPhones)->unique()->filter();
-        
+
         $conversations = collect();
         foreach ($allPhones as $phone) {
             $customer = $this->findCustomerByPhone($phone);
-            
-            // Get the last message (either incoming or outgoing)
             $lastMessage = WhatsAppMessage::where(function ($q) use ($phone) {
-                $q->where('from_phone', $phone)
-                    ->orWhere('to_phone', $phone);
-            })
-                ->latest()
-                ->first();
-            
-            // Count unread incoming messages
-            $unreadCount = WhatsAppMessage::where('from_phone', $phone)
-                ->where('direction', 'incoming')
-                ->whereNull('read_at')
-                ->count();
-            
-            // Count total messages
+                $q->where('from_phone', $phone)->orWhere('to_phone', $phone);
+            })->latest()->first();
+            $unreadCount = WhatsAppMessage::where('from_phone', $phone)->where('direction', 'incoming')->whereNull('read_at')->count();
             $messageCount = WhatsAppMessage::where(function ($q) use ($phone) {
-                $q->where('from_phone', $phone)
-                    ->orWhere('to_phone', $phone);
+                $q->where('from_phone', $phone)->orWhere('to_phone', $phone);
             })->count();
-            
-            // نمایش نام مخاطب اگر ذخیره شده و اسم واقعی دارد (نه فقط شماره)
-            $displayName = $phone;
-            if ($customer && trim((string) ($customer->name ?? '')) !== '' && $customer->name !== $phone) {
-                $displayName = $customer->name;
-            }
-            
+            $customerName = $customer?->name ?? '';
+            $displayName = ($customer && trim((string) $customerName) !== '' && $customerName !== $phone) ? $customerName : $phone;
             $conversations->push([
                 'phone' => $phone,
+                'chat_id' => null,
                 'name' => $displayName,
                 'customer_id' => $customer?->id,
                 'avatar' => $customer?->avatar ? asset('storage/' . $customer->avatar) : null,
@@ -110,184 +245,284 @@ class InboxController extends Controller
                 'message_count' => $messageCount,
             ]);
         }
-        
-        // Sort by last message time
-        $conversations = $conversations->sortByDesc('last_message_at')->values();
+        return $conversations->sortByDesc('last_message_at')->values();
+    }
 
-        // Get messages for selected conversation
-        $messages = [];
-        $selectedCustomer = null;
-        if ($selectedPhone) {
-            $messages = WhatsAppMessage::where(function ($q) use ($selectedPhone) {
-                $q->where('from_phone', $selectedPhone)
-                    ->orWhere('to_phone', $selectedPhone);
-            })
-                ->orderBy('created_at', 'asc')
-                ->get()
-                ->map(function ($msg) {
-                    // Ensure media_url is a full URL if it exists
-                    $mediaUrl = $msg->media_url;
-                    if ($mediaUrl) {
-                        // If it's already a full URL (starts with http), use it as is
-                        // Otherwise, convert relative path to full URL
-                        if (!str_starts_with($mediaUrl, 'http')) {
-                            $mediaUrl = asset('storage/' . ltrim($mediaUrl, '/'));
-                        }
-                    }
-                    
-                    return [
-                        'id' => $msg->id,
-                        'message' => $msg->message,
-                        'message_type' => $msg->message_type,
-                        'media_url' => $mediaUrl, // Can be null or full URL
-                        'direction' => $msg->direction,
-                        'status' => $msg->status,
-                        'created_at' => $msg->created_at,
-                        'read_at' => $msg->read_at,
-                    ];
-                });
-            
-            // Mark messages as read
-            WhatsAppMessage::where('from_phone', $selectedPhone)
-                ->whereNull('read_at')
-                ->update(['read_at' => now(), 'status' => 'read']);
-            
-            // Load customer details for selected conversation
-            $selectedCustomer = $this->findCustomerByPhone($selectedPhone);
-            if ($selectedCustomer) {
-                $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
-                // Format avatar URL if exists
-                if ($selectedCustomer->avatar) {
-                    $selectedCustomer->avatar = asset('storage/' . $selectedCustomer->avatar);
-                }
-            }
+    protected function buildTelegramConversations(): \Illuminate\Support\Collection
+    {
+        $incomingChatIds = TelegramMessage::incoming()->select('chat_id')->distinct()->pluck('chat_id');
+        $outgoingChatIds = TelegramMessage::where('direction', 'outgoing')->select('chat_id')->distinct()->pluck('chat_id');
+        $allChatIds = $incomingChatIds->merge($outgoingChatIds)->unique()->filter();
+
+        $conversations = collect();
+        foreach ($allChatIds as $chatId) {
+            $customer = $this->findCustomerByTelegramChatId($chatId);
+            $lastMessage = TelegramMessage::forChat($chatId)->latest()->first();
+            $unreadCount = TelegramMessage::forChat($chatId)->where('direction', 'incoming')->whereNull('read_at')->count();
+            $messageCount = TelegramMessage::forChat($chatId)->count();
+            $displayName = $customer ? $customer->name : ($lastMessage ? ($lastMessage->from_username ?? $chatId) : $chatId);
+            $conversations->push([
+                'phone' => null,
+                'chat_id' => $chatId,
+                'name' => $displayName,
+                'customer_id' => $customer?->id,
+                'avatar' => $customer?->avatar ? asset('storage/' . $customer->avatar) : null,
+                'last_message' => $lastMessage?->message,
+                'last_message_at' => $lastMessage?->created_at,
+                'unread_count' => $unreadCount,
+                'message_count' => $messageCount,
+            ]);
         }
+        return $conversations->sortByDesc('last_message_at')->values();
+    }
 
-        return Inertia::render('Inbox/Index', [
-            'conversations' => $conversations,
-            'messages' => $messages,
-            'selectedPhone' => $selectedPhone,
-            'searchResults' => $searchResults,
-            'selectedCustomer' => $selectedCustomer,
-        ]);
+    protected function buildInstagramConversations(): \Illuminate\Support\Collection
+    {
+        $incomingIds = InstagramMessage::incoming()->select('ig_user_id')->distinct()->pluck('ig_user_id');
+        $outgoingIds = InstagramMessage::where('direction', 'outgoing')->select('ig_user_id')->distinct()->pluck('ig_user_id');
+        $allIds = $incomingIds->merge($outgoingIds)->unique()->filter();
+
+        $conversations = collect();
+        foreach ($allIds as $igUserId) {
+            $customer = $this->findCustomerByInstagramId($igUserId);
+            $lastMessage = InstagramMessage::forIgUser($igUserId)->latest()->first();
+            $unreadCount = InstagramMessage::forIgUser($igUserId)->where('direction', 'incoming')->whereNull('read_at')->count();
+            $messageCount = InstagramMessage::forIgUser($igUserId)->count();
+            $displayName = $customer ? $customer->name : ($lastMessage ? ($lastMessage->from_username ?? $igUserId) : $igUserId);
+            $conversations->push([
+                'phone' => null,
+                'chat_id' => null,
+                'ig_user_id' => $igUserId,
+                'name' => $displayName,
+                'customer_id' => $customer?->id,
+                'avatar' => $customer?->avatar ? asset('storage/' . $customer->avatar) : null,
+                'last_message' => $lastMessage?->message,
+                'last_message_at' => $lastMessage?->created_at,
+                'unread_count' => $unreadCount,
+                'message_count' => $messageCount,
+            ]);
+        }
+        return $conversations->sortByDesc('last_message_at')->values();
+    }
+
+    protected function findCustomerByTelegramChatId(string $chatId): ?Customer
+    {
+        $contact = CustomerContact::where('type', 'telegram')->where('value', $chatId)->first();
+        return $contact?->customer;
+    }
+
+    protected function findCustomerByInstagramId(string $igUserId): ?Customer
+    {
+        $contact = CustomerContact::where('type', 'instagram')->where('value', $igUserId)->first();
+        if ($contact) {
+            return $contact->customer;
+        }
+        $msg = InstagramMessage::where('ig_user_id', $igUserId)->whereNotNull('customer_id')->first();
+        return $msg?->customer;
     }
 
     /**
-     * Send a reply message
+     * Send a reply message (WhatsApp or Telegram).
      */
     public function sendMessage(Request $request)
     {
-        // Empty or "null" string for media_url would fail 'url' rule; normalize so validation passes
+        $channel = $request->get('channel', 'whatsapp');
         $mediaUrlInput = $request->input('media_url');
         if ($mediaUrlInput !== null && (trim((string) $mediaUrlInput) === '' || $mediaUrlInput === 'null')) {
             $request->merge(['media_url' => null]);
         }
 
-        $validated = $request->validate([
-            'to_phone' => 'required|string',
+        $rules = [
             'message' => 'nullable|string|max:5000',
             'media_url' => 'nullable|url',
             'media_file' => 'nullable|file|max:51200',
-        ], [
+        ];
+        if ($channel === 'telegram') {
+            $rules['to_chat_id'] = 'required|string';
+        } elseif ($channel === 'instagram') {
+            $rules['to_ig_user_id'] = 'required|string';
+        } else {
+            $rules['to_phone'] = 'required|string';
+        }
+        $validated = $request->validate($rules, [
             'media_file.file' => 'فایل آپلود نشد. حجم (حداکثر ۵۰ مگ) یا تنظیمات سرور را بررسی کنید.',
             'media_file.max' => 'حجم فایل نباید بیشتر از ۵۰ مگابایت باشد.',
         ]);
 
         try {
             $mediaUrl = $validated['media_url'] ?? null;
-            
-            // If file is uploaded, save it and get the URL
             $fileType = 'text';
             if ($request->hasFile('media_file')) {
                 $file = $request->file('media_file');
-                $path = $file->store('whatsapp-media', 'public');
-                
-                // Get public URL for the file
-                // Priority: 1. APP_URL from .env, 2. Request host (for ngrok), 3. Storage::url()
+                $path = $file->store($channel === 'telegram' ? 'telegram-media' : 'whatsapp-media', 'public');
                 $mediaUrl = $this->getPublicFileUrl($path, $request);
-                
-                // Determine file type based on MIME type or extension
                 $fileType = $this->getFileType($file);
             }
 
-            // Message is optional if media is provided
             $message = $validated['message'] ?? '';
             if (empty($message) && !$mediaUrl) {
                 return redirect()->back()
                     ->with('error', 'Please provide either a message or a file.');
             }
+            $messageToSend = $message ?: '';
+
+            if ($channel === 'telegram') {
+                $toChatId = $validated['to_chat_id'];
+                $telegramService = app(\App\Services\TelegramService::class);
+                $result = $telegramService->sendMessage($toChatId, $messageToSend, $mediaUrl);
+                $customer = $this->findCustomerByTelegramChatId($toChatId);
+                TelegramMessage::create([
+                    'telegram_message_id' => $result['message_id'] ?? null,
+                    'chat_id' => $toChatId,
+                    'from_username' => null,
+                    'message' => $messageToSend ?: null,
+                    'message_type' => $mediaUrl ? $fileType : 'text',
+                    'media_url' => $mediaUrl,
+                    'media_mime_type' => $request->hasFile('media_file') ? $request->file('media_file')->getMimeType() : null,
+                    'customer_id' => $customer?->id,
+                    'direction' => 'outgoing',
+                    'status' => $result['success'] ? 'sent' : 'failed',
+                ]);
+                if ($result['success']) {
+                    return redirect()->route('inbox.index', ['channel' => 'telegram', 'chat_id' => $toChatId])
+                        ->with('success', 'Message sent successfully.')->with('refresh', true);
+                }
+                return redirect()->route('inbox.index', ['channel' => 'telegram', 'chat_id' => $toChatId])
+                    ->with('error', 'Message saved but failed to send: ' . ($result['error'] ?? 'Unknown error'));
+            }
+            if ($channel === 'instagram') {
+                $toIgUserId = $validated['to_ig_user_id'];
+                $instagramService = app(\App\Services\InstagramMessagingService::class);
+                $result = $instagramService->sendMessage($toIgUserId, $messageToSend, $mediaUrl);
+                $customer = $this->findCustomerByInstagramId($toIgUserId);
+                InstagramMessage::create([
+                    'instagram_message_id' => $result['message_id'] ?? null,
+                    'ig_user_id' => $toIgUserId,
+                    'from_username' => null,
+                    'message' => $messageToSend ?: null,
+                    'message_type' => $mediaUrl ? $fileType : 'text',
+                    'media_url' => $mediaUrl,
+                    'media_mime_type' => $request->hasFile('media_file') ? $request->file('media_file')->getMimeType() : null,
+                    'customer_id' => $customer?->id,
+                    'direction' => 'outgoing',
+                    'status' => $result['success'] ? 'sent' : 'failed',
+                ]);
+                if ($result['success']) {
+                    return redirect()->route('inbox.index', ['channel' => 'instagram', 'ig_user_id' => $toIgUserId])
+                        ->with('success', 'Message sent successfully.')->with('refresh', true);
+                }
+                return redirect()->route('inbox.index', ['channel' => 'instagram', 'ig_user_id' => $toIgUserId])
+                    ->with('error', 'Message saved but failed to send: ' . ($result['error'] ?? 'Unknown error'));
+            }
 
             $whatsappService = app(\App\Services\WhatsAppService::class);
-            
-            // If we have media but no message, send empty string (caption will be empty)
-            // Ronibot API accepts empty message when file is provided
-            // Note: WhatsAppService will add a default message "Image" if message is empty and file exists
-            $messageToSend = $message ?: '';
-            
-            $result = $whatsappService->sendMessage(
-                $validated['to_phone'],
-                $messageToSend,
-                $mediaUrl
-            );
-
-            // Always save the message to database, even if API call fails
-            // This ensures the message appears in the inbox
+            $result = $whatsappService->sendMessage($validated['to_phone'], $messageToSend, $mediaUrl);
             $customer = $this->findCustomerByPhone($validated['to_phone']);
-            
-            $savedMessage = WhatsAppMessage::create([
+            WhatsAppMessage::create([
                 'message_id' => $result['message_id'] ?? null,
-                'from_phone' => $validated['to_phone'], // Recipient's phone (for grouping conversations)
-                'to_phone' => $validated['to_phone'], // Recipient's phone
-                'message' => $messageToSend ?: null, // Store null if empty, not empty string
+                'from_phone' => $validated['to_phone'],
+                'to_phone' => $validated['to_phone'],
+                'message' => $messageToSend ?: null,
                 'message_type' => $mediaUrl ? $fileType : 'text',
-                'media_url' => $mediaUrl, // Store full URL
+                'media_url' => $mediaUrl,
                 'media_mime_type' => $request->hasFile('media_file') ? $request->file('media_file')->getMimeType() : null,
                 'customer_id' => $customer?->id,
                 'direction' => 'outgoing',
-                'status' => $result['success'] ? 'sent' : 'failed', // Mark as failed if API call failed
+                'status' => $result['success'] ? 'sent' : 'failed',
             ]);
-
             if ($result['success']) {
-                // Use Inertia redirect to preserve state and show the new message
                 return redirect()->route('inbox.index', ['phone' => $validated['to_phone']])
-                    ->with('success', 'Message sent successfully.')
-                    ->with('refresh', true); // Signal to frontend to refresh messages
-            } else {
-                // Only log critical errors (not timeouts)
-                if (!str_contains($result['error'] ?? '', 'timed out')) {
-                    Log::error('Failed to send WhatsApp message via API: ' . ($result['error'] ?? 'Unknown error'));
-                }
-                // Still redirect to show the message in inbox, but with error notification
-                return redirect()->route('inbox.index', ['phone' => $validated['to_phone']])
-                    ->with('error', 'Message saved but failed to send via WhatsApp: ' . ($result['error'] ?? 'Unknown error'));
+                    ->with('success', 'Message sent successfully.')->with('refresh', true);
             }
+            if (!str_contains($result['error'] ?? '', 'timed out')) {
+                Log::error('Failed to send WhatsApp message via API: ' . ($result['error'] ?? 'Unknown error'));
+            }
+            return redirect()->route('inbox.index', ['phone' => $validated['to_phone']])
+                ->with('error', 'Message saved but failed to send via WhatsApp: ' . ($result['error'] ?? 'Unknown error'));
         } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Error sending message: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error sending message: ' . $e->getMessage());
         }
     }
 
     /**
-     * Create customer from phone number
+     * Create customer from phone (WhatsApp) or chat_id (Telegram).
      */
     public function createCustomer(Request $request)
     {
-        $validated = $request->validate([
-            'phone' => 'required|string',
-            'name' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
-        ]);
+        $channel = $request->get('channel', 'whatsapp');
+        $rules = ['name' => 'required|string|max:255', 'email' => 'nullable|email|max:255'];
+        if ($channel === 'telegram') {
+            $rules['chat_id'] = 'required|string';
+        } elseif ($channel === 'instagram') {
+            $rules['ig_user_id'] = 'required|string';
+        } else {
+            $rules['phone'] = 'required|string';
+        }
+        $validated = $request->validate($rules);
 
-        $phone = $this->formatPhone($validated['phone']);
-
-        // Check if customer already exists
-        $customer = $this->findCustomerByPhone($phone);
-        if ($customer) {
-            return redirect()->back()
-                ->with('error', 'Customer already exists with this phone number.');
+        if ($channel === 'instagram') {
+            $igUserId = (string) $validated['ig_user_id'];
+            $customer = $this->findCustomerByInstagramId($igUserId);
+            if ($customer) {
+                return redirect()->back()->with('error', 'Customer already exists for this Instagram user.');
+            }
+            $customer = Customer::create([
+                'name' => $validated['name'],
+                'type' => 'person',
+                'status' => 'lead',
+                'source' => 'instagram',
+                'created_by' => Auth::id(),
+            ]);
+            $customer->contacts()->create([
+                'type' => 'instagram',
+                'value' => $igUserId,
+                'is_primary' => true,
+            ]);
+            if (!empty($validated['email'])) {
+                $customer->contacts()->create([
+                    'type' => 'email',
+                    'value' => $validated['email'],
+                    'is_primary' => false,
+                ]);
+            }
+            InstagramMessage::where('ig_user_id', $igUserId)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
+            return redirect()->back()->with('success', 'Customer created successfully.');
         }
 
-        // Create new customer
+        if ($channel === 'telegram') {
+            $chatId = (string) $validated['chat_id'];
+            $customer = $this->findCustomerByTelegramChatId($chatId);
+            if ($customer) {
+                return redirect()->back()->with('error', 'Customer already exists for this Telegram chat.');
+            }
+            $customer = Customer::create([
+                'name' => $validated['name'],
+                'type' => 'person',
+                'status' => 'lead',
+                'source' => 'telegram',
+                'created_by' => Auth::id(),
+            ]);
+            $customer->contacts()->create([
+                'type' => 'telegram',
+                'value' => $chatId,
+                'is_primary' => true,
+            ]);
+            if (!empty($validated['email'])) {
+                $customer->contacts()->create([
+                    'type' => 'email',
+                    'value' => $validated['email'],
+                    'is_primary' => false,
+                ]);
+            }
+            TelegramMessage::where('chat_id', $chatId)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
+            return redirect()->back()->with('success', 'Customer created successfully.');
+        }
+
+        $phone = $this->formatPhone($validated['phone']);
+        $customer = $this->findCustomerByPhone($phone);
+        if ($customer) {
+            return redirect()->back()->with('error', 'Customer already exists with this phone number.');
+        }
         $customer = Customer::create([
             'name' => $validated['name'],
             'type' => 'person',
@@ -295,15 +530,11 @@ class InboxController extends Controller
             'source' => 'whatsapp',
             'created_by' => Auth::id(),
         ]);
-
-        // Create phone contact
         $customer->contacts()->create([
             'type' => 'whatsapp',
             'value' => $phone,
             'is_primary' => true,
         ]);
-
-        // Create email contact if provided
         if (!empty($validated['email'])) {
             $customer->contacts()->create([
                 'type' => 'email',
@@ -311,14 +542,8 @@ class InboxController extends Controller
                 'is_primary' => false,
             ]);
         }
-
-        // Update existing messages to link to this customer
-        WhatsAppMessage::where('from_phone', $phone)
-            ->whereNull('customer_id')
-            ->update(['customer_id' => $customer->id]);
-
-        return redirect()->back()
-            ->with('success', 'Customer created successfully.');
+        WhatsAppMessage::where('from_phone', $phone)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
+        return redirect()->back()->with('success', 'Customer created successfully.');
     }
 
     /**

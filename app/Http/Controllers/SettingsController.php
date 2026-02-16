@@ -5,8 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Setting;
 use App\Models\SocialMediaType;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -16,17 +17,18 @@ class SettingsController extends Controller
     {
         // Check if user is admin for all methods
         $this->middleware(function ($request, $next) {
-            if (!auth()->check() || !auth()->user()->hasRole('admin')) {
+            if (! Auth::check() || ! Auth::user()->hasRole('admin')) {
                 abort(403, 'Unauthorized action. Only administrators can access settings.');
             }
+
             return $next($request);
         });
     }
 
     public function index(): Response
     {
-        $isAdmin = auth()->user()->hasRole('admin');
-        
+        $isAdmin = Auth::user()->hasRole('admin');
+
         $users = [];
         $roles = [];
         if ($isAdmin) {
@@ -47,7 +49,7 @@ class SettingsController extends Controller
                 ];
             });
         }
-        
+
         return Inertia::render('Settings/Index', [
             'isAdmin' => $isAdmin,
             'users' => $users,
@@ -72,6 +74,14 @@ class SettingsController extends Controller
                 'appkey' => '',
                 'authkey' => '',
                 'webhook_url' => 'https://crm.roniplus.ae/wpwebhook',
+                'enabled' => false,
+            ]),
+            'telegramSettings' => Setting::get('telegram', [
+                'bot_token' => '',
+                'webhook_url' => '',
+                'enabled' => false,
+            ]),
+            'instagramSettings' => Setting::get('instagram', [
                 'enabled' => false,
             ]),
         ]);
@@ -136,35 +146,71 @@ class SettingsController extends Controller
 
         try {
             $ronibotSettings = Setting::get('ronibot', []);
-            
+
             if (empty($ronibotSettings['appkey']) || empty($ronibotSettings['authkey'])) {
                 return redirect()->back()
                     ->with('error', 'Please configure Ronibot settings first (App Key and Auth Key are required).');
             }
 
-            if (!($ronibotSettings['enabled'] ?? false)) {
+            if (! ($ronibotSettings['enabled'] ?? false)) {
                 return redirect()->back()
                     ->with('error', 'Please enable Ronibot first.');
             }
 
             $whatsappService = app(\App\Services\WhatsAppService::class);
             $message = $validated['test_message'] ?? 'This is a test message from RoniCRM. If you received this message, your Ronibot settings are working correctly!';
-            
+
             $result = $whatsappService->sendMessage($validated['test_phone'], $message);
 
             if ($result['success']) {
                 return redirect()->back()
-                    ->with('success', 'Test WhatsApp message sent successfully to ' . $validated['test_phone'] . '!');
+                    ->with('success', 'Test WhatsApp message sent successfully to '.$validated['test_phone'].'!');
             } else {
                 return redirect()->back()
-                    ->with('error', 'Failed to send test message: ' . ($result['error'] ?? 'Unknown error'));
+                    ->with('error', 'Failed to send test message: '.($result['error'] ?? 'Unknown error'));
             }
         } catch (\Exception $e) {
-            Log::error('Ronibot test error: ' . $e->getMessage(), [
+            Log::error('Ronibot test error: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
+
             return redirect()->back()
-                ->with('error', 'Failed to send test message: ' . $e->getMessage());
+                ->with('error', 'Failed to send test message: '.$e->getMessage());
+        }
+    }
+
+    public function updateTelegram(Request $request)
+    {
+        $validated = $request->validate([
+            'bot_token' => 'required|string|max:500',
+            'webhook_url' => 'nullable|url|max:500',
+            'enabled' => 'boolean',
+        ]);
+
+        Setting::set('telegram', $validated);
+
+        return redirect()->back()
+            ->with('success', 'Telegram settings updated successfully.');
+    }
+
+    public function testTelegram(Request $request)
+    {
+        try {
+            $telegramService = app(\App\Services\TelegramService::class);
+            $result = $telegramService->getMe();
+
+            if ($result['success']) {
+                return redirect()->back()
+                    ->with('success', 'Telegram bot token is valid. Bot: @'.($result['username'] ?? 'unknown'));
+            }
+
+            return redirect()->back()
+                ->with('error', 'Telegram test failed: '.($result['error'] ?? 'Unknown error'));
+        } catch (\Exception $e) {
+            Log::error('Telegram test error: '.$e->getMessage());
+
+            return redirect()->back()
+                ->with('error', 'Telegram test failed: '.$e->getMessage());
         }
     }
 
@@ -176,7 +222,7 @@ class SettingsController extends Controller
 
         try {
             $smtpSettings = Setting::get('smtp', []);
-            
+
             if (empty($smtpSettings['host']) || empty($smtpSettings['username'])) {
                 return redirect()->back()
                     ->with('error', 'Please configure SMTP settings first.');
@@ -210,13 +256,14 @@ class SettingsController extends Controller
             });
 
             return redirect()->back()
-                ->with('success', 'Test email sent successfully to ' . $validated['test_email'] . '! Please check your inbox.');
-        } catch (\Swift_TransportException $e) {
-            Log::error('SMTP Transport Error: ' . $e->getMessage());
+                ->with('success', 'Test email sent successfully to '.$validated['test_email'].'! Please check your inbox.');
+        } catch (\Symfony\Component\Mailer\Exception\TransportException $e) {
+            Log::error('SMTP Transport Error: '.$e->getMessage());
+
             return redirect()->back()
-                ->with('error', 'SMTP connection failed: ' . $e->getMessage());
+                ->with('error', 'SMTP connection failed: '.$e->getMessage());
         } catch (\Exception $e) {
-            Log::error('SMTP Test Error: ' . $e->getMessage(), [
+            Log::error('SMTP Test Error: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'smtp_settings' => [
                     'host' => $smtpSettings['host'] ?? null,
@@ -224,8 +271,9 @@ class SettingsController extends Controller
                     'username' => $smtpSettings['username'] ?? null,
                 ],
             ]);
+
             return redirect()->back()
-                ->with('error', 'Failed to send test email: ' . $e->getMessage());
+                ->with('error', 'Failed to send test email: '.$e->getMessage());
         }
     }
 }

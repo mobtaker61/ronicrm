@@ -73,6 +73,16 @@ class Customer extends Model
         return $this->hasMany(WhatsAppMessage::class);
     }
 
+    public function telegramMessages(): HasMany
+    {
+        return $this->hasMany(TelegramMessage::class);
+    }
+
+    public function instagramMessages(): HasMany
+    {
+        return $this->hasMany(InstagramMessage::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

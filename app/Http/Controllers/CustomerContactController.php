@@ -11,7 +11,7 @@ class CustomerContactController extends Controller
     public function store(Request $request, Customer $customer)
     {
         $validated = $request->validate([
-            'type' => 'required|in:phone,email,whatsapp,telegram',
+            'type' => 'required|in:phone,email,whatsapp,telegram,instagram',
             'value' => 'required|string|max:255',
             'is_primary' => 'nullable|boolean',
         ]);
@@ -30,7 +30,7 @@ class CustomerContactController extends Controller
     public function update(Request $request, Customer $customer, CustomerContact $contact)
     {
         $validated = $request->validate([
-            'type' => 'required|in:phone,email,whatsapp,telegram',
+            'type' => 'required|in:phone,email,whatsapp,telegram,instagram',
             'value' => 'required|string|max:255',
             'is_primary' => 'nullable|boolean',
         ]);

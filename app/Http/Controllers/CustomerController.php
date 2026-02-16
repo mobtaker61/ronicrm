@@ -92,7 +92,7 @@ class CustomerController extends Controller
             'contact_person' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
             'contacts' => 'nullable|array',
-            'contacts.*.type' => 'required|in:phone,email,whatsapp,telegram',
+            'contacts.*.type' => 'required|in:phone,email,whatsapp,telegram,instagram',
             'contacts.*.value' => 'required|string|max:255',
             'contacts.*.is_primary' => 'nullable|boolean',
             'social_media' => 'nullable|array',
@@ -237,7 +237,7 @@ class CustomerController extends Controller
             'notes' => 'nullable|string',
             'contacts' => 'nullable|array',
             'contacts.*.id' => 'nullable|exists:customer_contacts,id',
-            'contacts.*.type' => 'required|in:phone,email,whatsapp,telegram',
+            'contacts.*.type' => 'required|in:phone,email,whatsapp,telegram,instagram',
             'contacts.*.value' => 'required|string|max:255',
             'contacts.*.is_primary' => 'nullable|boolean',
             'social_media' => 'nullable|array',
@@ -618,7 +618,7 @@ class CustomerController extends Controller
 
     protected function importContacts($customer, $rowData): void
     {
-        $contactTypes = ['phone', 'email', 'whatsapp', 'telegram'];
+        $contactTypes = ['phone', 'email', 'whatsapp', 'telegram', 'instagram'];
         
         // Handle individual contact fields (phone, email, whatsapp, telegram)
         foreach ($contactTypes as $type) {
