@@ -2,55 +2,212 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Customer;
+use App\Models\CustomerContact;
+use App\Models\InstagramConnection;
+use App\Models\InstagramMessage;
+use App\Models\InstagramWebhookEvent;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
  * Instagram Messaging Webhook (Meta).
- * Verify token and receive message events once Meta App is configured.
- * Stub: accepts GET (verification) and POST (events), returns 200.
+ * GET: verification (hub.mode, hub.verify_token, hub.challenge).
+ * POST: event notifications (validate signature, parse messaging events).
  */
 class InstagramWebhookController extends Controller
 {
-    /**
-     * GET: Meta verification (hub.mode, hub.verify_token, hub.challenge).
-     * Meta sends hub.mode=subscribe, hub.verify_token=<your_token>, hub.challenge=<random>.
-     * If verify_token matches our stored token, we must echo hub.challenge back as plain text.
-     */
-    public function verify(Request $request)
+    public function verify(Request $request): Response|HttpResponse
     {
         $mode = $request->query('hub_mode') ?? $request->query('hub.mode');
         $token = $request->query('hub_verify_token') ?? $request->query('hub.verify_token');
         $challenge = $request->query('hub_challenge') ?? $request->query('hub.challenge');
 
-        $settings = \App\Models\Setting::get('instagram', []);
-        $verifyToken = (string) ($settings['webhook_verify_token'] ?? '');
+        $expectedToken = config('services.meta_instagram.verify_token', '');
+        if (empty($expectedToken)) {
+            $settings = \App\Models\Setting::get('instagram', []);
+            $expectedToken = (string) ($settings['webhook_verify_token'] ?? '');
+        }
 
-        if ($mode === 'subscribe' && $verifyToken !== '' && $token === $verifyToken) {
+        if ($mode === 'subscribe' && $expectedToken !== '' && $token === $expectedToken) {
+            $conn = InstagramConnection::getActive();
+            if ($conn) {
+                $conn->update(['webhook_verified_at' => now()]);
+            }
             return response($challenge ?? '', 200)->header('Content-Type', 'text/plain');
         }
 
-        Log::warning('Instagram webhook verify failed', [
+        Log::channel('instagram')->warning('Instagram webhook verify failed', [
             'mode' => $mode,
-            'token_match' => $token === $verifyToken,
-            'has_expected' => $verifyToken !== '',
+            'has_match' => $token === $expectedToken,
         ]);
-
-        return response()->json(['error' => 'Forbidden'], 403);
+        return response('Forbidden', 403);
     }
 
-    /**
-     * POST: Receive webhook events (messages, etc.).
-     * Stub: log and return 200 until full integration.
-     */
-    public function handle(Request $request)
+    public function handle(Request $request): Response
     {
+        $rawBody = $request->getContent();
+        $signature = $request->header('X-Hub-Signature-256', '');
+        $appSecret = config('services.meta_instagram.client_secret', '');
+        if ($appSecret !== '' && !$this->validateSignature($rawBody, $signature, $appSecret)) {
+            Log::channel('instagram')->warning('Instagram webhook signature invalid');
+            return response('Forbidden', 403);
+        }
+
         $data = $request->all();
-        Log::info('Instagram webhook received', ['data' => $data]);
+        if (empty($data['object']) || $data['object'] !== 'instagram') {
+            return response('', 200);
+        }
 
-        // TODO: When Meta App is connected, parse entry[].messaging and save to instagram_messages
-        // and find/create customer by ig_user_id (store in customer_contacts or social_media).
+        $entries = $data['entry'] ?? [];
+        foreach ($entries as $entry) {
+            $igAccountId = $entry['id'] ?? null;
+            $connection = InstagramConnection::where('ig_business_account_id', $igAccountId)->first();
+            if (!$connection) {
+                continue;
+            }
+            $connection->update(['last_webhook_event_at' => now()]);
+            $messaging = $entry['messaging'] ?? [];
+            foreach ($messaging as $event) {
+                $this->processMessagingEvent($connection, $event);
+            }
+        }
 
-        return response()->json(['ok' => true]);
+        return response('', 200);
+    }
+
+    protected function validateSignature(string $payload, string $signatureHeader, string $appSecret): bool
+    {
+        if (!str_starts_with($signatureHeader, 'sha256=')) {
+            return false;
+        }
+        $expected = 'sha256=' . hash_hmac('sha256', $payload, $appSecret);
+        return hash_equals($expected, $signatureHeader);
+    }
+
+    protected function processMessagingEvent(InstagramConnection $connection, array $event): void
+    {
+        $senderId = $event['sender']['id'] ?? null;
+        $recipientId = $event['recipient']['id'] ?? null;
+        $timestamp = $event['timestamp'] ?? null;
+        $mid = null;
+        $eventType = 'unknown';
+
+        if (isset($event['message'])) {
+            $eventType = 'message';
+            $mid = $event['message']['mid'] ?? null;
+            $text = $event['message']['text'] ?? null;
+            $attachments = $event['message']['attachments'] ?? [];
+            $this->logWebhookEvent($connection, $eventType, $mid, $senderId, $recipientId, $timestamp, $event);
+            if ($senderId && $recipientId === $connection->ig_business_account_id && $text !== null) {
+                $this->saveIncomingMessage($connection, $senderId, $mid, $text, $attachments);
+            }
+            return;
+        }
+        if (isset($event['message_reaction'])) {
+            $eventType = 'message_reaction';
+            $this->logWebhookEvent($connection, $eventType, null, $senderId, $recipientId, $timestamp, $event);
+            return;
+        }
+        if (isset($event['read'])) {
+            $eventType = 'messaging_seen';
+            $this->logWebhookEvent($connection, $eventType, null, $senderId, $recipientId, $timestamp, $event);
+            return;
+        }
+        if (isset($event['message_echo'])) {
+            $eventType = 'message_echo';
+            $this->logWebhookEvent($connection, $eventType, null, $senderId, $recipientId, $timestamp, $event);
+            return;
+        }
+        if (isset($event['postback'])) {
+            $eventType = 'messaging_postbacks';
+            $this->logWebhookEvent($connection, $eventType, null, $senderId, $recipientId, $timestamp, $event);
+            return;
+        }
+
+        $this->logWebhookEvent($connection, $eventType, null, $senderId, $recipientId, $timestamp, $event);
+    }
+
+    protected function logWebhookEvent(
+        InstagramConnection $connection,
+        string $eventType,
+        ?string $mid,
+        ?string $senderId,
+        ?string $recipientId,
+        $timestamp,
+        array $event
+    ): void {
+        Log::channel('instagram')->info('Instagram webhook event', [
+            'connection_id' => $connection->id,
+            'event_type' => $eventType,
+            'mid' => $mid,
+            'sender_id' => $senderId ? substr($senderId, 0, 4) . '***' : null,
+            'recipient_id' => $recipientId ? substr($recipientId, 0, 4) . '***' : null,
+            'timestamp' => $timestamp,
+        ]);
+        $payloadRedacted = $event;
+        if (isset($payloadRedacted['message']['text'])) {
+            $payloadRedacted['message']['text'] = '[REDACTED]';
+        }
+        InstagramWebhookEvent::create([
+            'instagram_connection_id' => $connection->id,
+            'event_type' => $eventType,
+            'mid' => $mid,
+            'sender_id' => $senderId,
+            'recipient_id' => $recipientId,
+            'event_timestamp' => $timestamp ? (strlen((string)(int)$timestamp) > 10 ? \Carbon\Carbon::createFromTimestampMs((int) $timestamp) : \Carbon\Carbon::createFromTimestamp((int) $timestamp)) : null,
+            'payload_redacted' => $payloadRedacted,
+        ]);
+    }
+
+    protected function saveIncomingMessage(
+        InstagramConnection $connection,
+        string $senderId,
+        ?string $mid,
+        string $text,
+        array $attachments
+    ): void {
+        $customer = $this->findOrCreateCustomerByIgId($connection, $senderId);
+        $mediaUrl = null;
+        $mediaMime = null;
+        if (!empty($attachments[0]['payload']['url'])) {
+            $mediaUrl = $attachments[0]['payload']['url'];
+            $mediaMime = $attachments[0]['type'] ?? null;
+        }
+        InstagramMessage::create([
+            'instagram_connection_id' => $connection->id,
+            'instagram_message_id' => $mid,
+            'ig_user_id' => $senderId,
+            'from_username' => null,
+            'message' => $text,
+            'message_type' => $mediaUrl ? 'attachment' : 'text',
+            'media_url' => $mediaUrl,
+            'media_mime_type' => $mediaMime,
+            'customer_id' => $customer?->id,
+            'direction' => 'incoming',
+            'status' => 'received',
+        ]);
+    }
+
+    protected function findOrCreateCustomerByIgId(InstagramConnection $connection, string $igUserId): ?Customer
+    {
+        $contact = CustomerContact::where('type', 'instagram')->where('value', $igUserId)->first();
+        if ($contact) {
+            return $contact->customer;
+        }
+        $customer = Customer::create([
+            'name' => 'Instagram ' . substr($igUserId, 0, 8),
+            'type' => 'person',
+            'status' => 'lead',
+            'source' => 'instagram',
+        ]);
+        CustomerContact::create([
+            'customer_id' => $customer->id,
+            'type' => 'instagram',
+            'value' => $igUserId,
+        ]);
+        return $customer;
     }
 }

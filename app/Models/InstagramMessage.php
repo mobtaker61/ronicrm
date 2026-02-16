@@ -10,6 +10,7 @@ class InstagramMessage extends Model
     protected $table = 'instagram_messages';
 
     protected $fillable = [
+        'instagram_connection_id',
         'instagram_message_id',
         'ig_user_id',
         'from_username',
@@ -35,6 +36,11 @@ class InstagramMessage extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function instagramConnection(): BelongsTo
+    {
+        return $this->belongsTo(InstagramConnection::class);
     }
 
     public function scopeIncoming($query)

@@ -400,7 +400,9 @@ class InboxController extends Controller
                 $instagramService = app(\App\Services\InstagramMessagingService::class);
                 $result = $instagramService->sendMessage($toIgUserId, $messageToSend, $mediaUrl);
                 $customer = $this->findCustomerByInstagramId($toIgUserId);
+                $igConn = \App\Models\InstagramConnection::getActive();
                 InstagramMessage::create([
+                    'instagram_connection_id' => $igConn?->id,
                     'instagram_message_id' => $result['message_id'] ?? null,
                     'ig_user_id' => $toIgUserId,
                     'from_username' => null,

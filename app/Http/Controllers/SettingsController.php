@@ -86,7 +86,48 @@ class SettingsController extends Controller
                 'access_token' => '',
                 'webhook_verify_token' => '',
             ]),
+            'instagramConnection' => $this->getInstagramConnectionForFront(),
+            'instagramWebhookEvents' => $isAdmin ? $this->getInstagramWebhookEventsLast20() : [],
         ]);
+    }
+
+    protected function getInstagramConnectionForFront(): ?array
+    {
+        $conn = \App\Models\InstagramConnection::getActive();
+        if (!$conn) {
+            return null;
+        }
+        return [
+            'id' => $conn->id,
+            'ig_business_account_id' => $conn->ig_business_account_id,
+            'ig_username' => $conn->ig_username,
+            'ig_profile_pic_url' => $conn->ig_profile_pic_url,
+            'page_id' => $conn->page_id,
+            'token_expires_at' => $conn->token_expires_at?->toIso8601String(),
+            'token_valid' => !$conn->isTokenExpired(),
+            'scopes' => $conn->scopes_json,
+            'webhook_verified_at' => $conn->webhook_verified_at?->toIso8601String(),
+            'last_webhook_event_at' => $conn->last_webhook_event_at?->toIso8601String(),
+        ];
+    }
+
+    protected function getInstagramWebhookEventsLast20(): array
+    {
+        return \App\Models\InstagramWebhookEvent::with('instagramConnection:id,ig_username')
+            ->orderByDesc('created_at')
+            ->limit(20)
+            ->get()
+            ->map(fn ($e) => [
+                'id' => $e->id,
+                'event_type' => $e->event_type,
+                'mid' => $e->mid,
+                'sender_id' => $e->sender_id ? substr($e->sender_id, 0, 6) . '***' : null,
+                'recipient_id' => $e->recipient_id ? substr($e->recipient_id, 0, 6) . '***' : null,
+                'event_timestamp' => $e->event_timestamp?->toIso8601String(),
+                'created_at' => $e->created_at->toIso8601String(),
+            ])
+            ->values()
+            ->all();
     }
 
     public function updateSmtp(Request $request)
@@ -236,6 +277,19 @@ class SettingsController extends Controller
 
         return redirect()->back()
             ->with('success', 'Instagram settings updated successfully.');
+    }
+
+    public function revalidateInstagramToken(Request $request)
+    {
+        $conn = \App\Models\InstagramConnection::getActive();
+        if (!$conn) {
+            return redirect()->back()->with('error', 'No Instagram account connected.');
+        }
+        $service = app(\App\Services\MetaInstagramService::class);
+        if ($service->refreshToken($conn)) {
+            return redirect()->back()->with('success', 'Token revalidated successfully.');
+        }
+        return redirect()->back()->with('error', 'Token revalidation failed. Try disconnecting and connecting again.');
     }
 
     public function testSmtp(Request $request)

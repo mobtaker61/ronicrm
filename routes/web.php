@@ -27,7 +27,7 @@ Route::get('/p/{shareToken}/export-excel', [\App\Http\Controllers\PublicProjectS
 Route::post('/wpwebhook', [\App\Http\Controllers\RonibotWebhookController::class, 'handle'])->name('ronibot.webhook');
 Route::post('/telegram-webhook', [\App\Http\Controllers\TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
 Route::get('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookController::class, 'verify'])->name('instagram.webhook.verify');
-Route::post('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookController::class, 'handle'])->name('instagram.webhook');
+Route::post('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookController::class, 'handle'])->middleware('throttle:120,1')->name('instagram.webhook');
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -101,6 +101,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/telegram', [\App\Http\Controllers\SettingsController::class, 'updateTelegram'])->name('settings.telegram.update');
     Route::post('/settings/telegram/test', [\App\Http\Controllers\SettingsController::class, 'testTelegram'])->name('settings.telegram.test');
     Route::post('/settings/instagram', [\App\Http\Controllers\SettingsController::class, 'updateInstagram'])->name('settings.instagram.update');
+    Route::get('/settings/instagram/connect', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'connect'])->name('settings.instagram.connect');
+    Route::get('/settings/instagram/callback', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'callback'])->name('settings.instagram.callback');
+    Route::post('/settings/instagram/disconnect', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'disconnect'])->name('settings.instagram.disconnect');
+    Route::post('/settings/instagram/revalidate', [\App\Http\Controllers\SettingsController::class, 'revalidateInstagramToken'])->name('settings.instagram.revalidate');
 
     // Users Management (Admin Only)
     Route::get('/settings/users', [\App\Http\Controllers\UserController::class, 'index'])->name('settings.users.index');

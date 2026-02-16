@@ -40,4 +40,12 @@ return [
         'key' => env('RONIBOT_API_KEY', ''),
     ],
 
+    'meta_instagram' => [
+        'client_id' => env('META_APP_ID', env('INSTAGRAM_APP_ID', '')),
+        'client_secret' => env('META_APP_SECRET', env('INSTAGRAM_APP_SECRET', '')),
+        'redirect_uri' => env('META_REDIRECT_URI', ''),
+        'verify_token' => env('META_VERIFY_TOKEN', ''),
+        'graph_version' => env('META_GRAPH_VERSION', 'v24.0'),
+    ],
+
 ];

@@ -737,62 +737,108 @@
                 <!-- Instagram Settings Tab -->
                 <div v-if="activeTab === 'instagram'" class="p-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-6">Instagram (Inbox)</h2>
-                    <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                        <p class="font-medium mb-2">To send and receive Instagram DMs:</p>
+
+                    <!-- Not Connected -->
+                    <div v-if="!instagramConnection" class="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
+                        <p class="text-gray-700 mb-4">Connect your Instagram Business or Creator account via Meta. No Instagram password is required—authorization is done through Meta.</p>
+                        <a :href="route('settings.instagram.connect')" class="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">
+                            Connect Instagram Business
+                        </a>
+                    </div>
+
+                    <!-- Connected -->
+                    <div v-else class="mb-8 space-y-6">
+                        <div class="p-6 border border-gray-200 rounded-lg bg-white flex flex-wrap items-start gap-6">
+                            <img v-if="instagramConnection.ig_profile_pic_url" :src="instagramConnection.ig_profile_pic_url" alt="Profile" class="w-16 h-16 rounded-full object-cover" />
+                            <div v-else class="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-2xl font-bold">{{ (instagramConnection.ig_username || 'IG').charAt(0).toUpperCase() }}</div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold text-gray-900">{{ instagramConnection.ig_username || 'Instagram Account' }}</p>
+                                <p class="text-sm text-gray-500">IG Business Account ID: {{ instagramConnection.ig_business_account_id }}</p>
+                                <p v-if="instagramConnection.page_id" class="text-sm text-gray-500">Page ID: {{ instagramConnection.page_id }}</p>
+                                <p class="text-sm mt-2">
+                                    <span :class="instagramConnection.token_valid ? 'text-green-600' : 'text-amber-600'">{{ instagramConnection.token_valid ? 'Token valid' : 'Token expired' }}</span>
+                                    <span v-if="instagramConnection.webhook_verified_at" class="text-gray-500 ml-2"> · Webhook verified</span>
+                                    <span v-if="instagramConnection.last_webhook_event_at" class="text-gray-500 ml-2"> · Last event: {{ formatDate(instagramConnection.last_webhook_event_at) }}</span>
+                                </p>
+                            </div>
+                            <form @submit.prevent="disconnectInstagram" class="inline">
+                                <button type="submit" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium">Disconnect</button>
+                            </form>
+                        </div>
+                        <p class="text-sm">
+                            <a :href="route('inbox.index', { channel: 'instagram' })" class="text-blue-600 hover:underline">Open Inbox →</a> to view DMs and reply (only to users who messaged first).
+                        </p>
+                    </div>
+
+                    <!-- Webhook & legacy token (for App Dashboard setup and fallback) -->
+                    <div class="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                        <p class="font-medium mb-2">Meta App setup:</p>
                         <ul class="list-disc list-inside space-y-1 mb-2">
-                            <li>Create an app at <a href="https://developers.facebook.com" target="_blank" class="underline">Facebook Developers</a> and enable Instagram Messaging API.</li>
-                            <li>Your Instagram account must be Business or Creator and linked to a Facebook Page.</li>
-                            <li>Obtain a Page Access Token via OAuth with scope instagram_manage_messages.</li>
-                            <li>Set the webhook URL in Meta to the value below and use the same Verify Token in both Meta and here.</li>
+                            <li>Create an app at <a href="https://developers.facebook.com" target="_blank" class="underline">Facebook Developers</a> and add Instagram (API setup with Instagram login).</li>
+                            <li>Use Business Login and request <code class="bg-amber-100 px-1 rounded">instagram_business_basic</code>, <code class="bg-amber-100 px-1 rounded">instagram_business_manage_messages</code>.</li>
+                            <li>Set the Webhook URL and Verify Token in your app. When Meta verifies, we echo the challenge.</li>
                         </ul>
-                        <p>Paste your Page Access Token below to enable sending messages from Inbox.</p>
                     </div>
                     <form @submit.prevent="saveInstagramSettings" class="space-y-6">
                         <div class="flex items-center justify-between mb-4">
                             <label class="flex items-center space-x-2">
                                 <input v-model="instagramForm.enabled" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                                <span class="text-sm font-medium text-gray-700">Enable Instagram Inbox</span>
+                                <span class="text-sm font-medium text-gray-700">Enable Instagram Inbox (legacy / fallback)</span>
                             </label>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Webhook URL (Meta)</label>
                             <div class="flex gap-2">
-                                <input
-                                    :value="instagramWebhookUrl"
-                                    type="text"
-                                    readonly
-                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm"
-                                />
-                                <button type="button" @click="copyInstagramWebhookUrl" class="px-3 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 text-sm font-medium text-gray-700 whitespace-nowrap">
-                                    {{ instagramWebhookCopied ? 'Copied!' : 'Copy' }}
-                                </button>
+                                <input :value="instagramWebhookUrl" type="text" readonly class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm" />
+                                <button type="button" @click="copyInstagramWebhookUrl" class="px-3 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 text-sm font-medium text-gray-700 whitespace-nowrap">{{ instagramWebhookCopied ? 'Copied!' : 'Copy' }}</button>
                             </div>
-                            <p class="mt-1 text-xs text-gray-500">Use this URL in your Meta App → Instagram → Webhook. Meta will send a GET to verify; the Verify Token below must match.</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Webhook Verify Token</label>
-                            <input
-                                v-model="instagramForm.webhook_verify_token"
-                                type="text"
-                                placeholder="e.g. roniplus_ig_webhook_2026"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <p class="mt-1 text-xs text-gray-500">Must be exactly the same as the Verify Token you set in Meta App. When Meta verifies, we check this and echo the challenge.</p>
+                            <input v-model="instagramForm.webhook_verify_token" type="text" placeholder="e.g. roniplus_ig_webhook_2026" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Page Access Token (Meta)</label>
-                            <input
-                                v-model="instagramForm.access_token"
-                                type="password"
-                                placeholder="EAAxxxx..."
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <p class="mt-1 text-xs text-gray-500">Page Access Token with instagram_manage_messages scope</p>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Page Access Token (optional fallback)</label>
+                            <input v-model="instagramForm.access_token" type="password" placeholder="EAAxxxx..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <p class="mt-1 text-xs text-gray-500">If you do not use Connect, you can paste a token here. Prefer Connect for security.</p>
                         </div>
-                        <button type="submit" :disabled="instagramForm.processing" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
-                            {{ instagramForm.processing ? 'Saving...' : 'Save Instagram Settings' }}
-                        </button>
+                        <button type="submit" :disabled="instagramForm.processing" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">{{ instagramForm.processing ? 'Saving...' : 'Save' }}</button>
                     </form>
+
+                    <!-- Developer Diagnostics (admin) -->
+                    <div v-if="isAdmin && instagramConnection" class="mt-10 pt-8 border-t border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Developer Diagnostics</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Scopes</p>
+                                <p class="text-sm text-gray-700">{{ (instagramConnection.scopes || []).join(', ') || '—' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Token status</p>
+                                <p class="text-sm">{{ instagramConnection.token_valid ? 'Valid' : 'Expired' }} <span v-if="instagramConnection.token_expires_at">(expires {{ formatDate(instagramConnection.token_expires_at) }})</span></p>
+                            </div>
+                            <form @submit.prevent="revalidateInstagram" class="inline">
+                                <button type="submit" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium">Revalidate Token</button>
+                            </form>
+                            <div v-if="instagramWebhookEvents.length">
+                                <p class="text-sm font-medium text-gray-600 mb-2">Last 20 webhook events (PII redacted)</p>
+                                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                    <table class="min-w-full text-sm">
+                                        <thead class="bg-gray-50"><tr><th class="px-3 py-2 text-left">Type</th><th class="px-3 py-2 text-left">Sender</th><th class="px-3 py-2 text-left">Time</th></tr></thead>
+                                        <tbody>
+                                            <tr v-for="e in instagramWebhookEvents" :key="e.id" class="border-t border-gray-100"><td class="px-3 py-2">{{ e.event_type }}</td><td class="px-3 py-2">{{ e.sender_id }}</td><td class="px-3 py-2">{{ formatDate(e.created_at) }}</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reviewer Instructions (admin) -->
+                    <div v-if="isAdmin" class="mt-10 pt-8 border-t border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">App Review – Reviewer Instructions</h3>
+                        <div class="p-4 bg-gray-100 rounded-lg text-sm text-gray-800 whitespace-pre-line">{{ reviewerInstructions }}</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -923,6 +969,14 @@ const props = defineProps({
     instagramSettings: {
         type: Object,
         default: () => ({}),
+    },
+    instagramConnection: {
+        type: Object,
+        default: null,
+    },
+    instagramWebhookEvents: {
+        type: Array,
+        default: () => [],
     },
 });
 
@@ -1092,6 +1146,23 @@ const saveInstagramSettings = () => {
         onSuccess: () => {},
     });
 };
+
+const disconnectInstagram = () => {
+    if (!confirm('Disconnect this Instagram account? You can connect again later.')) return;
+    router.post(route('settings.instagram.disconnect'), {}, { preserveScroll: true });
+};
+
+const revalidateInstagram = () => {
+    router.post(route('settings.instagram.revalidate'), {}, { preserveScroll: true });
+};
+
+const reviewerInstructions = `1. Log in to the CRM with the test credentials provided (app credentials, not Instagram).
+2. Go to Settings → Instagram (Inbox).
+3. Click "Connect Instagram Business" and complete authorization with a test Instagram Business/Creator account.
+4. After redirect, you will see the connected profile (username, ID) and webhook status.
+5. Open Inbox → Instagram tab. Send a DM from a second Instagram account to the connected account.
+6. In the CRM Inbox, select that conversation and send a reply. Confirm the reply appears in Instagram.
+7. Messaging is user-initiated only; we do not send bulk or unsolicited messages.`;
 
 const testTelegramForm = useForm({ bot_token: '' });
 const testTelegram = () => {
