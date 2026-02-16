@@ -76,12 +76,25 @@ class InstagramWebhookController extends Controller
 
         foreach ($entries as $entry) {
             $igAccountId = $entry['id'] ?? null;
-            $connection = InstagramConnection::where('ig_business_account_id', $igAccountId)->first();
-            if (!$connection) {
+            $connection = InstagramConnection::where('ig_business_account_id', (string) $igAccountId)->first();
+            // Fallback: if we have exactly one connection, use it (Meta may send entry.id in a different format than OAuth user_id)
+            if (!$connection && InstagramConnection::count() === 1) {
+                $connection = InstagramConnection::first();
+                Log::channel('instagram')->info('Using single connection for webhook', [
+                    'entry_id' => $igAccountId,
+                    'connection_ig_id' => $connection->ig_business_account_id,
+                ]);
+                // Optionally keep DB in sync for next time
+                $connection->update([
+                    'ig_business_account_id' => (string) $igAccountId,
+                    'last_webhook_event_at' => now(),
+                ]);
+            } elseif (!$connection) {
                 Log::channel('instagram')->warning('No connection for entry id', ['entry_id' => $igAccountId]);
                 continue;
+            } else {
+                $connection->update(['last_webhook_event_at' => now()]);
             }
-            $connection->update(['last_webhook_event_at' => now()]);
             $messaging = $entry['messaging'] ?? [];
             foreach ($messaging as $event) {
                 $this->processMessagingEvent($connection, $event);
