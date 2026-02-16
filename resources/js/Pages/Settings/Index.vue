@@ -683,17 +683,27 @@
                                 <p class="mt-1 text-xs text-gray-500">Create a bot via @BotFather and paste the token here.</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Webhook URL</label>
-                                <input
-                                    v-model="telegramForm.webhook_url"
-                                    type="url"
-                                    :placeholder="telegramWebhookPlaceholder"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                <p class="mt-1 text-xs text-gray-500">URL for receiving incoming messages (e.g. https://yourdomain.com/telegram-webhook)</p>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Webhook URL (برای دریافت پیام در Inbox)</label>
+                                <p class="mt-1 text-xs text-gray-500 mb-2">این آدرس را در تلگرام (مثلاً با @BotFather یا API) به عنوان Webhook ربات تنظیم کنید تا پیام‌های ورودی در Inbox نمایش داده شوند.</p>
+                                <div class="flex items-center gap-2">
+                                    <input
+                                        :value="telegramWebhookUrl"
+                                        type="text"
+                                        readonly
+                                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-mono text-sm"
+                                    />
+                                    <button
+                                        type="button"
+                                        @click="copyTelegramWebhookUrl"
+                                        class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm font-medium whitespace-nowrap"
+                                    >
+                                        {{ webhookCopied ? 'کپی شد' : 'کپی' }}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="flex items-center justify-between pt-4 border-t">
+                            <p class="text-xs text-gray-500">Test only checks if the token is valid (no message is sent).</p>
                             <button
                                 type="button"
                                 @click="testTelegram"
@@ -892,13 +902,21 @@ const ronibotForm = useForm({
 
 const telegramForm = useForm({
     bot_token: props.telegramSettings.bot_token || '',
-    webhook_url: props.telegramSettings.webhook_url || '',
     enabled: props.telegramSettings.enabled || false,
 });
 
-const telegramWebhookPlaceholder = typeof window !== 'undefined' && window.location?.origin
+const telegramWebhookUrl = typeof window !== 'undefined' && window.location?.origin
     ? `${window.location.origin}/telegram-webhook`
     : 'https://yourdomain.com/telegram-webhook';
+
+const webhookCopied = ref(false);
+const copyTelegramWebhookUrl = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(telegramWebhookUrl);
+        webhookCopied.value = true;
+        setTimeout(() => { webhookCopied.value = false; }, 2000);
+    }
+};
 
 const editSocialMediaType = (type) => {
     editingType.value = type;
@@ -973,8 +991,9 @@ const saveTelegramSettings = () => {
     });
 };
 
-const testTelegramForm = useForm({});
+const testTelegramForm = useForm({ bot_token: '' });
 const testTelegram = () => {
+    testTelegramForm.bot_token = telegramForm.bot_token || '';
     testTelegramForm.post(route('settings.telegram.test'), {
         preserveState: true,
         preserveScroll: true,

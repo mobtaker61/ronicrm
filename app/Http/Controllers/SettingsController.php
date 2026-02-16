@@ -183,7 +183,6 @@ class SettingsController extends Controller
     {
         $validated = $request->validate([
             'bot_token' => 'required|string|max:500',
-            'webhook_url' => 'nullable|url|max:500',
             'enabled' => 'boolean',
         ]);
 
@@ -196,8 +195,12 @@ class SettingsController extends Controller
     public function testTelegram(Request $request)
     {
         try {
+            // Allow testing with token from request (current form value) so user can test before saving
+            $tokenFromRequest = $request->input('bot_token');
             $telegramService = app(\App\Services\TelegramService::class);
-            $result = $telegramService->getMe();
+            $result = $tokenFromRequest
+                ? $telegramService->getMeWithToken($tokenFromRequest)
+                : $telegramService->getMe();
 
             if ($result['success']) {
                 return redirect()->back()

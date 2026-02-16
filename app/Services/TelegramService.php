@@ -21,12 +21,21 @@ class TelegramService
 
     public function getMe(): array
     {
-        if (empty($this->botToken)) {
-            return ['success' => false, 'error' => 'Telegram bot token is not configured'];
+        return $this->getMeWithToken($this->botToken);
+    }
+
+    /**
+     * Verify a bot token (e.g. for testing before saving). Does not send any message.
+     */
+    public function getMeWithToken(string $token): array
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return ['success' => false, 'error' => 'Telegram bot token is empty'];
         }
 
         try {
-            $response = Http::timeout(15)->get($this->apiBase . $this->botToken . '/getMe');
+            $response = Http::timeout(15)->get($this->apiBase . $token . '/getMe');
             $data = $response->json();
 
             if ($response->successful() && ($data['ok'] ?? false)) {
