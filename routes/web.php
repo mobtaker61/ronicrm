@@ -53,6 +53,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/inbox/send', [\App\Http\Controllers\InboxController::class, 'sendMessage'])->name('inbox.send');
     Route::post('/inbox/create-customer', [\App\Http\Controllers\InboxController::class, 'createCustomer'])->name('inbox.create-customer');
 
+    // Media (مدیریت فایل‌ها و پوشه‌ها)
+    Route::get('/media', [\App\Http\Controllers\MediaController::class, 'index'])->name('media.index');
+    Route::get('/media/list', [\App\Http\Controllers\MediaController::class, 'list'])->name('media.list');
+    Route::post('/media/folders', [\App\Http\Controllers\MediaController::class, 'storeFolder'])->name('media.folders.store');
+    Route::post('/media/files', [\App\Http\Controllers\MediaController::class, 'storeFile'])->name('media.files.store');
+    Route::delete('/media/folders/{folder}', [\App\Http\Controllers\MediaController::class, 'destroyFolder'])->name('media.folders.destroy');
+    Route::delete('/media/files/{mediaFile}', [\App\Http\Controllers\MediaController::class, 'destroyFile'])->name('media.files.destroy');
+
     // Scrap Tasks (Web Scraping)
     Route::get('/scrap-tasks', [\App\Http\Controllers\ScrapTaskController::class, 'index'])->name('scrap-tasks.index');
     Route::get('/scrap-tasks/create', [\App\Http\Controllers\ScrapTaskController::class, 'create'])->name('scrap-tasks.create');

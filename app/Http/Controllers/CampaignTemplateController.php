@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CampaignTemplate;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -26,12 +27,23 @@ class CampaignTemplateController extends Controller
             'subject' => 'nullable|string|max:255',
             'content' => 'required|string',
             'image' => 'nullable|file|max:51200', // 50MB max - accept all file types
+            'image_path' => 'nullable|string|max:500',
             'variables' => 'nullable|array',
         ]);
 
         if ($request->hasFile('image')) {
             $validated['image'] = $request->file('image')->store('campaign-attachments', 'public');
-        } else {
+        } elseif ($request->filled('image_path')) {
+            $sourcePath = $request->input('image_path');
+            if (preg_match('/^media\/[\w\/\.\-]+$/', $sourcePath) && Storage::disk('public')->exists($sourcePath)) {
+                $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);
+                $fileName = 'template_' . time() . '_' . uniqid() . '.' . $extension;
+                $destinationPath = 'campaign-attachments/' . $fileName;
+                Storage::disk('public')->copy($sourcePath, $destinationPath);
+                $validated['image'] = $destinationPath;
+            }
+        }
+        if (empty($validated['image'])) {
             unset($validated['image']);
         }
 
@@ -49,16 +61,29 @@ class CampaignTemplateController extends Controller
             'subject' => 'nullable|string|max:255',
             'content' => 'required|string',
             'image' => 'nullable|file|max:51200', // 50MB max - accept all file types
+            'image_path' => 'nullable|string|max:500',
             'variables' => 'nullable|array',
         ]);
 
         if ($request->hasFile('image')) {
-            // Delete old file if exists
             if ($campaignTemplate->image) {
-                \Storage::disk('public')->delete($campaignTemplate->image);
+                Storage::disk('public')->delete($campaignTemplate->image);
             }
             $validated['image'] = $request->file('image')->store('campaign-attachments', 'public');
-        } else {
+        } elseif ($request->filled('image_path')) {
+            $sourcePath = $request->input('image_path');
+            if (preg_match('/^media\/[\w\/\.\-]+$/', $sourcePath) && Storage::disk('public')->exists($sourcePath)) {
+                if ($campaignTemplate->image) {
+                    Storage::disk('public')->delete($campaignTemplate->image);
+                }
+                $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);
+                $fileName = 'template_' . time() . '_' . uniqid() . '.' . $extension;
+                $destinationPath = 'campaign-attachments/' . $fileName;
+                Storage::disk('public')->copy($sourcePath, $destinationPath);
+                $validated['image'] = $destinationPath;
+            }
+        }
+        if (empty($validated['image'])) {
             unset($validated['image']);
         }
 

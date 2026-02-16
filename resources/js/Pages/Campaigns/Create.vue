@@ -130,9 +130,16 @@
                                 @change="handleImageChange"
                                 class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                             />
+                            <button
+                                type="button"
+                                @click="showMediaPicker = true"
+                                class="mt-2 px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                            >
+                                انتخاب از مدیا
+                            </button>
                             <p class="mt-1 text-xs text-gray-500">Upload file for WhatsApp (PDF, Word, Excel, Images, etc. - Max 50MB)</p>
                             <p v-if="selectedFile" class="mt-1 text-xs text-gray-600">
-                                Selected: {{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})
+                                انتخاب‌شده: {{ selectedFile.name }}{{ selectedFile.size != null ? ' (' + formatFileSize(selectedFile.size) + ')' : '' }}
                             </p>
                             <p v-if="form.template_id && selectedTemplate?.image" class="mt-1 text-xs text-blue-600">
                                 Template has an attachment. Upload a new file to replace it.
@@ -533,12 +540,19 @@
                 </div>
             </form>
         </div>
+
+        <MediaPickerModal
+            :show="showMediaPicker"
+            @close="showMediaPicker = false"
+            @select="onMediaSelectForCampaign"
+        />
     </AppLayout>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue';
 import { useForm, Link } from '@inertiajs/vue3';
+import MediaPickerModal from '@/Components/MediaPickerModal.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -575,6 +589,7 @@ const form = useForm({
     subject: '',
     content: '',
     image: null,
+    image_path: null,
     attachments: [],
     scheduled_at: null,
     recipient_entries: [],
@@ -594,6 +609,7 @@ const scheduleNow = ref(true);
 const editorMode = ref('html');
 const imagePreview = ref(null);
 const selectedFile = ref(null);
+const showMediaPicker = ref(false);
 const recipientFilters = ref({
     project_id: '',
     industry_id: '',
@@ -767,6 +783,7 @@ const handleImageChange = (event) => {
         }
         
         form.image = file;
+        form.image_path = null;
         selectedFile.value = file;
         
         // Only create preview for image files
@@ -782,8 +799,16 @@ const handleImageChange = (event) => {
     }
 };
 
+const onMediaSelectForCampaign = (file) => {
+    form.image_path = file.path;
+    form.image = null;
+    selectedFile.value = { name: file.name, url: file.url, isImage: file.is_image };
+    imagePreview.value = file.is_image ? (file.url.startsWith('http') ? file.url : (window.location.origin + (file.url.startsWith('/') ? file.url : '/' + file.url)) : null;
+};
+
 const clearImage = () => {
     form.image = null;
+    form.image_path = null;
     imagePreview.value = null;
     selectedFile.value = null;
     const fileInput = document.querySelector('input[type="file"]');
@@ -794,6 +819,7 @@ const clearImage = () => {
 
 const isImageFile = (file) => {
     if (!file) return false;
+    if (file.isImage !== undefined) return file.isImage;
     return file.type && file.type.startsWith('image/');
 };
 
@@ -818,6 +844,8 @@ const loadTemplate = () => {
         if (template) {
             form.content = template.content || '';
             form.subject = template.subject || '';
+            form.image_path = null;
+            selectedFile.value = null;
             // Only show template image if type matches and no new image is uploaded
             if (template.image && form.type === 'whatsapp' && !form.image) {
                 // Template image is already a full URL from backend

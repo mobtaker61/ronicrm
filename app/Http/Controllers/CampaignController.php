@@ -65,6 +65,7 @@ class CampaignController extends Controller
             'subject' => 'nullable|string|max:255',
             'content' => 'required|string',
             'image' => 'nullable|file|max:51200', // 50MB max - accept all file types
+            'image_path' => 'nullable|string|max:500', // path from Media library (e.g. media/2026/02/xxx.jpg)
             'attachments' => 'nullable|array',
             'attachments.*' => 'file|max:20480', // 20MB per file for email attachments
             'scheduled_at' => 'nullable|date',
@@ -95,6 +96,15 @@ class CampaignController extends Controller
         $imagePath = null;
         if ($request->hasFile('image')) {
             $imagePath = $request->file('image')->store('campaign-attachments', 'public');
+        } elseif ($request->filled('image_path')) {
+            $sourcePath = $request->input('image_path');
+            if (preg_match('/^media\/[\w\/\.\-]+$/', $sourcePath) && Storage::disk('public')->exists($sourcePath)) {
+                $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);
+                $fileName = 'campaign_' . time() . '_' . uniqid() . '.' . $extension;
+                $destinationPath = 'campaign-attachments/' . $fileName;
+                Storage::disk('public')->copy($sourcePath, $destinationPath);
+                $imagePath = $destinationPath;
+            }
         } elseif ($validated['template_id']) {
             // If template is selected and no new file is uploaded, copy template's file
             $template = CampaignTemplate::find($validated['template_id']);

@@ -19,32 +19,37 @@ class InboxController extends Controller
     public function index(Request $request): Response
     {
         $selectedPhone = $request->get('phone');
-        $searchPhone = $request->get('search_phone');
-        
-        // Search customers by phone if search_phone is provided
+        $searchPhone = trim((string) $request->get('search_phone', ''));
+
+        // جستجوی مخاطبان بر اساس نام یا شماره تلفن (حداقل ۲ کاراکتر)
         $searchResults = [];
-        if ($searchPhone) {
-            $phone = $this->formatPhone($searchPhone);
-            $searchResults = Customer::whereHas('contacts', function ($q) use ($phone) {
-                $q->where(function ($q) {
-                    $q->where('type', 'phone')->orWhere('type', 'whatsapp');
-                })->where('value', 'like', "%{$phone}%");
-            })
-                ->limit(10)
-                ->get()
-                ->map(function ($customer) {
-                    // Get phone from contacts
-                    $phoneContact = $customer->contacts()->where(function ($q) {
-                        $q->where('type', 'phone')->orWhere('type', 'whatsapp');
-                    })->first();
-                    
-                    return [
-                        'id' => $customer->id,
-                        'name' => $customer->name,
-                        'phone' => $phoneContact?->value,
-                        'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
-                    ];
+        if (strlen($searchPhone) >= 2) {
+            $searchTerm = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchPhone);
+            $phoneDigits = preg_replace('/[^0-9]/', '', $searchPhone);
+
+            $query = Customer::query()
+                ->where(function ($q) use ($searchTerm, $phoneDigits) {
+                    $q->where('name', 'like', '%' . $searchTerm . '%');
+                    if (strlen($phoneDigits) >= 2) {
+                        $q->orWhereHas('contacts', function ($cq) use ($phoneDigits) {
+                            $cq->where(function ($cq) {
+                                $cq->where('type', 'phone')->orWhere('type', 'whatsapp');
+                            })->where('value', 'like', '%' . $phoneDigits . '%');
+                        });
+                    }
                 });
+
+            $searchResults = $query->limit(15)->get()->map(function ($customer) {
+                $phoneContact = $customer->contacts()->where(function ($q) {
+                    $q->where('type', 'phone')->orWhere('type', 'whatsapp');
+                })->first();
+                return [
+                    'id' => $customer->id,
+                    'name' => $customer->name,
+                    'phone' => $phoneContact?->value,
+                    'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
+                ];
+            })->filter(fn ($r) => ! empty($r['phone']))->values()->all();
         }
         
         // Get list of unique conversations (both incoming and outgoing)

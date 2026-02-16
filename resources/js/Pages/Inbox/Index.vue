@@ -31,9 +31,9 @@
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                             
-                            <!-- Search Results Dropdown -->
+                            <!-- Search Results Dropdown (حداقل ۲ کاراکتر تا نتایج معنی‌دار باشد) -->
                             <div
-                                v-if="showSearchResults && (searchResults.length > 0 || searchPhone.trim())"
+                                v-if="showSearchResults && searchPhone.trim().length >= 2 && (searchResults.length > 0 || searchPhone.trim())"
                                 class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
                             >
                                 <!-- Customer Results -->
@@ -285,15 +285,26 @@
                                         type="file"
                                         @change="handleFileSelect"
                                         class="hidden"
+                                        accept="*"
                                     />
                                     <button
                                         type="button"
                                         @click="$refs.fileInput?.click()"
                                         class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-                                        title="Attach file"
+                                        title="آپلود فایل"
                                     >
                                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        @click="showMediaPicker = true"
+                                        class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                                        title="انتخاب از مدیا"
+                                    >
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
                                     </button>
                                     <textarea
@@ -515,6 +526,12 @@
                 </form>
             </div>
         </div>
+
+        <MediaPickerModal
+            :show="showMediaPicker"
+            @close="showMediaPicker = false"
+            @select="onMediaSelect"
+        />
     </AppLayout>
 </template>
 
@@ -522,6 +539,7 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { Link, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import MediaPickerModal from '@/Components/MediaPickerModal.vue';
 import { debounce } from 'lodash-es';
 
 const props = defineProps({
@@ -560,6 +578,7 @@ const sendForm = useForm({
     to_phone: props.selectedPhone,
     message: '',
     media_file: null,
+    media_url: null,
 });
 
 const customerForm = useForm({
@@ -568,31 +587,42 @@ const customerForm = useForm({
     email: '',
 });
 
-// Debounced search function
+// جستجو با حداقل ۲ کاراکتر و درخواست فقط searchResults از سرور
 const searchCustomers = debounce(() => {
-    if (searchPhone.value.trim().length >= 3) {
-        router.get(route('inbox.index'), { search_phone: searchPhone.value }, {
+    const q = searchPhone.value.trim();
+    if (q.length >= 2) {
+        const params = { search_phone: q };
+        if (props.selectedPhone) params.phone = props.selectedPhone;
+        router.get(route('inbox.index'), params, {
             preserveState: true,
             preserveScroll: true,
             only: ['searchResults'],
         });
     }
-}, 300);
+}, 280);
 
-// Watch for search results from server
+// نتایج جستجو از سرور (نام یا شماره)
 const searchResults = computed(() => {
     return props.searchResults || [];
 });
 
-// Close dropdown when clicking outside
 watch(() => searchPhone.value, () => {
-    if (searchPhone.value.trim().length >= 3) {
+    if (searchPhone.value.trim().length >= 2) {
         showSearchResults.value = true;
     }
 });
 
+// لیست مکالمات: اگر جستجو خالی است همه را نشان بده، وگرنه فقط مواردی که نام یا شماره با جستجو تطابق دارد
 const filteredConversations = computed(() => {
-    return props.conversations;
+    const list = props.conversations || [];
+    const q = searchPhone.value.trim().toLowerCase();
+    if (!q || q.length < 2) return list;
+    return list.filter((c) => {
+        const name = (c.name || '').toLowerCase();
+        const phone = (c.phone || '').replace(/\D/g, '');
+        const qDigits = q.replace(/\D/g, '');
+        return name.includes(q) || (qDigits.length >= 2 && phone.includes(qDigits));
+    });
 });
 
 const selectedConversation = computed(() => {
@@ -681,6 +711,7 @@ const autoResizeTextarea = () => {
 const clearSelectedFile = () => {
     selectedFile.value = null;
     sendForm.media_file = null;
+    sendForm.media_url = null;
     if (fileInput.value) {
         fileInput.value.value = '';
     }
@@ -706,6 +737,8 @@ const selectConversation = (phone) => {
     });
 };
 
+const showMediaPicker = ref(false);
+
 const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -718,7 +751,15 @@ const handleFileSelect = (event) => {
         
         selectedFile.value = file;
         sendForm.media_file = file;
+        sendForm.media_url = null;
     }
+};
+
+const onMediaSelect = (file) => {
+    const fullUrl = file.url.startsWith('http') ? file.url : (window.location.origin + (file.url.startsWith('/') ? file.url : '/' + file.url));
+    sendForm.media_url = fullUrl;
+    sendForm.media_file = null;
+    selectedFile.value = { name: file.name, url: fullUrl };
 };
 
 const sendMessage = () => {

@@ -164,9 +164,16 @@
                                         @change="handleImageChange"
                                         class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                     />
+                                    <button
+                                        type="button"
+                                        @click="showMediaPicker = true"
+                                        class="mt-2 px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                                    >
+                                        انتخاب از مدیا
+                                    </button>
                                     <p class="mt-1 text-xs text-gray-500">Upload file for WhatsApp (PDF, Word, Excel, Images, etc. - Max 50MB)</p>
                                     <p v-if="selectedFile" class="mt-1 text-xs text-gray-600">
-                                        Selected: {{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})
+                                        انتخاب‌شده: {{ selectedFile.name }}{{ selectedFile.size != null ? ' (' + formatFileSize(selectedFile.size) + ')' : '' }}
                                     </p>
                                 </div>
                             </div>
@@ -366,6 +373,12 @@
                 </div>
             </div>
         </div>
+
+        <MediaPickerModal
+            :show="showMediaPicker"
+            @close="showMediaPicker = false"
+            @select="onMediaSelectForTemplate"
+        />
     </AppLayout>
 </template>
 
@@ -373,6 +386,7 @@
 import { ref } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import MediaPickerModal from '@/Components/MediaPickerModal.vue';
 
 const props = defineProps({
     templates: Array,
@@ -383,6 +397,7 @@ const editingTemplate = ref(null);
 const editorMode = ref('html');
 const imagePreview = ref(null);
 const selectedFile = ref(null);
+const showMediaPicker = ref(false);
 const htmlEditor = ref(null);
 
 const form = useForm({
@@ -391,6 +406,7 @@ const form = useForm({
     subject: '',
     content: '',
     image: null,
+    image_path: null,
 });
 
 const handleTypeChange = () => {
@@ -403,22 +419,17 @@ const handleTypeChange = () => {
 const handleImageChange = (event) => {
     const file = event.target.files[0];
     if (file) {
-        // Validate file size (50MB max)
         if (file.size > 50 * 1024 * 1024) {
             alert('File size must be less than 50MB');
             event.target.value = '';
             return;
         }
-        
         form.image = file;
+        form.image_path = null;
         selectedFile.value = file;
-        
-        // Only create preview for image files
         if (file.type.startsWith('image/')) {
             const reader = new FileReader();
-            reader.onload = (e) => {
-                imagePreview.value = e.target.result;
-            };
+            reader.onload = (e) => { imagePreview.value = e.target.result; };
             reader.readAsDataURL(file);
         } else {
             imagePreview.value = null;
@@ -426,23 +437,28 @@ const handleImageChange = (event) => {
     }
 };
 
+const onMediaSelectForTemplate = (file) => {
+    form.image_path = file.path;
+    form.image = null;
+    selectedFile.value = { name: file.name, url: file.url, isImage: file.is_image };
+    imagePreview.value = file.is_image ? (file.url.startsWith('http') ? file.url : (window.location.origin + (file.url.startsWith('/') ? file.url : '/' + file.url))) : null;
+};
+
 const clearImage = () => {
     form.image = null;
+    form.image_path = null;
     imagePreview.value = null;
     selectedFile.value = null;
     const fileInput = document.querySelector('input[type="file"]');
-    if (fileInput) {
-        fileInput.value = '';
-    }
+    if (fileInput) fileInput.value = '';
 };
 
 const isImageFile = (file) => {
     if (!file) return false;
+    if (file.isImage !== undefined) return file.isImage;
     if (typeof file === 'string') {
-        // It's a URL/path, check extension
         const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
-        const lowerPath = file.toLowerCase();
-        return imageExtensions.some(ext => lowerPath.includes(ext));
+        return imageExtensions.some(ext => file.toLowerCase().includes(ext));
     }
     return file.type && file.type.startsWith('image/');
 };
@@ -462,6 +478,7 @@ const editTemplate = (template) => {
     form.subject = template.subject || '';
     form.content = template.content;
     form.image = null;
+    form.image_path = null;
     imagePreview.value = null;
     selectedFile.value = null;
     editorMode.value = 'html';
@@ -479,20 +496,19 @@ const deleteTemplate = (template) => {
 
 const saveTemplate = () => {
     if (editingTemplate.value) {
-        form.put(route('campaign-templates.update', editingTemplate.value.id), {
+        form.post(route('campaign-templates.update', editingTemplate.value.id), {
             preserveState: true,
             preserveScroll: true,
-            onSuccess: () => {
-                closeModal();
-            },
+            forceFormData: true,
+            method: 'put',
+            onSuccess: () => closeModal(),
         });
     } else {
         form.post(route('campaign-templates.store'), {
             preserveState: true,
             preserveScroll: true,
-            onSuccess: () => {
-                closeModal();
-            },
+            forceFormData: true,
+            onSuccess: () => closeModal(),
         });
     }
 };
