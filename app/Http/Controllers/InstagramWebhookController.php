@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\CustomerContact;
+use App\Models\CustomerSocialMedia;
 use App\Models\InstagramConnection;
 use App\Models\InstagramMessage;
 use App\Models\InstagramWebhookEvent;
+use App\Models\SocialMediaType;
+use App\Services\MetaInstagramService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
@@ -226,8 +229,31 @@ class InstagramWebhookController extends Controller
         if ($contact) {
             return $contact->customer;
         }
+
+        $username = null;
+        $profile = app(MetaInstagramService::class)->getUserProfile($connection, $igUserId);
+        if (empty($profile['error']) && !empty($profile['username'])) {
+            $username = trim($profile['username']);
+        }
+
+        $instagramType = SocialMediaType::where('name', 'Instagram')->first();
+        if ($instagramType && $username !== null && $username !== '') {
+            $normalized = strtolower(ltrim($username, '@'));
+            $candidates = CustomerSocialMedia::where('social_media_type_id', $instagramType->id)->get();
+            $social = $candidates->first(fn ($c) => strtolower(ltrim($c->handle ?? '', '@')) === $normalized);
+            if ($social) {
+                CustomerContact::create([
+                    'customer_id' => $social->customer_id,
+                    'type' => 'instagram',
+                    'value' => $igUserId,
+                ]);
+                return $social->customer;
+            }
+        }
+
+        $displayName = !empty($profile['name']) ? $profile['name'] : ($username ? '@' . $username : 'Instagram ' . substr($igUserId, 0, 8));
         $customer = Customer::create([
-            'name' => 'Instagram ' . substr($igUserId, 0, 8),
+            'name' => $displayName,
             'type' => 'person',
             'status' => 'lead',
             'source' => 'instagram',
@@ -237,6 +263,14 @@ class InstagramWebhookController extends Controller
             'type' => 'instagram',
             'value' => $igUserId,
         ]);
+        if ($instagramType && $username !== null && $username !== '') {
+            CustomerSocialMedia::create([
+                'customer_id' => $customer->id,
+                'social_media_type_id' => $instagramType->id,
+                'handle' => $username,
+                'is_primary' => false,
+            ]);
+        }
         return $customer;
     }
 }

@@ -120,6 +120,28 @@ class MetaInstagramService
     }
 
     /**
+     * Get another user's profile by Instagram-scoped ID (e.g. sender from webhook).
+     * Requires user to have messaged first (consent). Returns username, name, profile_pic.
+     */
+    public function getUserProfile(InstagramConnection $connection, string $igUserId): array
+    {
+        $token = $connection->getAccessToken();
+        if (!$token) {
+            return ['error' => 'No token'];
+        }
+        $url = 'https://graph.instagram.com/' . $this->graphVersion . '/' . $igUserId . '?' . http_build_query([
+            'fields' => 'username,name,profile_pic',
+            'access_token' => $token,
+        ]);
+        $response = Http::get($url);
+        $data = $response->json();
+        if (!$response->successful()) {
+            return ['error' => $data['error']['message'] ?? 'Profile fetch failed'];
+        }
+        return $data;
+    }
+
+    /**
      * GET graph.instagram.com/me with token.
      */
     public function getProfile(string $accessToken): array
