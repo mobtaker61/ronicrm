@@ -22,7 +22,7 @@ class MetaInstagramService
         $this->appId = config('services.meta_instagram.client_id', '');
         $this->appSecret = config('services.meta_instagram.client_secret', '');
         $this->redirectUri = config('services.meta_instagram.redirect_uri', '');
-        $this->graphVersion = config('services.meta_instagram.graph_version', 'v21.0');
+        $this->graphVersion = config('services.meta_instagram.graph_version', 'v24.0');
     }
 
     public function isConfigured(): bool
