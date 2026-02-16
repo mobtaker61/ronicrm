@@ -17,6 +17,12 @@ Route::get('/p/{shareToken}', [\App\Http\Controllers\PublicProjectShareControlle
 Route::get('/p/{shareToken}/customer/{shareKey}', [\App\Http\Controllers\PublicProjectShareController::class, 'getCustomer'])->name('public.project.customer');
 Route::get('/p/{shareToken}/export-excel', [\App\Http\Controllers\PublicProjectShareController::class, 'exportExcel'])->name('public.project.export-excel');
 
+// Webhooks (no auth, no CSRF – called by Telegram, Ronibot, Meta)
+Route::post('/wpwebhook', [\App\Http\Controllers\RonibotWebhookController::class, 'handle'])->name('ronibot.webhook');
+Route::post('/telegram-webhook', [\App\Http\Controllers\TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
+Route::get('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookController::class, 'verify'])->name('instagram.webhook.verify');
+Route::post('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookController::class, 'handle'])->name('instagram.webhook');
+
 Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -95,14 +101,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/users', [\App\Http\Controllers\UserController::class, 'store'])->name('settings.users.store');
     Route::put('/settings/users/{user}', [\App\Http\Controllers\UserController::class, 'update'])->name('settings.users.update');
     Route::delete('/settings/users/{user}', [\App\Http\Controllers\UserController::class, 'destroy'])->name('settings.users.destroy');
-    
-    // Ronibot Webhook (public route, no auth required)
-    Route::post('/wpwebhook', [\App\Http\Controllers\RonibotWebhookController::class, 'handle'])->name('ronibot.webhook');
-    // Telegram Bot Webhook (public, no auth)
-    Route::post('/telegram-webhook', [\App\Http\Controllers\TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
-    // Instagram Webhook (Meta: verify + receive)
-    Route::get('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookController::class, 'verify'])->name('instagram.webhook.verify');
-    Route::post('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookController::class, 'handle'])->name('instagram.webhook');
+
     Route::get('/settings/social-media-types', [\App\Http\Controllers\SocialMediaTypeController::class, 'index'])->name('settings.social-media-types');
     Route::post('/settings/social-media-types', [\App\Http\Controllers\SocialMediaTypeController::class, 'store'])->name('settings.social-media-types.store');
     Route::put('/settings/social-media-types/{socialMediaType}', [\App\Http\Controllers\SocialMediaTypeController::class, 'update'])->name('settings.social-media-types.update');

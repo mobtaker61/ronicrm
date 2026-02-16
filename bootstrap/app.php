@@ -15,7 +15,14 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
         ]);
         $middleware->redirectGuestsTo('/login');
-        
+
+        // Webhooks receive POST from external services (no CSRF token)
+        $middleware->validateCsrfTokens(except: [
+            'telegram-webhook',
+            'wpwebhook',
+            'instagram-webhook',
+        ]);
+
         // Trust all proxies (needed for ngrok)
         $middleware->trustProxies(at: '*');
     })
