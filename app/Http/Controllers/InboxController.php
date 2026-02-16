@@ -187,7 +187,10 @@ class InboxController extends Controller
             'to_phone' => 'required|string',
             'message' => 'nullable|string|max:5000',
             'media_url' => 'nullable|url',
-            'media_file' => 'nullable|file|max:51200', // 50MB max - accept all file types
+            'media_file' => 'nullable|file|max:51200',
+        ], [
+            'media_file.file' => 'فایل آپلود نشد. حجم (حداکثر ۵۰ مگ) یا تنظیمات سرور را بررسی کنید.',
+            'media_file.max' => 'حجم فایل نباید بیشتر از ۵۰ مگابایت باشد.',
         ]);
 
         try {

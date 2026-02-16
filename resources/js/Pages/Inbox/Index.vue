@@ -769,6 +769,8 @@ const sendMessage = () => {
     }
 
     const formData = new FormData();
+    const token = typeof window !== 'undefined' && document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (token) formData.append('_token', token);
     formData.append('to_phone', props.selectedPhone);
     formData.append('message', newMessage.value || '');
     if (selectedFile.value instanceof File) {
@@ -792,9 +794,8 @@ const sendMessage = () => {
         },
         onError: (errors) => {
             console.error('Error sending message:', errors);
-            if (errors?.media_file?.[0]) {
-                alert(errors.media_file[0]);
-            }
+            const msg = errors?.media_file?.[0] || errors?.message?.[0] || (typeof errors === 'object' && Object.values(errors).flat().find(Boolean));
+            if (msg) alert(msg);
         },
         onFinish: () => {
             sendingMessage.value = false;

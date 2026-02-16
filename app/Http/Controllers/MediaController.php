@@ -57,8 +57,13 @@ class MediaController extends Controller
         $request->validate([
             'file' => 'required_without:files|nullable|file|max:51200',
             'files' => 'nullable|array',
-            'files.*' => 'file|max:51200',
+            'files.*' => 'nullable|file|max:51200',
             'folder_id' => 'nullable|exists:media_folders,id',
+        ], [
+            'file.file' => 'فایل آپلود نشد. حجم (حداکثر ۵۰ مگ) یا تنظیمات سرور را بررسی کنید.',
+            'files.*.file' => 'یکی از فایل‌ها آپلود نشد. حجم یا تنظیمات سرور را بررسی کنید.',
+            'file.max' => 'حجم فایل نباید بیشتر از ۵۰ مگابایت باشد.',
+            'files.*.max' => 'حجم هر فایل نباید بیشتر از ۵۰ مگابایت باشد.',
         ]);
         $folderId = $request->input('folder_id') ?: null;
         $uploaded = 0;
@@ -67,7 +72,9 @@ class MediaController extends Controller
         }
         if ($request->hasFile('files')) {
             foreach ($request->file('files') as $file) {
-                $uploaded += $this->storeOneFile($file, $folderId);
+                if ($file && $file->isValid()) {
+                    $uploaded += $this->storeOneFile($file, $folderId);
+                }
             }
         }
         return redirect()->back()->with('success', $uploaded ? "{$uploaded} فایل آپلود شد." : 'فایلی انتخاب نشد.');

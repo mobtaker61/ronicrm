@@ -227,11 +227,20 @@ function handleUpload(e) {
     const list = e.target.files;
     if (!list?.length) return;
     const formData = new FormData();
+    const token = typeof document !== 'undefined' && document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (token) formData.append('_token', token);
     formData.append('folder_id', currentFolderId.value ?? '');
     for (let i = 0; i < list.length; i++) {
         formData.append('files[]', list[i]);
     }
-    router.post(route('media.files.store'), formData, { preserveScroll: true, forceFormData: true });
+    router.post(route('media.files.store'), formData, {
+        preserveScroll: true,
+        forceFormData: true,
+        onError: (errors) => {
+            const msg = errors?.file?.[0] || errors?.files?.[0] || (errors && typeof errors === 'object' && Object.values(errors).flat().find(Boolean));
+            if (msg) alert(msg);
+        },
+    });
     e.target.value = '';
 }
 
