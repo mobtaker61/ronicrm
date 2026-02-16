@@ -60,8 +60,8 @@ class MediaController extends Controller
             'files.*' => 'nullable|file|max:51200',
             'folder_id' => 'nullable|exists:media_folders,id',
         ], [
-            'file.file' => 'فایل آپلود نشد. حجم (حداکثر ۵۰ مگ) یا تنظیمات سرور را بررسی کنید.',
-            'files.*.file' => 'یکی از فایل‌ها آپلود نشد. حجم یا تنظیمات سرور را بررسی کنید.',
+            'file.file' => 'فایل به سرور نرسید. در سرور: php.ini را بررسی کنید (upload_max_filesize و post_max_size) و در Nginx مقدار client_max_body_size را افزایش دهید.',
+            'files.*.file' => 'فایل به سرور نرسید. در سرور: php.ini را بررسی کنید (upload_max_filesize و post_max_size) و در Nginx مقدار client_max_body_size را افزایش دهید.',
             'file.max' => 'حجم فایل نباید بیشتر از ۵۰ مگابایت باشد.',
             'files.*.max' => 'حجم هر فایل نباید بیشتر از ۵۰ مگابایت باشد.',
         ]);

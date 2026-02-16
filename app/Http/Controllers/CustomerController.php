@@ -58,7 +58,7 @@ class CustomerController extends Controller
 
         return Inertia::render('Customers/Index', [
             'customers' => $customers,
-            'industries' => Industry::orderBy('name')->get(),
+            'industries' => Industry::with('children')->whereNull('parent_id')->orderBy('sort_order')->orderBy('name')->get(),
             'projects' => Project::orderBy('name')->get(),
             'filters' => $request->only(['search', 'type', 'industry_id', 'project_id', 'status', 'source']),
         ]);
@@ -67,7 +67,7 @@ class CustomerController extends Controller
     public function create(): Response
     {
         return Inertia::render('Customers/Create', [
-            'industries' => Industry::orderBy('name')->get(),
+            'industries' => Industry::with('children')->whereNull('parent_id')->orderBy('sort_order')->orderBy('name')->get(),
             'projects' => Project::orderBy('name')->get(),
             'socialMediaTypes' => SocialMediaType::where('is_active', true)->orderBy('sort_order')->get(),
         ]);
@@ -211,7 +211,7 @@ class CustomerController extends Controller
 
         return Inertia::render('Customers/Edit', [
             'customer' => $customer,
-            'industries' => Industry::orderBy('name')->get(),
+            'industries' => Industry::with('children')->whereNull('parent_id')->orderBy('sort_order')->orderBy('name')->get(),
             'projects' => Project::orderBy('name')->get(),
             'socialMediaTypes' => SocialMediaType::where('is_active', true)->orderBy('sort_order')->get(),
         ]);

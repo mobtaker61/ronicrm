@@ -361,16 +361,12 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Industry</label>
-                                <select
+                                <IndustrySelect
                                     v-model="recipientFilters.industry_id"
-                                    @change="filterRecipients"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">All Industries</option>
-                                    <option v-for="industry in allIndustries" :key="industry.id" :value="industry.id">
-                                        {{ industry.full_path || industry.name }}
-                                    </option>
-                                </select>
+                                    :industries="industries"
+                                    placeholder="All industries"
+                                    @update:model-value="filterRecipients"
+                                />
                             </div>
 
                             <div>
@@ -553,6 +549,7 @@
 import { ref, computed } from 'vue';
 import { useForm, Link } from '@inertiajs/vue3';
 import MediaPickerModal from '@/Components/MediaPickerModal.vue';
+import IndustrySelect from '@/Components/IndustrySelect.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -562,24 +559,16 @@ const props = defineProps({
     customers: Array,
 });
 
-// Flatten industries to include all parent and child industries
-const allIndustries = computed(() => {
-    const flatten = (items, prefix = '') => {
-        let result = [];
-        items.forEach(item => {
-            const name = prefix ? `${prefix} > ${item.name}` : item.name;
-            result.push({
-                ...item,
-                full_path: name
-            });
-            if (item.children && item.children.length > 0) {
-                result = result.concat(flatten(item.children, name));
-            }
-        });
-        return result;
-    };
-    return flatten(props.industries || []);
-});
+// پیدا کردن صنعت از درخت با id (برای فیلتر مخاطبان)
+function findIndustryById(items, id) {
+    if (!id) return null;
+    for (const item of items || []) {
+        if (item.id == id) return item;
+        const found = findIndustryById(item.children, id);
+        if (found) return found;
+    }
+    return null;
+}
 
 const form = useForm({
     name: '',
@@ -646,26 +635,17 @@ const filteredCustomers = computed(() => {
         });
     }
 
-    // Filter by industry
+    // Filter by industry (دسته/زیردسته و شامل زیردسته‌ها)
     if (recipientFilters.value.industry_id) {
-        // Also include customers from child industries
-        const selectedIndustry = allIndustries.value.find(i => i.id == recipientFilters.value.industry_id);
+        const selectedIndustry = findIndustryById(props.industries || [], recipientFilters.value.industry_id);
         const industryIds = [parseInt(recipientFilters.value.industry_id)];
-        
-        // Get all child industry IDs recursively
         const getChildIds = (industry) => {
-            if (industry.children && industry.children.length > 0) {
-                industry.children.forEach(child => {
-                    industryIds.push(child.id);
-                    getChildIds(child);
-                });
-            }
+            (industry?.children || []).forEach(child => {
+                industryIds.push(child.id);
+                getChildIds(child);
+            });
         };
-        
-        if (selectedIndustry) {
-            getChildIds(selectedIndustry);
-        }
-        
+        if (selectedIndustry) getChildIds(selectedIndustry);
         filtered = filtered.filter(c => industryIds.includes(c.industry_id));
     }
 

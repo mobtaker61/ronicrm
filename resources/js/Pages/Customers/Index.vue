@@ -61,16 +61,12 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Industry</label>
-                        <select
+                        <IndustrySelect
                             v-model="filters.industry_id"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            @change="applyFilters"
-                        >
-                            <option value="">All Industries</option>
-                            <option v-for="industry in industries" :key="industry.id" :value="industry.id">
-                                {{ industry.name }}
-                            </option>
-                        </select>
+                            :industries="industries"
+                            placeholder="All industries"
+                            @update:model-value="applyFilters"
+                        />
                     </div>
 
                     <div>
@@ -184,13 +180,15 @@
                                 <select
                                     v-model="customer.industry_id"
                                     @change="updateIndustry(customer)"
-                                    class="text-xs px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    class="text-xs px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[140px]"
                                     :style="{ backgroundColor: customer.industry ? customer.industry.color + '20' : '', color: customer.industry ? customer.industry.color : '' }"
                                 >
                                     <option :value="null">-</option>
-                                    <option v-for="industry in industries" :key="industry.id" :value="industry.id">
-                                        {{ industry.name }}
-                                    </option>
+                                    <optgroup v-for="p in industries" :key="p.id" :label="p.name">
+                                        <option v-if="(p.children && p.children.length)" :value="p.id">— All this category —</option>
+                                        <option v-for="c in (p.children || [])" :key="c.id" :value="c.id">{{ c.name }}</option>
+                                        <option v-if="!(p.children || []).length" :value="p.id">—</option>
+                                    </optgroup>
                                 </select>
                             </td>
                             <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -439,6 +437,7 @@
 import { ref, watch } from 'vue';
 import { Link, router, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import IndustrySelect from '@/Components/IndustrySelect.vue';
 import { debounce } from 'lodash-es';
 
 const props = defineProps({
