@@ -25,7 +25,7 @@ Route::post('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookControl
 
 Route::middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index']);
 
     // Industries
     Route::resource('industries', \App\Http\Controllers\IndustryController::class)->except(['show', 'create', 'edit']);

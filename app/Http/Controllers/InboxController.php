@@ -44,17 +44,32 @@ class InboxController extends Controller
                     });
                 $searchResults = $query->limit(15)->get()->map(function ($customer) {
                     $tg = $customer->contacts()->where('type', 'telegram')->first();
-                    if (!$tg) {
-                        return null;
-                    }
                     return [
                         'id' => $customer->id,
                         'name' => $customer->name,
                         'phone' => null,
-                        'chat_id' => $tg->value,
+                        'chat_id' => $tg?->value,
+                        'ig_user_id' => null,
                         'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
                     ];
-                })->filter(fn ($r) => $r && !empty($r['chat_id']))->values()->all();
+                })->values()->all();
+            } elseif ($channel === 'instagram') {
+                $query = Customer::query()
+                    ->where('name', 'like', '%' . $searchTerm . '%')
+                    ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
+                        $cq->where('type', 'instagram')->where('value', 'like', '%' . $searchTerm . '%');
+                    });
+                $searchResults = $query->limit(15)->get()->map(function ($customer) {
+                    $ig = $customer->contacts()->where('type', 'instagram')->first();
+                    return [
+                        'id' => $customer->id,
+                        'name' => $customer->name,
+                        'phone' => null,
+                        'chat_id' => null,
+                        'ig_user_id' => $ig?->value,
+                        'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
+                    ];
+                })->values()->all();
             } else {
                 $query = Customer::query()
                     ->where(function ($q) use ($searchTerm, $phoneDigits) {
@@ -76,30 +91,10 @@ class InboxController extends Controller
                         'name' => $customer->name,
                         'phone' => $phoneContact?->value,
                         'chat_id' => null,
+                        'ig_user_id' => null,
                         'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
                     ];
                 })->filter(fn ($r) => !empty($r['phone']))->values()->all();
-            }
-            if ($channel === 'instagram') {
-                $query = Customer::query()
-                    ->where('name', 'like', '%' . $searchTerm . '%')
-                    ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
-                        $cq->where('type', 'instagram')->where('value', 'like', '%' . $searchTerm . '%');
-                    });
-                $searchResults = $query->limit(15)->get()->map(function ($customer) {
-                    $ig = $customer->contacts()->where('type', 'instagram')->first();
-                    if (!$ig) {
-                        return null;
-                    }
-                    return [
-                        'id' => $customer->id,
-                        'name' => $customer->name,
-                        'phone' => null,
-                        'chat_id' => null,
-                        'ig_user_id' => $ig->value,
-                        'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
-                    ];
-                })->filter(fn ($r) => $r && !empty($r['ig_user_id']))->values()->all();
             }
         }
 
