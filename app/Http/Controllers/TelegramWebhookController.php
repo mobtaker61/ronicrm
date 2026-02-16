@@ -21,7 +21,6 @@ class TelegramWebhookController extends Controller
 
             $message = $data['message'] ?? $data['edited_message'] ?? null;
             if (!$message) {
-                // Could be callback_query, etc. - just acknowledge
                 return response()->json(['ok' => true]);
             }
 
@@ -32,10 +31,14 @@ class TelegramWebhookController extends Controller
             }
 
             $chatId = (string) ($chat['id'] ?? '');
+            if ($chatId === '') {
+                return response()->json(['ok' => true]);
+            }
+
             $fromUsername = $from['username'] ?? null;
-            $firstName = $from['first_name'] ?? '';
-            $lastName = $from['last_name'] ?? '';
-            $displayName = trim($firstName . ' ' . $lastName) ?: $fromUsername ?: $chatId;
+            $firstName = (string) ($from['first_name'] ?? '');
+            $lastName = (string) ($from['last_name'] ?? '');
+            $displayName = trim($firstName . ' ' . $lastName) ?: ($fromUsername ?? $chatId);
 
             $messageText = $message['text'] ?? $message['caption'] ?? '';
             $telegramMessageId = $message['message_id'] ?? null;
@@ -58,33 +61,42 @@ class TelegramWebhookController extends Controller
                 $messageType = 'document';
             }
 
-            $customer = $this->findOrCreateCustomerByTelegram($chatId, $fromUsername, $displayName);
+            $customer = null;
+            try {
+                $customer = $this->findOrCreateCustomerByTelegram($chatId, $fromUsername, $displayName);
+            } catch (\Throwable $e) {
+                Log::warning('Telegram webhook: could not find/create customer', [
+                    'chat_id' => $chatId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
+            $metadata = is_array($data) ? $data : [];
             TelegramMessage::create([
                 'telegram_message_id' => $telegramMessageId,
                 'chat_id' => $chatId,
                 'from_username' => $fromUsername,
-                'message' => $messageText ?: null,
+                'message' => $messageText !== '' ? $messageText : null,
                 'message_type' => $messageType,
                 'media_url' => $mediaUrl,
                 'media_mime_type' => null,
                 'customer_id' => $customer?->id,
                 'direction' => 'incoming',
                 'status' => 'received',
-                'metadata' => $data,
+                'metadata' => $metadata,
             ]);
 
-            Log::info('Telegram message saved', [
-                'chat_id' => $chatId,
-                'customer_id' => $customer?->id,
-            ]);
+            Log::info('Telegram message saved', ['chat_id' => $chatId, 'customer_id' => $customer?->id]);
 
             return response()->json(['ok' => true]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Telegram webhook error: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
-            return response()->json(['ok' => false], 500);
+            // Always return 200 so Telegram does not retry; we have logged the error
+            return response()->json(['ok' => true]);
         }
     }
 
@@ -121,18 +133,23 @@ class TelegramWebhookController extends Controller
      */
     protected function getFileUrl(string $fileId): ?string
     {
-        $settings = \App\Models\Setting::get('telegram', []);
-        $token = $settings['bot_token'] ?? '';
-        if (!$token) {
+        try {
+            $settings = \App\Models\Setting::get('telegram', []);
+            $token = $settings['bot_token'] ?? '';
+            if ($token === '') {
+                return null;
+            }
+            $response = \Illuminate\Support\Facades\Http::timeout(10)
+                ->get("https://api.telegram.org/bot{$token}/getFile", ['file_id' => $fileId]);
+            $data = $response->json();
+            $path = $data['result']['file_path'] ?? null;
+            if ($path === null || $path === '') {
+                return null;
+            }
+            return "https://api.telegram.org/file/bot{$token}/{$path}";
+        } catch (\Throwable $e) {
+            Log::warning('Telegram getFileUrl failed: ' . $e->getMessage());
             return null;
         }
-        $response = \Illuminate\Support\Facades\Http::timeout(10)
-            ->get("https://api.telegram.org/bot{$token}/getFile", ['file_id' => $fileId]);
-        $data = $response->json();
-        $path = $data['result']['file_path'] ?? null;
-        if (!$path) {
-            return null;
-        }
-        return "https://api.telegram.org/file/bot{$token}/{$path}";
     }
 }
