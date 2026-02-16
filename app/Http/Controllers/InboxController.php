@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\CustomerContact;
+use App\Models\CustomerSocialMedia;
 use App\Models\InstagramMessage;
+use App\Models\SocialMediaType;
 use App\Models\TelegramMessage;
 use App\Models\WhatsAppMessage;
 use Illuminate\Http\Request;
@@ -28,6 +30,16 @@ class InboxController extends Controller
         }
         if ($channel === 'instagram') {
             $selectedContact = $request->get('ig_user_id', $selectedContact);
+            $instagramCustomerId = $request->get('customer_id');
+            if ($instagramCustomerId && !$selectedContact) {
+                $cust = Customer::find($instagramCustomerId);
+                if ($cust) {
+                    $igContact = $cust->contacts()->where('type', 'instagram')->first();
+                    if ($igContact) {
+                        $selectedContact = $igContact->value;
+                    }
+                }
+            }
         }
         $searchPhone = trim((string) $request->get('search_phone', ''));
 
@@ -59,7 +71,8 @@ class InboxController extends Controller
                     ];
                 })->values()->all();
             } elseif ($channel === 'instagram') {
-                $query = Customer::query()
+                $instagramTypeId = SocialMediaType::where('name', 'Instagram')->value('id');
+                $byContact = Customer::query()
                     ->whereHas('contacts', function ($cq) {
                         $cq->where('type', 'instagram');
                     })
@@ -68,8 +81,21 @@ class InboxController extends Controller
                             ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
                                 $cq->where('type', 'instagram')->where('value', 'like', '%' . $searchTerm . '%');
                             });
-                    });
-                $searchResults = $query->limit(15)->get()->map(function ($customer) {
+                    })
+                    ->limit(20)
+                    ->get();
+                $byHandle = collect();
+                if ($instagramTypeId) {
+                    $byHandle = Customer::query()
+                        ->whereHas('socialMedia', function ($sq) use ($instagramTypeId, $searchTerm) {
+                            $sq->where('social_media_type_id', $instagramTypeId)
+                                ->where('handle', 'like', '%' . $searchTerm . '%');
+                        })
+                        ->limit(20)
+                        ->get();
+                }
+                $merged = $byContact->merge($byHandle)->unique('id');
+                $searchResults = $merged->take(15)->map(function ($customer) {
                     $ig = $customer->contacts()->where('type', 'instagram')->first();
                     return [
                         'id' => $customer->id,
@@ -161,6 +187,15 @@ class InboxController extends Controller
                 InstagramMessage::forIgUser($selectedContact)->whereNull('read_at')
                     ->update(['read_at' => now(), 'status' => 'read']);
                 $selectedCustomer = $this->findCustomerByInstagramId($selectedContact);
+                if ($selectedCustomer) {
+                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                    if ($selectedCustomer->avatar) {
+                        $selectedCustomer->avatar = asset('storage/' . $selectedCustomer->avatar);
+                    }
+                }
+            }
+            if (!$selectedCustomer && !empty($instagramCustomerId)) {
+                $selectedCustomer = Customer::find($instagramCustomerId);
                 if ($selectedCustomer) {
                     $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
                     if ($selectedCustomer->avatar) {
@@ -551,6 +586,51 @@ class InboxController extends Controller
         }
         WhatsAppMessage::where('from_phone', $phone)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
         return redirect()->back()->with('success', 'Customer created successfully.');
+    }
+
+    /**
+     * Assign Instagram conversation (ig_user_id) to an existing customer.
+     */
+    public function assignToCustomer(Request $request)
+    {
+        $validated = $request->validate([
+            'channel' => 'required|in:instagram',
+            'ig_user_id' => 'required|string',
+            'customer_id' => 'required|integer|exists:customers,id',
+        ]);
+        if ($validated['channel'] !== 'instagram') {
+            return redirect()->back()->with('error', 'Invalid channel.');
+        }
+        $customer = Customer::findOrFail($validated['customer_id']);
+        $igUserId = (string) $validated['ig_user_id'];
+        $existing = CustomerContact::where('type', 'instagram')->where('value', $igUserId)->first();
+        if ($existing) {
+            if ($existing->customer_id === $customer->id) {
+                return redirect()->back()->with('info', 'Already assigned to this customer.');
+            }
+            return redirect()->back()->with('error', 'This Instagram user is already linked to another customer.');
+        }
+        $customer->contacts()->create([
+            'type' => 'instagram',
+            'value' => $igUserId,
+            'is_primary' => false,
+        ]);
+        InstagramMessage::where('ig_user_id', $igUserId)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
+        return redirect()->back()->with('success', 'Conversation assigned to customer.');
+    }
+
+    /**
+     * JSON: list customers for assign modal (search by name).
+     */
+    public function customersForAssign(Request $request)
+    {
+        $q = trim((string) $request->get('q', ''));
+        $customers = Customer::query()
+            ->when($q !== '', fn ($qb) => $qb->where('name', 'like', '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%'))
+            ->orderBy('name')
+            ->limit(30)
+            ->get(['id', 'name']);
+        return response()->json($customers);
     }
 
     /**

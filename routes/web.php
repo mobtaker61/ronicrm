@@ -63,6 +63,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/inbox', [\App\Http\Controllers\InboxController::class, 'index'])->name('inbox.index');
     Route::post('/inbox/send', [\App\Http\Controllers\InboxController::class, 'sendMessage'])->name('inbox.send');
     Route::post('/inbox/create-customer', [\App\Http\Controllers\InboxController::class, 'createCustomer'])->name('inbox.create-customer');
+    Route::post('/inbox/assign-customer', [\App\Http\Controllers\InboxController::class, 'assignToCustomer'])->name('inbox.assign-customer');
+    Route::get('/inbox/customers-for-assign', [\App\Http\Controllers\InboxController::class, 'customersForAssign'])->name('inbox.customers-for-assign');
 
     // Media (مدیریت فایل‌ها و پوشه‌ها)
     Route::get('/media', [\App\Http\Controllers\MediaController::class, 'index'])->name('media.index');

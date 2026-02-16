@@ -71,6 +71,8 @@ const routeHelper = (name, params = null, absolute = false) => {
         'inbox.index': (params) => params && Object.keys(params).length ? '/inbox?' + new URLSearchParams(params).toString() : '/inbox',
         'inbox.send': '/inbox/send',
         'inbox.create-customer': '/inbox/create-customer',
+        'inbox.assign-customer': '/inbox/assign-customer',
+        'inbox.customers-for-assign': '/inbox/customers-for-assign',
         'ronibot.webhook': '/wpwebhook',
         'settings.social-media-types.store': '/settings/social-media-types',
         'settings.social-media-types.update': (id) => `/settings/social-media-types/${id}`,

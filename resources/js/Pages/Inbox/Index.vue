@@ -124,7 +124,7 @@
                             @click="selectConversation(conv.phone || conv.chat_id || conv.ig_user_id)"
                             :class="[
                                 'px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors',
-                                selectedContact === (conv.phone || conv.chat_id) ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
+                                selectedContact === (conv.phone || conv.chat_id || conv.ig_user_id) ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
                             ]"
                         >
                             <div class="flex items-center space-x-3">
@@ -182,36 +182,51 @@
 
                 <!-- Messages Area (Middle) - 50% -->
                 <div class="w-[50%] flex flex-col bg-gray-50 min-w-0 flex-shrink-0">
-                    <div v-if="selectedContact" class="flex-1 flex flex-col min-h-0">
+                    <div v-if="selectedContact || (channel === 'instagram' && selectedCustomer && !selectedIgUserId)" class="flex-1 flex flex-col min-h-0">
                         <!-- Conversation Header (Sticky) -->
                         <div class="flex-shrink-0 bg-white px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                             <div class="flex items-center space-x-3 min-w-0">
                                 <div
-                                    v-if="selectedConversation?.avatar"
+                                    v-if="(selectedConversation?.avatar || selectedCustomer?.avatar)"
                                     class="w-10 h-10 rounded-full bg-cover bg-center border-2 border-gray-200 flex-shrink-0"
-                                    :style="{ backgroundImage: `url(${selectedConversation.avatar})` }"
+                                    :style="{ backgroundImage: `url(${selectedConversation?.avatar || selectedCustomer?.avatar})` }"
                                 ></div>
                                 <div
                                     v-else
                                     class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold border-2 border-gray-200 flex-shrink-0"
                                 >
-                                    {{ getDisplayName(selectedConversation)?.charAt(0).toUpperCase() || selectedContact?.toString()?.charAt(0) || '?' }}
+                                    {{ (getDisplayName(selectedConversation) || selectedCustomer?.name)?.charAt(0).toUpperCase() || selectedContact?.toString()?.charAt(0) || '?' }}
                                 </div>
                                 <div class="min-w-0">
                                     <h2 class="text-lg font-semibold text-gray-900 truncate">
-                                        {{ getDisplayName(selectedConversation) }}
+                                        {{ getDisplayName(selectedConversation) || selectedCustomer?.name }}
                                     </h2>
-                                    <p v-if="!hasCustomer" class="text-sm text-gray-500 truncate">{{ channel === 'instagram' ? selectedIgUserId : (channel === 'telegram' ? selectedChatId : selectedPhone) }}</p>
+                                    <p v-if="!hasCustomer && !noConversationYet" class="text-sm text-gray-500 truncate">{{ channel === 'instagram' ? selectedIgUserId : (channel === 'telegram' ? selectedChatId : selectedPhone) }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center space-x-2 flex-shrink-0">
-                                <button
-                                    v-if="!hasCustomer"
-                                    @click="showCreateCustomerModal = true"
-                                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors whitespace-nowrap"
-                                >
-                                    Add as Customer
-                                </button>
+                                <template v-if="noConversationYet">
+                                    <Link
+                                        :href="route('customers.show', selectedCustomer.id)"
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors whitespace-nowrap"
+                                    >
+                                        View Customer
+                                    </Link>
+                                </template>
+                                <template v-else-if="!hasCustomer">
+                                    <button
+                                        @click="showAssignCustomerModal = true"
+                                        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap"
+                                    >
+                                        Assign to Customer
+                                    </button>
+                                    <button
+                                        @click="showCreateCustomerModal = true"
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors whitespace-nowrap"
+                                    >
+                                        Add as Customer
+                                    </button>
+                                </template>
                                 <Link
                                     v-else
                                     :href="route('customers.show', selectedConversation.customer_id)"
@@ -222,8 +237,17 @@
                             </div>
                         </div>
 
+                        <!-- No conversation yet (Instagram: customer has handle but no messages) -->
+                        <div v-if="noConversationYet" class="flex-1 flex items-center justify-center p-8 bg-gray-50">
+                            <div class="text-center max-w-md">
+                                <p class="text-gray-600 mb-2">این مخاطب هنوز در اینستاگرام با شما گفتگو نکرده است.</p>
+                                <p class="text-sm text-gray-500 mb-4">وقتی در اینستاگرام پیام دهد، اینجا نمایش داده می‌شود.</p>
+                                <Link :href="route('customers.show', selectedCustomer.id)" class="text-blue-600 hover:underline font-medium">مشاهده کارت مخاطب</Link>
+                            </div>
+                        </div>
+
                         <!-- Messages (Scrollable) -->
-                        <div ref="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+                        <div v-else ref="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
                             <div
                                 v-for="msg in messages"
                                 :key="msg.id"
@@ -294,8 +318,8 @@
                             </div>
                         </div>
 
-                        <!-- Message Input (Sticky Bottom) -->
-                        <div class="flex-shrink-0 bg-white border-t border-gray-200 px-6 py-4">
+                        <!-- Message Input (Sticky Bottom) - hide when no conversation yet -->
+                        <div v-if="!noConversationYet" class="flex-shrink-0 bg-white border-t border-gray-200 px-6 py-4">
                             <form @submit.prevent class="space-y-3">
                                 <!-- File Upload Preview -->
                                 <div v-if="selectedFile" class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
@@ -569,6 +593,58 @@
             </div>
         </div>
 
+        <!-- Assign to existing customer modal (Instagram: unknown sender) -->
+        <div
+            v-if="showAssignCustomerModal"
+            class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            @click.self="showAssignCustomerModal = false"
+        >
+            <div class="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+                <h3 class="text-lg font-semibold mb-4 text-gray-900">Assign to existing customer</h3>
+                <div class="mb-4">
+                    <input
+                        v-model="assignSearchQuery"
+                        type="text"
+                        placeholder="Search by name..."
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
+                <div class="max-h-60 overflow-y-auto border border-gray-200 rounded-md mb-4">
+                    <div
+                        v-for="c in assignCustomers"
+                        :key="c.id"
+                        @click="assignCustomerId = c.id"
+                        :class="[
+                            'px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-0',
+                            assignCustomerId === c.id ? 'bg-blue-50 ring-1 ring-blue-500' : ''
+                        ]"
+                    >
+                        <span class="font-medium text-gray-900">{{ c.name }}</span>
+                    </div>
+                    <div v-if="assignSearchQuery.trim().length >= 2 && assignCustomers.length === 0" class="px-4 py-6 text-center text-gray-500">
+                        No customers found
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button
+                        type="button"
+                        @click="showAssignCustomerModal = false; assignCustomerId = null; assignSearchQuery = ''"
+                        class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        :disabled="!assignCustomerId"
+                        @click="submitAssignCustomer"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    >
+                        Assign
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <MediaPickerModal
             :show="showMediaPicker"
             @close="showMediaPicker = false"
@@ -578,8 +654,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
-import { Link, useForm, router } from '@inertiajs/vue3';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { Link, useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import MediaPickerModal from '@/Components/MediaPickerModal.vue';
 import { debounce } from 'lodash-es';
@@ -632,8 +708,15 @@ const newMessage = ref('');
 const selectedFile = ref(null);
 const fileInput = ref(null);
 const showCreateCustomerModal = ref(false);
+const showAssignCustomerModal = ref(false);
+const assignSearchQuery = ref('');
+const assignCustomers = ref([]);
+const assignCustomerId = ref(null);
 const messagesContainer = ref(null);
 const messageTextarea = ref(null);
+const page = usePage();
+const instagramPollInterval = ref(null);
+const instagramPollPrevCount = ref(0);
 
 const sendForm = useForm({
     to_phone: props.selectedPhone,
@@ -678,6 +761,16 @@ watch(() => searchPhone.value, () => {
     }
 });
 
+watch(showAssignCustomerModal, (visible) => {
+    if (visible) {
+        assignCustomerId.value = null;
+        loadAssignCustomers();
+    }
+});
+watch(assignSearchQuery, () => {
+    if (showAssignCustomerModal.value) loadAssignCustomers();
+});
+
 // لیست مکالمات: اگر جستجو خالی است همه را نشان بده، وگرنه فقط مواردی که نام یا شناسه با جستجو تطابق دارد
 const filteredConversations = computed(() => {
     const list = props.conversations || [];
@@ -710,6 +803,10 @@ const getDisplayName = (conversation) => {
 
 const hasCustomer = computed(() => {
     return selectedConversation.value && selectedConversation.value.customer_id;
+});
+
+const noConversationYet = computed(() => {
+    return channel.value === 'instagram' && props.selectedCustomer && !props.selectedIgUserId;
 });
 
 const openImageModal = (imageUrl) => {
@@ -783,6 +880,12 @@ const clearSelectedFile = () => {
 };
 
 const selectCustomerFromSearch = (customer) => {
+    if (channel.value === 'instagram' && !customer.ig_user_id) {
+        showSearchResults.value = false;
+        searchPhone.value = '';
+        router.get(route('inbox.index'), { channel: 'instagram', customer_id: customer.id }, { preserveState: false });
+        return;
+    }
     const id = channel.value === 'telegram' ? customer.chat_id : (channel.value === 'instagram' ? customer.ig_user_id : customer.phone);
     if (!id) return;
     showSearchResults.value = false;
@@ -901,6 +1004,32 @@ const createCustomer = () => {
     });
 };
 
+const loadAssignCustomers = debounce(() => {
+    const q = assignSearchQuery.value.trim();
+    const url = route('inbox.customers-for-assign') + (q ? '?q=' + encodeURIComponent(q) : '');
+    fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(data => { assignCustomers.value = Array.isArray(data) ? data : []; })
+        .catch(() => { assignCustomers.value = []; });
+}, 250);
+
+const submitAssignCustomer = () => {
+    if (!assignCustomerId.value || channel.value !== 'instagram' || !props.selectedIgUserId) return;
+    router.post(route('inbox.assign-customer'), {
+        channel: 'instagram',
+        ig_user_id: props.selectedIgUserId,
+        customer_id: assignCustomerId.value,
+    }, {
+        preserveState: false,
+        onSuccess: () => {
+            showAssignCustomerModal.value = false;
+            assignCustomerId.value = null;
+            assignSearchQuery.value = '';
+            assignCustomers.value = [];
+        },
+    });
+};
+
 const formatTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -934,6 +1063,32 @@ watch(() => props.messages, (newMessages) => {
     });
 }, { deep: true });
 
+function runInstagramPoll() {
+    const params = { channel: 'instagram' };
+    if (props.selectedIgUserId) params.ig_user_id = props.selectedIgUserId;
+    else if (props.selectedCustomer?.id) params.customer_id = props.selectedCustomer.id;
+    else return;
+    instagramPollPrevCount.value = (page.props.messages || []).length;
+    router.get(route('inbox.index'), params, {
+        preserveState: true,
+        preserveScroll: true,
+        only: ['conversations', 'messages', 'selectedCustomer'],
+        onFinish: () => {
+            setTimeout(() => {
+                if (document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                    const newLen = (page.props.messages || []).length;
+                    if (newLen > instagramPollPrevCount.value) {
+                        try {
+                            new Notification('پیام جدید اینستاگرام', { body: 'یک پیام جدید دریافت شد.' });
+                        } catch (_) {}
+                        instagramPollPrevCount.value = newLen;
+                    }
+                }
+            }, 300);
+        },
+    });
+}
+
 onMounted(() => {
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
@@ -947,6 +1102,21 @@ onMounted(() => {
         nextTick(() => {
             scrollToBottom();
         });
+    }
+
+    // Instagram: request notification permission and start polling
+    if (channel.value === 'instagram') {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+        runInstagramPoll();
+        instagramPollInterval.value = setInterval(runInstagramPoll, 15000);
+    }
+});
+
+onUnmounted(() => {
+    if (instagramPollInterval.value) {
+        clearInterval(instagramPollInterval.value);
     }
 });
 </script>

@@ -251,26 +251,7 @@ class InstagramWebhookController extends Controller
             }
         }
 
-        $displayName = !empty($profile['name']) ? $profile['name'] : ($username ? '@' . $username : 'Instagram ' . substr($igUserId, 0, 8));
-        $customer = Customer::create([
-            'name' => $displayName,
-            'type' => 'person',
-            'status' => 'lead',
-            'source' => 'instagram',
-        ]);
-        CustomerContact::create([
-            'customer_id' => $customer->id,
-            'type' => 'instagram',
-            'value' => $igUserId,
-        ]);
-        if ($instagramType && $username !== null && $username !== '') {
-            CustomerSocialMedia::create([
-                'customer_id' => $customer->id,
-                'social_media_type_id' => $instagramType->id,
-                'handle' => $username,
-                'is_primary' => false,
-            ]);
-        }
-        return $customer;
+        // فرستنده در مخاطبان نیست: مشتری جدید ساخته نمی‌شود؛ پیام با customer_id=null ذخیره می‌شود و بعداً می‌توان تخصیص یا ثبت دستی انجام داد.
+        return null;
     }
 }
