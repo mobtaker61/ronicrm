@@ -195,6 +195,9 @@ class InstagramWebhookController extends Controller
         string $text,
         array $attachments
     ): void {
+        if ($mid && InstagramMessage::where('instagram_connection_id', $connection->id)->where('instagram_message_id', $mid)->exists()) {
+            return;
+        }
         $customer = $this->findOrCreateCustomerByIgId($connection, $senderId);
         $mediaUrl = null;
         $mediaMime = null;
