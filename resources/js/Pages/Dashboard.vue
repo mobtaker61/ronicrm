@@ -29,7 +29,7 @@
                             </svg>
                         </div>
                         <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Total Campaigns</p>
+                            <p class="text-sm font-medium text-gray-500">Total Conversations</p>
                             <p class="text-2xl font-semibold text-gray-900">{{ stats.total_campaigns }}</p>
                         </div>
                     </div>
@@ -43,7 +43,7 @@
                             </svg>
                         </div>
                         <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Active Campaigns</p>
+                            <p class="text-sm font-medium text-gray-500">Active Conversations</p>
                             <p class="text-2xl font-semibold text-gray-900">{{ stats.active_campaigns }}</p>
                         </div>
                     </div>
@@ -117,7 +117,7 @@
             <!-- Recent Campaigns -->
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">Recent Campaigns</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">Recent Conversations</h3>
                     <Link
                         href="/campaigns"
                         class="text-sm text-blue-600 hover:text-blue-800"
@@ -145,14 +145,6 @@
                         No campaigns yet
                     </p>
                 </div>
-            </div>
-
-            <!-- Welcome Message -->
-            <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-lg p-6 text-white">
-                <h3 class="text-lg font-semibold mb-2">Welcome to RoniCRM</h3>
-                <p class="text-blue-100">
-                    Manage your customers, create marketing campaigns, and track your business growth in Dubai, UAE.
-                </p>
             </div>
         </div>
     </AppLayout>
