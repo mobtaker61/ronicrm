@@ -14,19 +14,28 @@ class InstagramWebhookController extends Controller
 {
     /**
      * GET: Meta verification (hub.mode, hub.verify_token, hub.challenge).
+     * Meta sends hub.mode=subscribe, hub.verify_token=<your_token>, hub.challenge=<random>.
+     * If verify_token matches our stored token, we must echo hub.challenge back as plain text.
      */
     public function verify(Request $request)
     {
-        $mode = $request->query('hub_mode');
-        $token = $request->query('hub_verify_token');
-        $challenge = $request->query('hub_challenge');
+        $mode = $request->query('hub_mode') ?? $request->query('hub.mode');
+        $token = $request->query('hub_verify_token') ?? $request->query('hub.verify_token');
+        $challenge = $request->query('hub_challenge') ?? $request->query('hub.challenge');
 
         $settings = \App\Models\Setting::get('instagram', []);
-        $verifyToken = $settings['webhook_verify_token'] ?? 'ronicrm_instagram';
+        $verifyToken = (string) ($settings['webhook_verify_token'] ?? '');
 
-        if ($mode === 'subscribe' && $token === $verifyToken) {
-            return response($challenge, 200)->header('Content-Type', 'text/plain');
+        if ($mode === 'subscribe' && $verifyToken !== '' && $token === $verifyToken) {
+            return response($challenge ?? '', 200)->header('Content-Type', 'text/plain');
         }
+
+        Log::warning('Instagram webhook verify failed', [
+            'mode' => $mode,
+            'token_match' => $token === $verifyToken,
+            'has_expected' => $verifyToken !== '',
+        ]);
+
         return response()->json(['error' => 'Forbidden'], 403);
     }
 

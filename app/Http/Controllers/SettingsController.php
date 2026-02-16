@@ -84,6 +84,7 @@ class SettingsController extends Controller
             'instagramSettings' => Setting::get('instagram', [
                 'enabled' => false,
                 'access_token' => '',
+                'webhook_verify_token' => '',
             ]),
         ]);
     }
@@ -223,12 +224,14 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'enabled' => 'boolean',
             'access_token' => 'nullable|string|max:1000',
+            'webhook_verify_token' => 'nullable|string|max:255',
         ]);
 
         $current = Setting::get('instagram', []);
         if (empty($validated['access_token'])) {
             $validated['access_token'] = $current['access_token'] ?? '';
         }
+        $validated['webhook_verify_token'] = $validated['webhook_verify_token'] ?? $current['webhook_verify_token'] ?? '';
         Setting::set('instagram', $validated);
 
         return redirect()->back()

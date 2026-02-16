@@ -738,14 +738,14 @@
                 <div v-if="activeTab === 'instagram'" class="p-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-6">Instagram (Inbox)</h2>
                     <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                        <p class="font-medium mb-2">برای ارسال و دریافت DM اینستاگرام:</p>
+                        <p class="font-medium mb-2">To send and receive Instagram DMs:</p>
                         <ul class="list-disc list-inside space-y-1 mb-2">
-                            <li>در <a href="https://developers.facebook.com" target="_blank" class="underline">Facebook Developers</a> یک اپ بسازید و Instagram Messaging API را فعال کنید.</li>
-                            <li>اکانت اینستاگرام باید Business یا Creator و به یک صفحه فیسبوک متصل باشد.</li>
-                            <li>با OAuth توکن دسترسی (Page Access Token با scope instagram_manage_messages) بگیرید.</li>
-                            <li>وب‌هوک را روی <code class="bg-amber-100 px-1 rounded">{{ typeof window !== 'undefined' && window.location?.origin ? window.location.origin + '/instagram-webhook' : '/instagram-webhook' }}</code> در متا تنظیم کنید.</li>
+                            <li>Create an app at <a href="https://developers.facebook.com" target="_blank" class="underline">Facebook Developers</a> and enable Instagram Messaging API.</li>
+                            <li>Your Instagram account must be Business or Creator and linked to a Facebook Page.</li>
+                            <li>Obtain a Page Access Token via OAuth with scope instagram_manage_messages.</li>
+                            <li>Set the webhook URL in Meta to the value below and use the same Verify Token in both Meta and here.</li>
                         </ul>
-                        <p>توکن را در فیلد زیر قرار دهید تا ارسال پیام از Inbox فعال شود.</p>
+                        <p>Paste your Page Access Token below to enable sending messages from Inbox.</p>
                     </div>
                     <form @submit.prevent="saveInstagramSettings" class="space-y-6">
                         <div class="flex items-center justify-between mb-4">
@@ -755,6 +755,31 @@
                             </label>
                         </div>
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Webhook URL (Meta)</label>
+                            <div class="flex gap-2">
+                                <input
+                                    :value="instagramWebhookUrl"
+                                    type="text"
+                                    readonly
+                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm"
+                                />
+                                <button type="button" @click="copyInstagramWebhookUrl" class="px-3 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 text-sm font-medium text-gray-700 whitespace-nowrap">
+                                    {{ instagramWebhookCopied ? 'Copied!' : 'Copy' }}
+                                </button>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-500">Use this URL in your Meta App → Instagram → Webhook. Meta will send a GET to verify; the Verify Token below must match.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Webhook Verify Token</label>
+                            <input
+                                v-model="instagramForm.webhook_verify_token"
+                                type="text"
+                                placeholder="e.g. roniplus_ig_webhook_2026"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">Must be exactly the same as the Verify Token you set in Meta App. When Meta verifies, we check this and echo the challenge.</p>
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Page Access Token (Meta)</label>
                             <input
                                 v-model="instagramForm.access_token"
@@ -762,7 +787,7 @@
                                 placeholder="EAAxxxx..."
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
-                            <p class="mt-1 text-xs text-gray-500">توکن دسترسی صفحه متا با دسترسی پیام‌های اینستاگرام</p>
+                            <p class="mt-1 text-xs text-gray-500">Page Access Token with instagram_manage_messages scope</p>
                         </div>
                         <button type="submit" :disabled="instagramForm.processing" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
                             {{ instagramForm.processing ? 'Saving...' : 'Save Instagram Settings' }}
@@ -959,7 +984,20 @@ const telegramForm = useForm({
 const instagramForm = useForm({
     enabled: props.instagramSettings.enabled || false,
     access_token: props.instagramSettings.access_token || '',
+    webhook_verify_token: props.instagramSettings.webhook_verify_token || '',
 });
+
+const instagramWebhookUrl = typeof window !== 'undefined' && window.location?.origin
+    ? `${window.location.origin}/instagram-webhook`
+    : 'https://yourdomain.com/instagram-webhook';
+const instagramWebhookCopied = ref(false);
+const copyInstagramWebhookUrl = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(instagramWebhookUrl);
+        instagramWebhookCopied.value = true;
+        setTimeout(() => { instagramWebhookCopied.value = false; }, 2000);
+    }
+};
 
 const telegramWebhookUrl = typeof window !== 'undefined' && window.location?.origin
     ? `${window.location.origin}/telegram-webhook`
