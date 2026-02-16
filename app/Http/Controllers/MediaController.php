@@ -16,8 +16,8 @@ class MediaController extends Controller
     {
         $folderId = $request->get('folder_id');
         $foldersTree = $this->getFoldersTree(null);
-        $currentFolder = $folderId ? MediaFolder::find($folderId) : null;
-        $childFolders = MediaFolder::where('parent_id', $folderId)->orderBy('name')->get();
+        $currentFolder = $folderId ? MediaFolder::withCount(['files', 'children'])->find($folderId) : null;
+        $childFolders = MediaFolder::where('parent_id', $folderId)->withCount(['files', 'children'])->orderBy('name')->get();
         $files = MediaFile::where('folder_id', $folderId)->orderBy('name')->get()->map(fn ($f) => $this->formatFile($f));
 
         return Inertia::render('Media/Index', [
@@ -40,7 +40,16 @@ class MediaController extends Controller
             'parent_id' => $validated['parent_id'] ?? null,
             'created_by' => Auth::id(),
         ]);
-        return redirect()->back()->with('success', 'Folder created.');
+        return redirect()->back()->with('success', 'پوشه ایجاد شد.');
+    }
+
+    public function updateFolder(Request $request, MediaFolder $folder)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+        $folder->update(['name' => $validated['name']]);
+        return redirect()->back()->with('success', 'نام پوشه تغییر کرد.');
     }
 
     public function storeFile(Request $request)
@@ -79,10 +88,44 @@ class MediaController extends Controller
         return 1;
     }
 
-    public function destroyFolder(MediaFolder $folder)
+    public function destroyFolder(Request $request, MediaFolder $folder)
     {
+        $action = $request->input('action', 'empty'); // 'empty' | 'with_contents' | 'move_to_parent'
+
+        $hasFiles = $folder->files()->exists();
+        $hasChildren = $folder->children()->exists();
+
+        if (!$hasFiles && !$hasChildren) {
+            $folder->delete();
+            return redirect()->back()->with('success', 'پوشه حذف شد.');
+        }
+
+        if ($action === 'with_contents') {
+            $this->deleteFolderWithContents($folder);
+            return redirect()->back()->with('success', 'پوشه و همهٔ محتویات آن حذف شد.');
+        }
+
+        if ($action === 'move_to_parent') {
+            $parentId = $folder->parent_id;
+            $folder->files()->update(['folder_id' => $parentId]);
+            $folder->children()->update(['parent_id' => $parentId]);
+            $folder->delete();
+            return redirect()->back()->with('success', 'محتویات به پوشهٔ بالاتر منتقل شد و پوشه حذف شد.');
+        }
+
+        return redirect()->back()->with('error', 'این پوشه خالی نیست. لطفاً از صفحهٔ مدیا گزینهٔ حذف را با انتخاب نحوهٔ حذف انجام دهید.');
+    }
+
+    private function deleteFolderWithContents(MediaFolder $folder): void
+    {
+        foreach ($folder->files as $file) {
+            Storage::disk($file->disk)->delete($file->path);
+            $file->delete();
+        }
+        foreach ($folder->children as $child) {
+            $this->deleteFolderWithContents($child);
+        }
         $folder->delete();
-        return redirect()->back()->with('success', 'Folder deleted.');
     }
 
     public function destroyFile(MediaFile $mediaFile)
@@ -110,12 +153,14 @@ class MediaController extends Controller
 
     private function getFoldersTree(?int $parentId): array
     {
-        $folders = MediaFolder::where('parent_id', $parentId)->orderBy('name')->get();
+        $folders = MediaFolder::where('parent_id', $parentId)->withCount(['files', 'children'])->orderBy('name')->get();
         return $folders->map(function ($f) {
             return [
                 'id' => $f->id,
                 'name' => $f->name,
                 'parent_id' => $f->parent_id,
+                'files_count' => $f->files_count,
+                'children_count' => $f->children_count,
                 'children' => $this->getFoldersTree($f->id),
             ];
         })->toArray();

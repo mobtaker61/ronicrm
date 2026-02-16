@@ -57,8 +57,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/media', [\App\Http\Controllers\MediaController::class, 'index'])->name('media.index');
     Route::get('/media/list', [\App\Http\Controllers\MediaController::class, 'list'])->name('media.list');
     Route::post('/media/folders', [\App\Http\Controllers\MediaController::class, 'storeFolder'])->name('media.folders.store');
-    Route::post('/media/files', [\App\Http\Controllers\MediaController::class, 'storeFile'])->name('media.files.store');
+    Route::put('/media/folders/{folder}', [\App\Http\Controllers\MediaController::class, 'updateFolder'])->name('media.folders.update');
     Route::delete('/media/folders/{folder}', [\App\Http\Controllers\MediaController::class, 'destroyFolder'])->name('media.folders.destroy');
+    Route::post('/media/files', [\App\Http\Controllers\MediaController::class, 'storeFile'])->name('media.files.store');
     Route::delete('/media/files/{mediaFile}', [\App\Http\Controllers\MediaController::class, 'destroyFile'])->name('media.files.destroy');
 
     // Scrap Tasks (Web Scraping)

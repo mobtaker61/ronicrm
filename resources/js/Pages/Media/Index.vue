@@ -30,17 +30,22 @@
                 >
                     همه فایل‌ها
                 </Link>
-                <Link
+                <div
                     v-for="f in foldersTree"
                     :key="f.id"
-                    :href="route('media.index', { folder_id: f.id })"
-                    :class="['flex items-center gap-2 px-3 py-2 rounded-lg text-sm mt-1', currentFolderId == f.id ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']"
+                    :class="['flex items-center gap-2 px-3 py-2 rounded-lg text-sm mt-1 group', currentFolderId == f.id ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']"
                 >
-                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
-                    <span class="truncate">{{ f.name }}</span>
-                </Link>
+                    <Link :href="route('media.index', { folder_id: f.id })" class="flex items-center gap-2 min-w-0 flex-1">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        </svg>
+                        <span class="truncate">{{ f.name }}</span>
+                    </Link>
+                    <div class="opacity-0 group-hover:opacity-100 flex-shrink-0">
+                        <button type="button" @click.prevent="openRenameFolder(f)" class="p-1 text-gray-500 hover:text-gray-700" title="تغییر نام">✎</button>
+                        <button type="button" @click.prevent="openDeleteFolder(f)" class="p-1 text-gray-500 hover:text-red-600" title="حذف">🗑</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Main: Breadcrumbs + Toolbar + Files -->
@@ -56,26 +61,31 @@
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="font-medium text-gray-900">{{ currentFolder?.name || 'همه فایل‌ها' }}</h3>
                         <label class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 text-sm font-medium">
-                            <input type="file" class="hidden" @change="handleUpload" multiple />
-                            آپلود فایل
+                            <input type="file" class="hidden" @change="handleUpload" multiple accept="*" />
+                            آپلود فایل (همه انواع: تصویر، PDF، ورد، …)
                         </label>
                     </div>
 
                     <!-- Child folders -->
                     <div v-if="childFolders.length" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-6">
-                        <Link
+                        <div
                             v-for="f in childFolders"
                             :key="f.id"
-                            :href="route('media.index', { folder_id: f.id })"
-                            class="flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                            class="group relative flex flex-col items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
                         >
-                            <div class="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center mb-2">
-                                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                </svg>
+                            <Link :href="route('media.index', { folder_id: f.id })" class="flex flex-col items-center flex-1 min-w-0">
+                                <div class="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center mb-2">
+                                    <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium text-gray-900 truncate w-full text-center">{{ f.name }}</span>
+                            </Link>
+                            <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                <button type="button" @click.prevent="openRenameFolder(f)" class="p-1.5 bg-gray-600 text-white rounded hover:bg-gray-700" title="تغییر نام">✎</button>
+                                <button type="button" @click.prevent="openDeleteFolder(f)" class="p-1.5 bg-red-600 text-white rounded hover:bg-red-700" title="حذف">🗑</button>
                             </div>
-                            <span class="text-sm font-medium text-gray-900 truncate w-full text-center">{{ f.name }}</span>
-                        </Link>
+                        </div>
                     </div>
 
                     <!-- Files grid -->
@@ -126,6 +136,47 @@
                 </form>
             </div>
         </div>
+
+        <!-- Rename folder modal -->
+        <div v-if="showRenameFolderModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showRenameFolderModal = false">
+            <div class="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl">
+                <h3 class="text-lg font-semibold mb-4">تغییر نام پوشه</h3>
+                <form @submit.prevent="renameFolder">
+                    <input v-model="renameFolderName" type="text" required placeholder="نام پوشه" class="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4" />
+                    <div class="flex justify-end gap-2">
+                        <button type="button" @click="showRenameFolderModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">انصراف</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">ذخیره</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Delete folder modal (when folder has contents) -->
+        <div v-if="showDeleteFolderModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showDeleteFolderModal = false">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+                <h3 class="text-lg font-semibold mb-2">حذف پوشه «{{ folderToDelete?.name }}»</h3>
+                <p v-if="folderHasContents" class="text-gray-600 text-sm mb-4">
+                    این پوشه خالی نیست. چگونه ادامه دهیم؟
+                </p>
+                <p v-else class="text-gray-600 text-sm mb-4">آیا از حذف این پوشه مطمئن هستید؟</p>
+                <div class="flex flex-col gap-2">
+                    <template v-if="folderHasContents">
+                        <button type="button" @click="deleteFolder('with_contents')" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-right">
+                            حذف پوشه و همهٔ محتویات (فایل‌ها و زیرپوشه‌ها)
+                        </button>
+                        <button type="button" @click="deleteFolder('move_to_parent')" class="w-full px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-right">
+                            انتقال محتویات به پوشهٔ بالاتر و حذف فقط پوشه
+                        </button>
+                    </template>
+                    <button v-else type="button" @click="deleteFolder('empty')" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-right">
+                        بله، حذف پوشه
+                    </button>
+                    <button type="button" @click="showDeleteFolderModal = false" class="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-right">
+                        انصراف
+                    </button>
+                </div>
+            </div>
+        </div>
     </AppLayout>
 </template>
 
@@ -144,8 +195,20 @@ const props = defineProps({
 
 const showNewFolderModal = ref(false);
 const newFolderName = ref('');
+const showRenameFolderModal = ref(false);
+const renameFolderId = ref(null);
+const renameFolderName = ref('');
+const showDeleteFolderModal = ref(false);
+const folderToDelete = ref(null);
 
 const currentFolderId = computed(() => props.currentFolder?.id ?? null);
+const folderHasContents = computed(() => {
+    const f = folderToDelete.value;
+    if (!f) return false;
+    const files = f.files_count ?? 0;
+    const children = f.children_count ?? 0;
+    return files > 0 || children > 0;
+});
 
 function createFolder() {
     router.post(route('media.folders.store'), {
@@ -165,10 +228,8 @@ function handleUpload(e) {
     if (!list?.length) return;
     const formData = new FormData();
     formData.append('folder_id', currentFolderId.value ?? '');
-    if (list.length === 1) {
-        formData.append('file', list[0]);
-    } else {
-        for (let i = 0; i < list.length; i++) formData.append('files[]', list[i]);
+    for (let i = 0; i < list.length; i++) {
+        formData.append('files[]', list[i]);
     }
     router.post(route('media.files.store'), formData, { preserveScroll: true, forceFormData: true });
     e.target.value = '';
@@ -177,5 +238,40 @@ function handleUpload(e) {
 function deleteFile(file) {
     if (!confirm('حذف این فایل؟')) return;
     router.delete(route('media.files.destroy', file.id), { preserveScroll: true });
+}
+
+function openRenameFolder(folder) {
+    renameFolderId.value = folder.id;
+    renameFolderName.value = folder.name;
+    showRenameFolderModal.value = true;
+}
+
+function openDeleteFolder(folder) {
+    folderToDelete.value = folder;
+    showDeleteFolderModal.value = true;
+}
+
+function renameFolder() {
+    if (!renameFolderId.value || !renameFolderName.value.trim()) return;
+    router.put(route('media.folders.update', renameFolderId.value), { name: renameFolderName.value.trim() }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showRenameFolderModal.value = false;
+            renameFolderId.value = null;
+            renameFolderName.value = '';
+        },
+    });
+}
+
+function deleteFolder(action) {
+    if (!folderToDelete.value) return;
+    const url = route('media.folders.destroy', folderToDelete.value.id) + (action ? '?action=' + action : '');
+    router.delete(url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showDeleteFolderModal.value = false;
+            folderToDelete.value = null;
+        },
+    });
 }
 </script>
