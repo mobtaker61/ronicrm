@@ -38,9 +38,14 @@ class InboxController extends Controller
 
             if ($channel === 'telegram') {
                 $query = Customer::query()
-                    ->where('name', 'like', '%' . $searchTerm . '%')
-                    ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
-                        $cq->where('type', 'telegram')->where('value', 'like', '%' . $searchTerm . '%');
+                    ->whereHas('contacts', function ($cq) {
+                        $cq->where('type', 'telegram');
+                    })
+                    ->where(function ($q) use ($searchTerm) {
+                        $q->where('name', 'like', '%' . $searchTerm . '%')
+                            ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
+                                $cq->where('type', 'telegram')->where('value', 'like', '%' . $searchTerm . '%');
+                            });
                     });
                 $searchResults = $query->limit(15)->get()->map(function ($customer) {
                     $tg = $customer->contacts()->where('type', 'telegram')->first();
@@ -55,9 +60,14 @@ class InboxController extends Controller
                 })->values()->all();
             } elseif ($channel === 'instagram') {
                 $query = Customer::query()
-                    ->where('name', 'like', '%' . $searchTerm . '%')
-                    ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
-                        $cq->where('type', 'instagram')->where('value', 'like', '%' . $searchTerm . '%');
+                    ->whereHas('contacts', function ($cq) {
+                        $cq->where('type', 'instagram');
+                    })
+                    ->where(function ($q) use ($searchTerm) {
+                        $q->where('name', 'like', '%' . $searchTerm . '%')
+                            ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
+                                $cq->where('type', 'instagram')->where('value', 'like', '%' . $searchTerm . '%');
+                            });
                     });
                 $searchResults = $query->limit(15)->get()->map(function ($customer) {
                     $ig = $customer->contacts()->where('type', 'instagram')->first();

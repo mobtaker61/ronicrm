@@ -19,6 +19,10 @@ const routeHelper = (name, params = null, absolute = false) => {
     
     // Fallback routes
     const routes = {
+        'front.welcome': '/',
+        'front.privacy': '/privacy-policy',
+        'front.terms': '/terms-and-conditions',
+        'login': '/login',
         'dashboard': '/dashboard',
         'customers.index': '/customers',
         'customers.create': '/customers/create',

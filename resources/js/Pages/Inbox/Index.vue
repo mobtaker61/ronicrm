@@ -387,7 +387,12 @@
                                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                                 />
                             </svg>
-                            <p class="text-lg">{{ channel === 'telegram' ? 'Search for a contact with Telegram or open a conversation from the list' : (channel === 'instagram' ? 'Connect Meta App for Instagram DMs, or open a conversation from the list' : 'Search for a contact or enter a phone number to start a conversation') }}</p>
+                            <p class="text-lg">{{ channel === 'telegram' ? 'Search for a contact with Telegram or open a conversation from the list' : (channel === 'instagram' ? 'Search for a contact with Instagram or open a conversation from the list' : 'Search for a contact or enter a phone number to start a conversation') }}</p>
+                            <div v-if="channel === 'instagram'" class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 max-w-md mx-auto text-right">
+                                <p class="font-medium mb-1">ارسال پیام از طریق اینستاگرام</p>
+                                <p class="mb-2">برای ارسال و دریافت DM اینستاگرام باید اپ متا (Facebook Developer) را به اکانت اینستاگرام Business/Creator وصل کنید و در تنظیمات (Settings) بخش Instagram، توکن دسترسی (Access Token) را وارد کنید. شناسه مخاطب (Instagram Scoped User ID) از API متا هنگام دریافت پیام یا از وب‌هوک به‌دست می‌آید.</p>
+                                <a :href="route('settings.index')" class="text-amber-700 underline font-medium">رفتن به تنظیمات</a>
+                            </div>
                         </div>
                     </div>
                 </div>

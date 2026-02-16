@@ -2,7 +2,13 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FrontController;
 use Illuminate\Support\Facades\Route;
+
+// Front (public, no login)
+Route::get('/', [FrontController::class, 'welcome'])->name('front.welcome');
+Route::get('/privacy-policy', [FrontController::class, 'privacy'])->name('front.privacy');
+Route::get('/terms-and-conditions', [FrontController::class, 'terms'])->name('front.terms');
 
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
@@ -24,8 +30,7 @@ Route::get('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookControll
 Route::post('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookController::class, 'handle'])->name('instagram.webhook');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/dashboard', [DashboardController::class, 'index']);
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Industries
     Route::resource('industries', \App\Http\Controllers\IndustryController::class)->except(['show', 'create', 'edit']);
@@ -95,6 +100,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/ronibot/test', [\App\Http\Controllers\SettingsController::class, 'testRonibot'])->name('settings.ronibot.test');
     Route::post('/settings/telegram', [\App\Http\Controllers\SettingsController::class, 'updateTelegram'])->name('settings.telegram.update');
     Route::post('/settings/telegram/test', [\App\Http\Controllers\SettingsController::class, 'testTelegram'])->name('settings.telegram.test');
+    Route::post('/settings/instagram', [\App\Http\Controllers\SettingsController::class, 'updateInstagram'])->name('settings.instagram.update');
 
     // Users Management (Admin Only)
     Route::get('/settings/users', [\App\Http\Controllers\UserController::class, 'index'])->name('settings.users.index');

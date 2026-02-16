@@ -83,6 +83,7 @@ class SettingsController extends Controller
             ]),
             'instagramSettings' => Setting::get('instagram', [
                 'enabled' => false,
+                'access_token' => '',
             ]),
         ]);
     }
@@ -215,6 +216,23 @@ class SettingsController extends Controller
             return redirect()->back()
                 ->with('error', 'Telegram test failed: '.$e->getMessage());
         }
+    }
+
+    public function updateInstagram(Request $request)
+    {
+        $validated = $request->validate([
+            'enabled' => 'boolean',
+            'access_token' => 'nullable|string|max:1000',
+        ]);
+
+        $current = Setting::get('instagram', []);
+        if (empty($validated['access_token'])) {
+            $validated['access_token'] = $current['access_token'] ?? '';
+        }
+        Setting::set('instagram', $validated);
+
+        return redirect()->back()
+            ->with('success', 'Instagram settings updated successfully.');
     }
 
     public function testSmtp(Request $request)

@@ -62,6 +62,17 @@
                             Telegram (Inbox)
                         </button>
                         <button
+                            @click="activeTab = 'instagram'"
+                            :class="[
+                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
+                                activeTab === 'instagram'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ]"
+                        >
+                            Instagram (Inbox)
+                        </button>
+                        <button
                             v-if="isAdmin"
                             @click="activeTab = 'users'"
                             :class="[
@@ -722,6 +733,42 @@
                         </div>
                     </form>
                 </div>
+
+                <!-- Instagram Settings Tab -->
+                <div v-if="activeTab === 'instagram'" class="p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-6">Instagram (Inbox)</h2>
+                    <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                        <p class="font-medium mb-2">برای ارسال و دریافت DM اینستاگرام:</p>
+                        <ul class="list-disc list-inside space-y-1 mb-2">
+                            <li>در <a href="https://developers.facebook.com" target="_blank" class="underline">Facebook Developers</a> یک اپ بسازید و Instagram Messaging API را فعال کنید.</li>
+                            <li>اکانت اینستاگرام باید Business یا Creator و به یک صفحه فیسبوک متصل باشد.</li>
+                            <li>با OAuth توکن دسترسی (Page Access Token با scope instagram_manage_messages) بگیرید.</li>
+                            <li>وب‌هوک را روی <code class="bg-amber-100 px-1 rounded">{{ typeof window !== 'undefined' && window.location?.origin ? window.location.origin + '/instagram-webhook' : '/instagram-webhook' }}</code> در متا تنظیم کنید.</li>
+                        </ul>
+                        <p>توکن را در فیلد زیر قرار دهید تا ارسال پیام از Inbox فعال شود.</p>
+                    </div>
+                    <form @submit.prevent="saveInstagramSettings" class="space-y-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <label class="flex items-center space-x-2">
+                                <input v-model="instagramForm.enabled" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                <span class="text-sm font-medium text-gray-700">Enable Instagram Inbox</span>
+                            </label>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Page Access Token (Meta)</label>
+                            <input
+                                v-model="instagramForm.access_token"
+                                type="password"
+                                placeholder="EAAxxxx..."
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <p class="mt-1 text-xs text-gray-500">توکن دسترسی صفحه متا با دسترسی پیام‌های اینستاگرام</p>
+                        </div>
+                        <button type="submit" :disabled="instagramForm.processing" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+                            {{ instagramForm.processing ? 'Saving...' : 'Save Instagram Settings' }}
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -848,6 +895,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    instagramSettings: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const activeTab = ref('social-media');
@@ -903,6 +954,11 @@ const ronibotForm = useForm({
 const telegramForm = useForm({
     bot_token: props.telegramSettings.bot_token || '',
     enabled: props.telegramSettings.enabled || false,
+});
+
+const instagramForm = useForm({
+    enabled: props.instagramSettings.enabled || false,
+    access_token: props.instagramSettings.access_token || '',
 });
 
 const telegramWebhookUrl = typeof window !== 'undefined' && window.location?.origin
@@ -985,6 +1041,14 @@ const saveRonibotSettings = () => {
 
 const saveTelegramSettings = () => {
     telegramForm.post(route('settings.telegram.update'), {
+        preserveState: true,
+        preserveScroll: true,
+        onSuccess: () => {},
+    });
+};
+
+const saveInstagramSettings = () => {
+    instagramForm.post(route('settings.instagram.update'), {
         preserveState: true,
         preserveScroll: true,
         onSuccess: () => {},

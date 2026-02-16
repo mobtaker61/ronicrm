@@ -100,17 +100,30 @@ class TelegramWebhookController extends Controller
         }
     }
 
+    /**
+     * Find customer by chat_id or by Telegram username; otherwise create new.
+     * When matched by username, update contact value to chat_id for future webhooks.
+     */
     protected function findOrCreateCustomerByTelegram(string $chatId, ?string $username, string $displayName): ?Customer
     {
-        $contact = CustomerContact::where('type', 'telegram')
-            ->where('value', $chatId)
-            ->first();
-
+        $contact = CustomerContact::where('type', 'telegram')->where('value', $chatId)->first();
         if ($contact) {
             return $contact->customer;
         }
 
-        // Optional: create customer for new Telegram users (source = telegram)
+        if ($username !== null && $username !== '') {
+            $usernameNorm = ltrim($username, '@');
+            $contact = CustomerContact::where('type', 'telegram')
+                ->where(function ($q) use ($username, $usernameNorm) {
+                    $q->where('value', $username)->orWhere('value', '@' . $usernameNorm)->orWhere('value', $usernameNorm);
+                })
+                ->first();
+            if ($contact) {
+                $contact->update(['value' => $chatId]);
+                return $contact->customer;
+            }
+        }
+
         $customer = Customer::create([
             'name' => $displayName,
             'type' => 'person',
