@@ -56,6 +56,19 @@
             <div class="flex flex-1 overflow-hidden">
                 <!-- Conversations List (Left Sidebar) - 20% -->
                 <div class="w-[20%] bg-white border-r border-gray-200 flex flex-col min-w-0 flex-shrink-0">
+                    <!-- Instagram: درخواست اجازه نوتیفیکیشن (مرورگر فقط با کلیک کاربر اجازه می‌دهد) -->
+                    <div
+                        v-if="channel === 'instagram' && notificationPermission === 'default'"
+                        class="flex-shrink-0 px-4 py-2 bg-amber-50 border-b border-amber-200"
+                    >
+                        <button
+                            type="button"
+                            @click="requestNotificationPermission"
+                            class="w-full text-left text-sm text-amber-800 hover:text-amber-900 py-1"
+                        >
+                            🔔 برای دریافت اعلان پیام جدید اینجا کلیک کنید
+                        </button>
+                    </div>
                     <!-- Search Header (Sticky) -->
                     <div class="flex-shrink-0 p-4 border-b border-gray-200 bg-gray-50 relative z-10">
                         <div class="relative">
@@ -241,7 +254,8 @@
                         <div v-if="noConversationYet" class="flex-1 flex items-center justify-center p-8 bg-gray-50">
                             <div class="text-center max-w-md">
                                 <p class="text-gray-600 mb-2">این مخاطب هنوز در اینستاگرام با شما گفتگو نکرده است.</p>
-                                <p class="text-sm text-gray-500 mb-4">وقتی در اینستاگرام پیام دهد، اینجا نمایش داده می‌شود.</p>
+                                <p class="text-sm text-gray-500 mb-2">وقتی در اینستاگرام پیام دهد، اینجا نمایش داده می‌شود و شناسه عددی او به‌طور خودکار در مخاطب ثبت می‌شود تا بتوانید از همین اینباکس برای او پیام بفرستید.</p>
+                                <p class="text-xs text-gray-400 mb-4">API متا شناسه عددی را فقط پس از تعامل (مثلاً اولین پیام) در اختیار قرار می‌دهد؛ از روی تنها username نمی‌توان آن را گرفت.</p>
                                 <Link :href="route('customers.show', selectedCustomer.id)" class="text-blue-600 hover:underline font-medium">مشاهده کارت مخاطب</Link>
                             </div>
                         </div>
@@ -717,6 +731,8 @@ const messageTextarea = ref(null);
 const page = usePage();
 const instagramPollInterval = ref(null);
 const instagramPollPrevCount = ref(0);
+const instagramPollPrevUnread = ref(0);
+const notificationPermission = ref(typeof Notification !== 'undefined' ? Notification.permission : 'denied');
 
 const sendForm = useForm({
     to_phone: props.selectedPhone,
@@ -1063,12 +1079,20 @@ watch(() => props.messages, (newMessages) => {
     });
 }, { deep: true });
 
+function requestNotificationPermission() {
+    if (typeof Notification === 'undefined') return;
+    Notification.requestPermission().then((p) => {
+        notificationPermission.value = p;
+    });
+}
+
 function runInstagramPoll() {
     const params = { channel: 'instagram' };
     if (props.selectedIgUserId) params.ig_user_id = props.selectedIgUserId;
-    else if (props.selectedCustomer?.id) params.customer_id = props.selectedCustomer.id;
-    else return;
+    else if (props.selectedCustomer?.id && !props.selectedIgUserId) params.customer_id = props.selectedCustomer.id;
+    const convs = page.props.conversations || [];
     instagramPollPrevCount.value = (page.props.messages || []).length;
+    instagramPollPrevUnread.value = convs.reduce((s, c) => s + (c.unread_count || 0), 0);
     router.get(route('inbox.index'), params, {
         preserveState: true,
         preserveScroll: true,
@@ -1076,15 +1100,20 @@ function runInstagramPoll() {
         onFinish: () => {
             setTimeout(() => {
                 if (document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                    const newLen = (page.props.messages || []).length;
-                    if (newLen > instagramPollPrevCount.value) {
+                    const newMessages = page.props.messages || [];
+                    const newConvs = page.props.conversations || [];
+                    const newLen = newMessages.length;
+                    const newUnread = newConvs.reduce((s, c) => s + (c.unread_count || 0), 0);
+                    const hasNew = newLen > instagramPollPrevCount.value || newUnread > instagramPollPrevUnread.value;
+                    if (hasNew) {
                         try {
                             new Notification('پیام جدید اینستاگرام', { body: 'یک پیام جدید دریافت شد.' });
                         } catch (_) {}
-                        instagramPollPrevCount.value = newLen;
                     }
+                    instagramPollPrevCount.value = newLen;
+                    instagramPollPrevUnread.value = newUnread;
                 }
-            }, 300);
+            }, 600);
         },
     });
 }
@@ -1104,11 +1133,8 @@ onMounted(() => {
         });
     }
 
-    // Instagram: request notification permission and start polling
+    // Instagram: start polling (اجازه نوتیفیکیشن با کلیک روی بنر درخواست می‌شود)
     if (channel.value === 'instagram') {
-        if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
         runInstagramPoll();
         instagramPollInterval.value = setInterval(runInstagramPoll, 15000);
     }
