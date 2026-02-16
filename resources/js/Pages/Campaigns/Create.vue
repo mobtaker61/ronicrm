@@ -803,7 +803,11 @@ const onMediaSelectForCampaign = (file) => {
     form.image_path = file.path;
     form.image = null;
     selectedFile.value = { name: file.name, url: file.url, isImage: file.is_image };
-    imagePreview.value = file.is_image ? (file.url.startsWith('http') ? file.url : (window.location.origin + (file.url.startsWith('/') ? file.url : '/' + file.url)) : null;
+    let fullUrl = file.url;
+    if (!file.url.startsWith('http')) {
+        fullUrl = window.location.origin + (file.url.startsWith('/') ? file.url : '/' + file.url);
+    }
+    imagePreview.value = file.is_image ? fullUrl : null;
 };
 
 const clearImage = () => {
