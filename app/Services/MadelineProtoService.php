@@ -189,16 +189,31 @@ class MadelineProtoService
         return $this->run(function () use ($peerId, $limit) {
             $api = $this->getApi();
             $api->start();
-            $messages = $api->messages->getHistory(peer: $peerId, limit: min($limit, 100));
+            $fetchPeerId = $peerId;
+            $info = $api->getInfo($peerId);
+            $isChannel = ($info['Chat']['broadcast'] ?? false) && !($info['Chat']['megagroup'] ?? false);
+            if ($isChannel) {
+                $full = $api->getFullInfo($peerId);
+                $linkedChatId = $full['linked_chat_id'] ?? $full['full_chat']['linked_chat_id'] ?? null;
+                if ($linkedChatId) {
+                    $fetchPeerId = '-100' . $linkedChatId;
+                    Log::info('MadelineProto: channel has discussion group, fetching from', ['linked' => $fetchPeerId]);
+                }
+            }
+            $messages = $api->messages->getHistory(peer: $fetchPeerId, limit: min($limit, 100));
             $raw = $messages['messages'] ?? [];
             $valid = [];
             $all = [];
-            $channelId = ltrim(preg_replace('/^-100/', '', (string) $peerId), '-') ?: (string) $peerId;
+            $channelId = ltrim(preg_replace('/^-100/', '', (string) $fetchPeerId), '-') ?: (string) $fetchPeerId;
             foreach ($raw as $msg) {
                 $msgId = $msg['id'] ?? null;
                 $fromIdRaw = $msg['from_id'] ?? null;
                 $fromType = $fromIdRaw['_'] ?? 'empty';
                 $fromId = $this->extractUserId($fromIdRaw);
+                if (!$fromId && !empty($msg['fwd_from']['from_id'])) {
+                    $fromId = $this->extractUserId($msg['fwd_from']['from_id']);
+                    $fromType = $fromId ? 'fwd_from' : $fromType;
+                }
                 $text = mb_substr($msg['message'] ?? '', 0, 100);
                 $link = $this->makeMessageLink($peerId, $msgId, $channelId);
                 $all[] = [
