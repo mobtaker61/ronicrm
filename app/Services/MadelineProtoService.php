@@ -208,7 +208,7 @@ class MadelineProtoService
             foreach ($raw as $msg) {
                 $msgId = $msg['id'] ?? null;
                 $fromIdRaw = $msg['from_id'] ?? null;
-                $fromType = $fromIdRaw['_'] ?? 'empty';
+                $fromType = is_array($fromIdRaw) ? ($fromIdRaw['_'] ?? 'empty') : (is_numeric($fromIdRaw) ? 'user_id' : 'empty');
                 $fromId = $this->extractUserId($fromIdRaw);
                 if (!$fromId && !empty($msg['fwd_from']['from_id'])) {
                     $fromId = $this->extractUserId($msg['fwd_from']['from_id']);
@@ -245,7 +245,12 @@ class MadelineProtoService
 
     protected function extractUserId($fromId): ?string
     {
-        if (!$fromId) return null;
+        if ($fromId === null) return null;
+        // MadelineProto can return from_id as plain integer (user_id)
+        if (is_numeric($fromId)) {
+            return (string) (int) $fromId;
+        }
+        if (!is_array($fromId)) return null;
         $t = $fromId['_'] ?? '';
         if ($t === 'peerUser') {
             return (string) ($fromId['user_id'] ?? null);
