@@ -288,7 +288,14 @@ class MadelineProtoService
                     return ['logged_in' => false];
                 }
                 // Persist session so next poll returns same QR instead of creating a new one
-                $api->serialize();
+                // serialize() is on APIWrapper, not API - access via reflection
+                $ref = new \ReflectionClass($api);
+                $wrapperProp = $ref->getProperty('wrapper');
+                $wrapperProp->setAccessible(true);
+                $wrapper = $wrapperProp->getValue($api);
+                if (method_exists($wrapper, 'serialize')) {
+                    $wrapper->serialize();
+                }
                 return [
                     'logged_in' => false,
                     'qr_svg' => $qr->getQRSvg(400, 2),
