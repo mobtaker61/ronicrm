@@ -37,16 +37,32 @@ class TelegramCrawlerController extends Controller
             return response()->json(['error' => 'Not connected'], 403);
         }
         $cacheKey = 'telegram_groups_' . $conn->id;
+        $forceRefresh = $request->boolean('refresh');
         $cached = Cache::get($cacheKey);
-        if ($cached !== null) {
+
+        // Return cached list unless user explicitly requested refresh
+        if (!$forceRefresh && $cached !== null && count($cached) > 0) {
             return response()->json(['groups' => $cached]);
         }
+
         try {
             $service = new MadelineProtoService($conn);
             $dialogs = $service->getDialogs();
-            $groups = array_filter($dialogs, fn ($d) => in_array($d['type'] ?? '', ['group', 'supergroup', 'channel']) || (isset($d['id']) && str_starts_with((string) $d['id'], '-')));
-            $groups = array_values($groups);
-            Cache::put($cacheKey, $groups, now()->addMinutes(5));
+            $fresh = array_filter($dialogs, fn ($d) => in_array($d['type'] ?? '', ['group', 'supergroup', 'channel']) || (isset($d['id']) && str_starts_with((string) $d['id'], '-')));
+            $fresh = array_values($fresh);
+
+            // Merge: key by id, fresh overwrites; keep existing cached entries that weren't in fresh (group left/changed)
+            $byId = [];
+            foreach ($cached ?? [] as $g) {
+                $byId[$g['id'] ?? ''] = $g;
+            }
+            foreach ($fresh as $g) {
+                $byId[$g['id'] ?? ''] = $g;
+            }
+            $groups = array_values($byId);
+            usort($groups, fn ($a, $b) => strcasecmp($a['title'] ?? '', $b['title'] ?? ''));
+
+            Cache::put($cacheKey, $groups, now()->addDays(1));
             return response()->json(['groups' => $groups]);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 500);

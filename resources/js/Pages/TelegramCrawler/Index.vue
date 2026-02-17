@@ -26,27 +26,47 @@
                 <aside class="w-full lg:w-80 flex-shrink-0">
                     <div class="bg-white rounded-lg shadow p-4 sticky top-4">
                         <h2 class="text-lg font-semibold text-gray-900 mb-3">Groups</h2>
-                        <button
-                            type="button"
-                            @click="loadGroups"
-                            :disabled="groupsLoading"
-                            class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
-                        >
-                            {{ groupsLoading ? 'Loading...' : 'Load Groups' }}
-                        </button>
+                        <div class="flex gap-2">
+                            <button
+                                type="button"
+                                @click="loadGroups(false)"
+                                :disabled="groupsLoading"
+                                class="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 text-sm font-medium"
+                            >
+                                {{ groupsLoading ? 'Loading...' : 'Load' }}
+                            </button>
+                            <button
+                                type="button"
+                                @click="loadGroups(true)"
+                                :disabled="groupsLoading"
+                                title="Refresh from Telegram"
+                                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+                            >
+                                {{ groupsLoading ? '...' : 'Refresh' }}
+                            </button>
+                        </div>
                         <p v-if="groupsError" class="text-red-600 text-sm mt-2">{{ groupsError }}</p>
-                        <div v-if="groups.length > 0" class="mt-4 border rounded-lg max-h-72 overflow-y-auto">
-                            <label
+                        <div v-if="groups.length > 0" class="mt-4 space-y-1.5 max-h-80 overflow-y-auto">
+                            <button
                                 v-for="g in groups"
                                 :key="g.id"
-                                class="flex items-center px-3 py-2.5 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
-                                :class="{ 'bg-blue-50': selectedGroupId === g.id }"
+                                type="button"
+                                @click="selectedGroupId = g.id"
+                                class="w-full text-left px-4 py-3 rounded-lg border transition-colors"
+                                :class="selectedGroupId === g.id
+                                    ? 'border-blue-500 bg-blue-50 text-blue-900'
+                                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-800'"
                             >
-                                <input v-model="selectedGroupId" type="radio" :value="g.id" class="mr-3" />
-                                <span class="font-medium text-sm truncate flex-1">{{ g.title }}</span>
-                                <span class="text-xs text-gray-400 ml-1">{{ g.type }}</span>
-                            </label>
+                                <div class="font-medium text-sm truncate">{{ g.title }}</div>
+                                <div class="flex items-center justify-between mt-0.5">
+                                    <span class="text-xs text-gray-500">{{ g.type }}</span>
+                                    <span class="text-xs text-gray-400 font-mono">{{ g.id }}</span>
+                                </div>
+                            </button>
                         </div>
+                        <p v-else-if="!groupsLoading && groups.length === 0" class="text-gray-500 text-sm mt-3">
+                            Click Load or Refresh to fetch your Telegram groups.
+                        </p>
                     </div>
                 </aside>
 
@@ -201,11 +221,12 @@ const statusLabel = computed(() => {
     return labels[s] || s;
 });
 
-const loadGroups = async () => {
+const loadGroups = async (refresh = false) => {
     groupsLoading.value = true;
     groupsError.value = '';
     try {
-        const res = await axios.get(route('telegram-crawler.groups'));
+        const url = refresh ? route('telegram-crawler.groups') + '?refresh=1' : route('telegram-crawler.groups');
+        const res = await axios.get(url);
         groups.value = res.data.groups || [];
     } catch (e) {
         groupsError.value = e.response?.data?.error || e.message || 'Failed to load groups';
