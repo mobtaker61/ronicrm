@@ -28,7 +28,8 @@ class TelegramConnectionController extends Controller
     {
         try {
             $service = app(MadelineProtoService::class);
-            $result = $service->getQrCode();
+            $wait = $request->boolean('wait');
+            $result = $service->getQrCode($wait);
             return response()->json($result);
         } catch (\Throwable $e) {
             return response()->json([

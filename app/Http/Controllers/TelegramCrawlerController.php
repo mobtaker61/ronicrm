@@ -36,11 +36,18 @@ class TelegramCrawlerController extends Controller
         if (!$conn) {
             return response()->json(['error' => 'Not connected'], 403);
         }
+        $cacheKey = 'telegram_groups_' . $conn->id;
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return response()->json(['groups' => $cached]);
+        }
         try {
             $service = new MadelineProtoService($conn);
             $dialogs = $service->getDialogs();
             $groups = array_filter($dialogs, fn ($d) => in_array($d['type'] ?? '', ['group', 'supergroup', 'channel']) || (isset($d['id']) && str_starts_with((string) $d['id'], '-')));
-            return response()->json(['groups' => array_values($groups)]);
+            $groups = array_values($groups);
+            Cache::put($cacheKey, $groups, now()->addMinutes(5));
+            return response()->json(['groups' => $groups]);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }

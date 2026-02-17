@@ -222,9 +222,10 @@ class MadelineProtoService
     /**
      * Initiate QR login. Returns SVG of QR code or null if already logged in.
      *
+     * @param bool $wait If true, wait up to 5s for user to scan (for polling).
      * @return array { qr_svg?: string, logged_in: bool, needs_2fa?: bool, error?: string }
      */
-    public function getQrCode(): array
+    public function getQrCode(bool $wait = false): array
     {
         if (!class_exists(\danog\MadelineProto\API::class)) {
             return ['error' => 'MadelineProto is not installed. Run: composer require danog/madelineproto'];
@@ -248,11 +249,20 @@ class MadelineProtoService
             }
 
             // Run inside EventLoop - MadelineProto requires it for async I/O
-            $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash) {
+            $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $wait) {
                 $settings = new \danog\MadelineProto\Settings\AppInfo();
                 $settings->setApiId($apiId)->setApiHash($apiHash);
                 $api = new \danog\MadelineProto\API($sessionPath, $settings);
                 $qr = $api->qrLogin();
+                if ($qr && $wait) {
+                    try {
+                        $qr = $qr->waitForLoginOrQrCodeExpiration(
+                            \danog\MadelineProto\Tools::getTimeoutCancellation(5.0)
+                        );
+                    } catch (\Amp\CancelledException) {
+                        $qr = $api->qrLogin();
+                    }
+                }
                 Log::info('MadelineProto getQrCode: qrLogin done', [
                     'qr_is_null' => $qr === null,
                     'qr_class' => $qr ? get_class($qr) : null,
@@ -269,6 +279,8 @@ class MadelineProtoService
                     }
                     return ['logged_in' => false];
                 }
+                // Persist session so next poll returns same QR instead of creating a new one
+                $api->serialize();
                 return [
                     'logged_in' => false,
                     'qr_svg' => $qr->getQRSvg(400, 2),

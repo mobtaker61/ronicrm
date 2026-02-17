@@ -671,15 +671,15 @@
 
                     <!-- User Account Connection (for Inbox + Group Crawler) -->
                     <div class="mb-8">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-3">اتصال اکانت کاربری تلگرام</h3>
-                        <p class="text-gray-600 text-sm mb-4">برای مشاهده پیام‌های مستقیم، پیمایش گروه‌ها و ارسال پیام از اکانت خود، با اسکن QR کد متصل شوید.</p>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Telegram User Account</h3>
+                        <p class="text-gray-600 text-sm mb-4">Connect your Telegram account to view DMs, crawl groups, and send messages. Scan the QR code with your Telegram app.</p>
 
                         <!-- Not Connected -->
                         <div v-if="!telegramConnection" class="p-6 border border-gray-200 rounded-lg bg-gray-50">
                             <div v-if="telegramQrSvg" class="mb-4">
-                                <p class="text-sm text-gray-700 mb-2">با اپ تلگرام خود این QR کد را اسکن کنید:</p>
+                                <p class="text-sm text-gray-700 mb-2">Scan this QR code with your Telegram app:</p>
                                 <div class="inline-block p-4 bg-white rounded-lg" v-html="telegramQrSvg"></div>
-                                <p class="text-xs text-amber-600 mt-2">هشدار: استفاده از Userbot با ریسک بن اکانت همراه است. از flooding/spamming خودداری کنید.</p>
+                                <p class="text-xs text-amber-600 mt-2">Warning: Userbot usage carries account ban risk. Avoid flooding or spamming.</p>
                             </div>
                             <div v-else-if="telegramQrError" class="text-red-600 text-sm mb-4">{{ telegramQrError }}</div>
                             <div v-else class="mb-4">
@@ -689,10 +689,10 @@
                                     :disabled="telegramQrLoading"
                                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                                 >
-                                    {{ telegramQrLoading ? 'در حال بارگذاری...' : 'اتصال با QR کد' }}
+                                    {{ telegramQrLoading ? 'Loading...' : 'Connect via QR Code' }}
                                 </button>
                             </div>
-                            <p v-if="telegramQrPolling" class="text-sm text-gray-500">در انتظار اسکن... (هر ۳ ثانیه به‌روز می‌شود)</p>
+                            <p v-if="telegramQrPolling" class="text-sm text-gray-500">Waiting for scan... QR is stable, connection will complete automatically after scan</p>
                         </div>
 
                         <!-- Connected -->
@@ -703,23 +703,23 @@
                             <div class="flex-1 min-w-0">
                                 <p class="font-semibold text-gray-900">{{ telegramConnection.telegram_username ? '@' + telegramConnection.telegram_username : 'Telegram Account' }}</p>
                                 <p class="text-sm text-gray-500" v-if="telegramConnection.phone">{{ telegramConnection.phone }}</p>
-                                <p class="text-sm text-green-600 mt-1">متصل است</p>
+                                <p class="text-sm text-green-600 mt-1">Connected</p>
                             </div>
                             <form @submit.prevent="disconnectTelegram" class="inline">
-                                <button type="submit" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium">قطع اتصال</button>
+                                <button type="submit" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium">Disconnect</button>
                             </form>
                         </div>
                         <p v-if="telegramConnection" class="text-sm mt-2">
-                            <a :href="route('inbox.index', { channel: 'telegram' })" class="text-blue-600 hover:underline">باز کردن Inbox →</a>
+                            <a :href="route('inbox.index', { channel: 'telegram' })" class="text-blue-600 hover:underline">Open Inbox →</a>
                             <span class="text-gray-500 mx-2">|</span>
-                            <a :href="route('telegram-crawler.index')" class="text-blue-600 hover:underline">پیمایش گروه تلگرام →</a>
+                            <a :href="route('telegram-crawler.index')" class="text-blue-600 hover:underline">Telegram Group Crawl →</a>
                         </p>
                     </div>
 
                     <!-- Bot (legacy / optional) -->
                     <div class="border-t pt-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-3">ربات تلگرام (اختیاری)</h3>
-                        <p class="text-sm text-gray-500 mb-4">برای دریافت پیام از طریق Webhook می‌توانید یک ربات در @BotFather ایجاد کنید.</p>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Telegram Bot (optional)</h3>
+                        <p class="text-sm text-gray-500 mb-4">Create a bot via @BotFather to receive messages via Webhook.</p>
                     </div>
                     <form @submit.prevent="saveTelegramSettings" class="space-y-6">
                         <div class="flex items-center justify-between mb-4">
@@ -746,8 +746,8 @@
                                 <p class="mt-1 text-xs text-gray-500">Create a bot via @BotFather and paste the token here.</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Webhook URL (برای دریافت پیام در Inbox)</label>
-                                <p class="mt-1 text-xs text-gray-500 mb-2">این آدرس را در تلگرام (مثلاً با @BotFather یا API) به عنوان Webhook ربات تنظیم کنید تا پیام‌های ورودی در Inbox نمایش داده شوند.</p>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Webhook URL</label>
+                                <p class="mt-1 text-xs text-gray-500 mb-2">Set this URL as the bot's webhook (e.g. via Telegram API) to receive incoming messages in Inbox.</p>
                                 <div class="flex items-center gap-2">
                                     <input
                                         :value="telegramWebhookUrl"
@@ -760,7 +760,7 @@
                                         @click="copyTelegramWebhookUrl"
                                         class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm font-medium whitespace-nowrap"
                                     >
-                                        {{ webhookCopied ? 'کپی شد' : 'کپی' }}
+                                        {{ webhookCopied ? 'Copied' : 'Copy' }}
                                     </button>
                                 </div>
                             </div>
@@ -1116,10 +1116,10 @@ const startTelegramQr = async () => {
         if (data.qr_svg) {
             telegramQrSvg.value = data.qr_svg;
             telegramQrPolling.value = true;
-            telegramQrPollTimer = setInterval(pollTelegramQr, 3000);
+            telegramQrPollTimer = setInterval(pollTelegramQr, 6000);
         }
     } catch (e) {
-        telegramQrError.value = e.message || 'خطا در دریافت QR';
+        telegramQrError.value = e.message || 'Failed to load QR';
     } finally {
         telegramQrLoading.value = false;
     }
@@ -1127,7 +1127,7 @@ const startTelegramQr = async () => {
 
 const pollTelegramQr = async () => {
     try {
-        const res = await fetch(route('settings.telegram.qr-code'));
+        const res = await fetch(route('settings.telegram.qr-code') + '?wait=1');
         const data = await res.json();
         if (data.logged_in) {
             if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
@@ -1138,7 +1138,7 @@ const pollTelegramQr = async () => {
 };
 
 const disconnectTelegram = () => {
-    if (!confirm('قطع اتصال تلگرام؟ می‌توانید دوباره متصل شوید.')) return;
+    if (!confirm('Disconnect Telegram? You can reconnect anytime.')) return;
     router.post(route('settings.telegram.disconnect'), {}, { preserveScroll: true });
 };
 
