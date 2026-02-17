@@ -109,11 +109,13 @@ class MadelineProtoService
      */
     public function start(): void
     {
+        Log::info('MadelineProtoService::start() begin');
         $this->run(function () {
             $api = $this->getApi();
             $api->start();
             $this->connection?->update(['last_used_at' => now()]);
         });
+        Log::info('MadelineProtoService::start() end');
     }
 
     /**
@@ -226,6 +228,7 @@ class MadelineProtoService
      */
     public function sendPrivateMessage(string $userId, string $text): array
     {
+        Log::info('MadelineProtoService::sendPrivateMessage', ['user_id' => $userId]);
         try {
             $messageId = $this->run(function () use ($userId, $text) {
                 $api = $this->getApi();

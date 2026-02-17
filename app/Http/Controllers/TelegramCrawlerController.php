@@ -80,6 +80,7 @@ class TelegramCrawlerController extends Controller
             $crawlId,
             $validated['template_id'] ?? null
         );
+        \Illuminate\Support\Facades\Log::info('TelegramCrawlJob dispatched', ['crawl_id' => $crawlId, 'group_id' => $validated['group_id']]);
         return response()->json(['crawl_id' => $crawlId]);
     }
 

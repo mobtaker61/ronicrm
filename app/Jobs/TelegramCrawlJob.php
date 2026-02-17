@@ -31,9 +31,12 @@ class TelegramCrawlJob implements ShouldQueue
 
     public function handle(): void
     {
+        Log::info('TelegramCrawlJob started', ['crawl_id' => $this->crawlId, 'group_id' => $this->groupId]);
+
         $conn = TelegramUserConnection::getActive();
         if (!$conn || !$conn->isConnected()) {
             $this->setProgress('error', 0, 0, 0, 'No active Telegram connection.');
+            Log::warning('TelegramCrawlJob: No active connection');
             return;
         }
         $service = new MadelineProtoService($conn);
@@ -42,8 +45,11 @@ class TelegramCrawlJob implements ShouldQueue
         $skipped = 0;
         try {
             $this->setProgress('running', 0, 0, 0, null, 'fetching_messages', null);
+            Log::info('TelegramCrawlJob: calling start()');
             $service->start();
+            Log::info('TelegramCrawlJob: start() done, fetching messages');
             $messages = $service->getGroupMessages($this->groupId, $this->limit);
+            Log::info('TelegramCrawlJob: got messages', ['count' => count($messages)]);
             $authors = [];
             $msgCount = 0;
             foreach ($messages as $msg) {
@@ -59,10 +65,12 @@ class TelegramCrawlJob implements ShouldQueue
             $total = count($authors);
             $this->setProgress('running', 0, 0, 0, null, 'identifying_authors', null, count($messages));
             $this->setProgress('running', 0, 0, 0, null, 'sending_messages', $total);
+            Log::info('TelegramCrawlJob: sending to authors', ['total' => $total]);
             $idx = 0;
             foreach ($authors as $userId => $msg) {
                 $idx++;
                 $this->setProgress('running', $idx, $sent, $skipped, null, 'sending_messages', $total);
+                Log::info('TelegramCrawlJob: sending to user', ['user_id' => $userId, 'idx' => $idx, 'total' => $total]);
                 if ($this->alreadyMessaged($userId)) {
                     $skipped++;
                     continue;
