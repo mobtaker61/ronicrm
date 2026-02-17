@@ -48,9 +48,13 @@ class MadelineProtoService
         return $this->api;
     }
 
+    /** Max seconds for any MadelineProto operation (prevents hanging requests). */
+    protected int $runTimeout = 90;
+
     /**
      * Run async closure and return result (blocking).
      * Uses explicit EventLoop::run() so the event loop processes async I/O correctly in web context.
+     * Includes a safety timeout to prevent indefinite blocking.
      */
     protected function run(callable $callback)
     {
@@ -59,13 +63,17 @@ class MadelineProtoService
         }
         $result = null;
         $error = null;
-        \Revolt\EventLoop::queue(function () use ($callback, &$result, &$error) {
+        $timeoutId = \Revolt\EventLoop::delay($this->runTimeout, function () {
+            \Revolt\EventLoop::getDriver()->stop();
+        });
+        \Revolt\EventLoop::queue(function () use ($callback, &$result, &$error, $timeoutId) {
             try {
                 $future = \Amp\async($callback);
                 $result = $future->await();
             } catch (\Throwable $e) {
                 $error = $e;
             } finally {
+                \Revolt\EventLoop::cancel($timeoutId);
                 \Revolt\EventLoop::getDriver()->stop();
             }
         });
