@@ -51,7 +51,7 @@ sudo apt-get install supervisor
 ```ini
 [program:ronicrm-queue-worker]
 process_name=%(program_name)s_%(process_num)02d
-command=php /path/to/your/project/artisan queue:work database --sleep=3 --tries=3 --max-time=3600 --queue=campaigns,default
+command=php /path/to/your/project/artisan queue:work database --sleep=3 --tries=3 --max-time=3600 --queue=default,campaigns
 autostart=true
 autorestart=true
 stopasgroup=true

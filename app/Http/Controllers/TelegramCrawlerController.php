@@ -73,6 +73,16 @@ class TelegramCrawlerController extends Controller
             }
         }
         $crawlId = Str::uuid()->toString();
+        // Write initial cache so frontend gets instant feedback (status: queued)
+        Cache::put('telegram_crawl_' . $crawlId, [
+            'status' => 'queued',
+            'phase' => 'queued',
+            'processed' => 0,
+            'sent' => 0,
+            'skipped' => 0,
+            'error' => null,
+        ], now()->addHours(24));
+
         TelegramCrawlJob::dispatch(
             $validated['group_id'],
             $validated['limit'],

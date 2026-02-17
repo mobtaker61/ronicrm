@@ -179,6 +179,7 @@ const phaseLabel = computed(() => {
     const p = crawlStatus.value.phase;
     if (!p) return '';
     const labels = {
+        queued: 'Job queued, waiting for worker...',
         fetching_messages: 'Fetching messages from group...',
         identifying_authors: 'Identifying unique authors from posts...',
         sending_messages: 'Sending messages to authors...',
@@ -192,6 +193,7 @@ const statusLabel = computed(() => {
     const s = crawlStatus.value.status || 'pending';
     const labels = {
         pending: 'Waiting for worker...',
+        queued: 'Waiting for worker...',
         running: 'Running',
         completed: 'Completed',
         error: 'Error',
@@ -242,7 +244,7 @@ const pollCrawlStatus = async () => {
     try {
         const res = await axios.get(route('telegram-crawler.crawl-status', { crawlId: crawlId.value }));
         crawlStatus.value = res.data;
-        if (['completed', 'error'].includes(res.data.status)) {
+        if (['completed', 'error'].includes(res.data?.status)) {
             if (crawlPollTimer) clearInterval(crawlPollTimer);
         }
     } catch {}
