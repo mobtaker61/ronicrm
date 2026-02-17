@@ -48,4 +48,9 @@ return [
         'graph_version' => env('META_GRAPH_VERSION', 'v24.0'),
     ],
 
+    'telegram' => [
+        'api_id' => env('TELEGRAM_API_ID', ''),
+        'api_hash' => env('TELEGRAM_API_HASH', ''),
+    ],
+
 ];

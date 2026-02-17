@@ -7,6 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "danog/madelineproto": "^8.0",
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
@@ -77,14 +78,15 @@
     },
     "config": {
         "platform": {
-            "php": "8.2.0"
+            "php": "8.2.4"
         },
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true,
-            "php-http/discovery": true
+            "php-http/discovery": true,
+            "symfony/thanks": true
         }
     },
     "minimum-stability": "stable",

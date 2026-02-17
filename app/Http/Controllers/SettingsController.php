@@ -87,8 +87,24 @@ class SettingsController extends Controller
                 'webhook_verify_token' => '',
             ]),
             'instagramConnection' => $this->getInstagramConnectionForFront(),
+            'telegramConnection' => $this->getTelegramConnectionForFront(),
             'instagramWebhookEvents' => $isAdmin ? $this->getInstagramWebhookEventsLast20() : [],
         ]);
+    }
+
+    protected function getTelegramConnectionForFront(): ?array
+    {
+        $conn = \App\Models\TelegramUserConnection::getActive();
+        if (!$conn) {
+            return null;
+        }
+        return [
+            'id' => $conn->id,
+            'phone' => $conn->phone ? substr($conn->phone, 0, 4) . '***' : null,
+            'telegram_username' => $conn->telegram_username,
+            'status' => $conn->status,
+            'last_used_at' => $conn->last_used_at?->toIso8601String(),
+        ];
     }
 
     protected function getInstagramConnectionForFront(): ?array
@@ -225,7 +241,7 @@ class SettingsController extends Controller
     public function updateTelegram(Request $request)
     {
         $validated = $request->validate([
-            'bot_token' => 'required|string|max:500',
+            'bot_token' => 'nullable|string|max:500',
             'enabled' => 'boolean',
         ]);
 

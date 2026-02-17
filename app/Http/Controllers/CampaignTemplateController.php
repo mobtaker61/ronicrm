@@ -23,7 +23,7 @@ class CampaignTemplateController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'type' => 'required|in:whatsapp,email',
+            'type' => 'required|in:whatsapp,email,telegram',
             'subject' => 'nullable|string|max:255',
             'content' => 'required|string',
             'image' => 'nullable|file|max:51200', // 50MB max - accept all file types
@@ -57,7 +57,7 @@ class CampaignTemplateController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'type' => 'required|in:whatsapp,email',
+            'type' => 'required|in:whatsapp,email,telegram',
             'subject' => 'nullable|string|max:255',
             'content' => 'required|string',
             'image' => 'nullable|file|max:51200', // 50MB max - accept all file types

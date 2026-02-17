@@ -44,6 +44,7 @@
                                     :class="{
                                         'bg-green-100 text-green-800': template.type === 'whatsapp',
                                         'bg-blue-100 text-blue-800': template.type === 'email',
+                                        'bg-sky-100 text-sky-800': template.type === 'telegram',
                                     }"
                                 >
                                     {{ template.type }}
@@ -117,6 +118,7 @@
                                     <option value="">Select Type</option>
                                     <option value="whatsapp">WhatsApp</option>
                                     <option value="email">Email</option>
+                                    <option value="telegram">Telegram</option>
                                 </select>
                             </div>
                         </div>
@@ -130,8 +132,8 @@
                             />
                         </div>
 
-                        <!-- File Upload (for WhatsApp) -->
-                        <div v-if="form.type === 'whatsapp'">
+                        <!-- File Upload (for WhatsApp & Telegram) -->
+                        <div v-if="form.type === 'whatsapp' || form.type === 'telegram'">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Attachment (Optional)</label>
                             <div class="flex items-center space-x-4">
                                 <div v-if="imagePreview || selectedFile || (editingTemplate && editingTemplate.image)" class="flex-shrink-0 relative">
@@ -171,7 +173,7 @@
                                     >
                                         انتخاب از مدیا
                                     </button>
-                                    <p class="mt-1 text-xs text-gray-500">Upload file for WhatsApp (PDF, Word, Excel, Images, etc. - Max 50MB)</p>
+                                    <p class="mt-1 text-xs text-gray-500">Upload file (PDF, Word, Excel, Images, etc. - Max 50MB)</p>
                                     <p v-if="selectedFile" class="mt-1 text-xs text-gray-600">
                                         انتخاب‌شده: {{ selectedFile.name }}{{ selectedFile.size != null ? ' (' + formatFileSize(selectedFile.size) + ')' : '' }}
                                     </p>

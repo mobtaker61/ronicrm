@@ -1,0 +1,288 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\TelegramUserConnection;
+use Illuminate\Support\Facades\Log;
+
+class MadelineProtoService
+{
+    protected ?TelegramUserConnection $connection = null;
+    protected $api = null;
+
+    public function __construct(?TelegramUserConnection $connection = null)
+    {
+        $this->connection = $connection ?? TelegramUserConnection::getActive();
+    }
+
+    public function setConnection(TelegramUserConnection $connection): self
+    {
+        $this->connection = $connection;
+        return $this;
+    }
+
+    /**
+     * Get or create MadelineProto API instance. Runs in async context.
+     */
+    protected function getApi()
+    {
+        if ($this->api !== null) {
+            return $this->api;
+        }
+        if (!$this->connection || !$this->connection->isConnected()) {
+            throw new \RuntimeException('No active Telegram user connection.');
+        }
+        if (!class_exists(\danog\MadelineProto\API::class)) {
+            throw new \RuntimeException('MadelineProto is not installed. Run: composer require danog/madelineproto');
+        }
+        $sessionPath = $this->connection->getSessionPath();
+        $apiId = (int) $this->connection->getApiId();
+        $apiHash = $this->connection->getApiHash();
+        if (!$apiId || !$apiHash) {
+            $apiId = (int) config('services.telegram.api_id');
+            $apiHash = config('services.telegram.api_hash');
+        }
+        $settings = new \danog\MadelineProto\Settings\AppInfo();
+        $settings->setApiId($apiId)->setApiHash($apiHash ?? '');
+        $this->api = new \danog\MadelineProto\API($sessionPath, $settings);
+        return $this->api;
+    }
+
+    /**
+     * Run async closure and return result (blocking).
+     * Uses explicit EventLoop::run() so the event loop processes async I/O correctly in web context.
+     */
+    protected function run(callable $callback)
+    {
+        if (!class_exists(\danog\MadelineProto\API::class)) {
+            throw new \RuntimeException('MadelineProto is not installed. Run: composer require danog/madelineproto');
+        }
+        $result = null;
+        $error = null;
+        \Revolt\EventLoop::queue(function () use ($callback, &$result, &$error) {
+            try {
+                $future = \Amp\async($callback);
+                $result = $future->await();
+            } catch (\Throwable $e) {
+                $error = $e;
+            } finally {
+                \Revolt\EventLoop::getDriver()->stop();
+            }
+        });
+        \Revolt\EventLoop::run();
+        if ($error !== null) {
+            Log::error('MadelineProto run() error', [
+                'message' => $error->getMessage(),
+                'file' => $error->getFile(),
+                'line' => $error->getLine(),
+                'trace' => $error->getTraceAsString(),
+            ]);
+            throw $error;
+        }
+        return $result;
+    }
+
+    /**
+     * Start MadelineProto and ensure logged in.
+     */
+    public function start(): void
+    {
+        $this->run(function () {
+            $api = $this->getApi();
+            $api->start();
+            $this->connection?->update(['last_used_at' => now()]);
+        });
+    }
+
+    /**
+     * Get list of dialogs (chats, groups, channels).
+     *
+     * @return array Array of [id => string, title => string, type => string]
+     */
+    public function getDialogs(): array
+    {
+        return $this->run(function () {
+            $api = $this->getApi();
+            $api->start();
+            $dialogs = $api->getFullDialogs();
+            $result = [];
+            foreach ($dialogs as $dialog) {
+                $peer = $dialog['peer'] ?? null;
+                if (!$peer) continue;
+                $chat = $dialog['peer'] ?? $dialog;
+                $id = $api->getId($peer);
+                $title = $this->extractDialogTitle($dialog, $api);
+                $type = $this->getPeerType($peer);
+                $result[] = [
+                    'id' => (string) $id,
+                    'title' => $title,
+                    'type' => $type,
+                ];
+            }
+            return $result;
+        });
+    }
+
+    protected function extractDialogTitle(array $dialog, $api): string
+    {
+        $peer = $dialog['peer'] ?? null;
+        if (!$peer) return 'Unknown';
+        if (isset($peer['title'])) return $peer['title'];
+        if (isset($peer['first_name'])) {
+            return trim(($peer['first_name'] ?? '') . ' ' . ($peer['last_name'] ?? ''));
+        }
+        if (isset($dialog['name'])) return $dialog['name'];
+        try {
+            $entity = $api->getInfo($peer);
+            return $entity['User']['first_name'] ?? $entity['Chat']['title'] ?? 'Unknown';
+        } catch (\Throwable) {
+            return 'Unknown';
+        }
+    }
+
+    protected function getPeerType($peer): string
+    {
+        $type = $peer['_'] ?? '';
+        if (str_contains($type, 'Channel')) {
+            return isset($peer['megagroup']) && $peer['megagroup'] ? 'supergroup' : 'channel';
+        }
+        if (str_contains($type, 'Chat')) {
+            return 'group';
+        }
+        return 'user';
+    }
+
+    /**
+     * Get messages from a chat/group.
+     *
+     * @param string $peerId Chat/group ID (e.g. -1001234567890)
+     * @param int $limit Number of messages to fetch
+     * @return array Array of messages with from_id, text, etc.
+     */
+    public function getGroupMessages(string $peerId, int $limit = 50): array
+    {
+        return $this->run(function () use ($peerId, $limit) {
+            $api = $this->getApi();
+            $api->start();
+            $peer = $api->getInfo($peerId)['Peer'] ?? ['_' => 'inputPeerChat', 'chat_id' => (int) str_replace('-100', '', $peerId)];
+            $messages = $api->messages->getHistory(peer: $peerId, limit: min($limit, 100));
+            $result = [];
+            $raw = $messages['messages'] ?? [];
+            foreach ($raw as $msg) {
+                if (empty($msg['from_id']) || ($msg['from_id']['_'] ?? '') === 'peerChannel') continue;
+                $fromId = $this->extractUserId($msg['from_id']);
+                if (!$fromId) continue;
+                $result[] = [
+                    'id' => $msg['id'] ?? null,
+                    'from_id' => $fromId,
+                    'text' => $msg['message'] ?? '',
+                    'date' => $msg['date'] ?? null,
+                ];
+            }
+            return $result;
+        });
+    }
+
+    protected function extractUserId($fromId): ?string
+    {
+        if (!$fromId) return null;
+        $t = $fromId['_'] ?? '';
+        if ($t === 'peerUser') {
+            return (string) ($fromId['user_id'] ?? null);
+        }
+        if ($t === 'peerChannel') return null;
+        if (isset($fromId['user_id'])) return (string) $fromId['user_id'];
+        return null;
+    }
+
+    /**
+     * Send private message to user.
+     *
+     * @param string $userId Telegram user ID (for PM, chat_id = user_id)
+     * @param string $text Message text
+     * @return array { success: bool, message_id?: int, error?: string }
+     */
+    public function sendPrivateMessage(string $userId, string $text): array
+    {
+        try {
+            $messageId = $this->run(function () use ($userId, $text) {
+                $api = $this->getApi();
+                $api->start();
+                $result = $api->messages->sendMessage(peer: (int) $userId, message: $text);
+                return $result['id'] ?? null;
+            });
+            $this->connection?->update(['last_used_at' => now()]);
+            return ['success' => true, 'message_id' => $messageId];
+        } catch (\Throwable $e) {
+            Log::warning('MadelineProto sendMessage failed: ' . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Initiate QR login. Returns SVG of QR code or null if already logged in.
+     *
+     * @return array { qr_svg?: string, logged_in: bool, needs_2fa?: bool, error?: string }
+     */
+    public function getQrCode(): array
+    {
+        if (!class_exists(\danog\MadelineProto\API::class)) {
+            return ['error' => 'MadelineProto is not installed. Run: composer require danog/madelineproto'];
+        }
+        $apiId = (int) config('services.telegram.api_id');
+        $apiHash = config('services.telegram.api_hash');
+        if (!$apiId || !$apiHash) {
+            return ['error' => 'TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in .env'];
+        }
+        try {
+            $conn = $this->connection ?? TelegramUserConnection::getActive()
+                ?? TelegramUserConnection::whereIn('status', ['pending', 'connected'])->orderByDesc('updated_at')->first()
+                ?? TelegramUserConnection::create(['status' => 'pending']);
+            $sessionPath = $conn->getSessionPath();
+            Log::info('MadelineProto getQrCode: starting', ['session_path' => $sessionPath]);
+
+            // On Windows, Amp\File's ParallelFilesystemDriver often fails on createDirectory.
+            // Pre-create the session directory with native PHP so MadelineProto skips it.
+            if (!is_dir($sessionPath)) {
+                mkdir($sessionPath, 0755, true);
+            }
+
+            // Run inside EventLoop - MadelineProto requires it for async I/O
+            $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash) {
+                $settings = new \danog\MadelineProto\Settings\AppInfo();
+                $settings->setApiId($apiId)->setApiHash($apiHash);
+                $api = new \danog\MadelineProto\API($sessionPath, $settings);
+                $qr = $api->qrLogin();
+                Log::info('MadelineProto getQrCode: qrLogin done', [
+                    'qr_is_null' => $qr === null,
+                    'qr_class' => $qr ? get_class($qr) : null,
+                    'auth' => $api->getAuthorization(),
+                ]);
+                if (!$qr) {
+                    $auth = $api->getAuthorization();
+                    if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
+                        $conn->update(['status' => 'connected']);
+                        return ['logged_in' => true];
+                    }
+                    if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
+                        return ['logged_in' => false, 'needs_2fa' => true];
+                    }
+                    return ['logged_in' => false];
+                }
+                return [
+                    'logged_in' => false,
+                    'qr_svg' => $qr->getQRSvg(400, 2),
+                ];
+            });
+
+            Log::info('MadelineProto getQrCode: after run', [
+                'result_type' => gettype($result),
+                'result' => is_array($result) ? array_keys($result) : $result,
+            ]);
+            return is_array($result) ? $result : ['logged_in' => false, 'error' => 'Unknown response (type: ' . gettype($result) . ')'];
+        } catch (\Throwable $e) {
+            Log::error('Telegram getQrCode error: ' . $e->getMessage());
+            return ['error' => $e->getMessage(), 'logged_in' => false];
+        }
+    }
+}

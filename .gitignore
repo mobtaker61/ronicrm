@@ -18,6 +18,7 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/app/telegram-user-sessions
 /vendor
 Homestead.json
 Homestead.yaml

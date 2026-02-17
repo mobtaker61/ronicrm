@@ -59,6 +59,12 @@ Route::middleware('auth')->group(function () {
     Route::get('campaigns/{campaign}/status', [\App\Http\Controllers\CampaignController::class, 'getStatus'])->name('campaigns.status');
     Route::resource('campaign-templates', \App\Http\Controllers\CampaignTemplateController::class)->except(['show', 'create', 'edit']);
 
+    // Telegram Group Crawler
+    Route::get('/telegram-crawler', [\App\Http\Controllers\TelegramCrawlerController::class, 'index'])->name('telegram-crawler.index');
+    Route::get('/telegram-crawler/groups', [\App\Http\Controllers\TelegramCrawlerController::class, 'groups'])->name('telegram-crawler.groups');
+    Route::post('/telegram-crawler/crawl', [\App\Http\Controllers\TelegramCrawlerController::class, 'crawl'])->name('telegram-crawler.crawl');
+    Route::get('/telegram-crawler/crawl-status/{crawlId}', [\App\Http\Controllers\TelegramCrawlerController::class, 'crawlStatus'])->name('telegram-crawler.crawl-status');
+
     // Inbox (WhatsApp Messages)
     Route::get('/inbox', [\App\Http\Controllers\InboxController::class, 'index'])->name('inbox.index');
     Route::post('/inbox/send', [\App\Http\Controllers\InboxController::class, 'sendMessage'])->name('inbox.send');
@@ -106,6 +112,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings/instagram/connect', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'connect'])->name('settings.instagram.connect');
     Route::get('/settings/instagram/callback', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'callback'])->name('settings.instagram.callback');
     Route::post('/settings/instagram/disconnect', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'disconnect'])->name('settings.instagram.disconnect');
+    Route::get('/settings/telegram/qr-code', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'qrCode'])->name('settings.telegram.qr-code');
+    Route::post('/settings/telegram/disconnect', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'disconnect'])->name('settings.telegram.disconnect');
     Route::post('/settings/instagram/revalidate', [\App\Http\Controllers\SettingsController::class, 'revalidateInstagramToken'])->name('settings.instagram.revalidate');
 
     // Users Management (Admin Only)

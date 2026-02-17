@@ -668,6 +668,59 @@
                 <!-- Telegram Settings Tab -->
                 <div v-if="activeTab === 'telegram'" class="p-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-6">Telegram (Inbox)</h2>
+
+                    <!-- User Account Connection (for Inbox + Group Crawler) -->
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">اتصال اکانت کاربری تلگرام</h3>
+                        <p class="text-gray-600 text-sm mb-4">برای مشاهده پیام‌های مستقیم، پیمایش گروه‌ها و ارسال پیام از اکانت خود، با اسکن QR کد متصل شوید.</p>
+
+                        <!-- Not Connected -->
+                        <div v-if="!telegramConnection" class="p-6 border border-gray-200 rounded-lg bg-gray-50">
+                            <div v-if="telegramQrSvg" class="mb-4">
+                                <p class="text-sm text-gray-700 mb-2">با اپ تلگرام خود این QR کد را اسکن کنید:</p>
+                                <div class="inline-block p-4 bg-white rounded-lg" v-html="telegramQrSvg"></div>
+                                <p class="text-xs text-amber-600 mt-2">هشدار: استفاده از Userbot با ریسک بن اکانت همراه است. از flooding/spamming خودداری کنید.</p>
+                            </div>
+                            <div v-else-if="telegramQrError" class="text-red-600 text-sm mb-4">{{ telegramQrError }}</div>
+                            <div v-else class="mb-4">
+                                <button
+                                    type="button"
+                                    @click="startTelegramQr"
+                                    :disabled="telegramQrLoading"
+                                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                    {{ telegramQrLoading ? 'در حال بارگذاری...' : 'اتصال با QR کد' }}
+                                </button>
+                            </div>
+                            <p v-if="telegramQrPolling" class="text-sm text-gray-500">در انتظار اسکن... (هر ۳ ثانیه به‌روز می‌شود)</p>
+                        </div>
+
+                        <!-- Connected -->
+                        <div v-else class="p-6 border border-gray-200 rounded-lg bg-white flex flex-wrap items-start gap-6">
+                            <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-2xl">
+                                <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold text-gray-900">{{ telegramConnection.telegram_username ? '@' + telegramConnection.telegram_username : 'Telegram Account' }}</p>
+                                <p class="text-sm text-gray-500" v-if="telegramConnection.phone">{{ telegramConnection.phone }}</p>
+                                <p class="text-sm text-green-600 mt-1">متصل است</p>
+                            </div>
+                            <form @submit.prevent="disconnectTelegram" class="inline">
+                                <button type="submit" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium">قطع اتصال</button>
+                            </form>
+                        </div>
+                        <p v-if="telegramConnection" class="text-sm mt-2">
+                            <a :href="route('inbox.index', { channel: 'telegram' })" class="text-blue-600 hover:underline">باز کردن Inbox →</a>
+                            <span class="text-gray-500 mx-2">|</span>
+                            <a :href="route('telegram-crawler.index')" class="text-blue-600 hover:underline">پیمایش گروه تلگرام →</a>
+                        </p>
+                    </div>
+
+                    <!-- Bot (legacy / optional) -->
+                    <div class="border-t pt-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">ربات تلگرام (اختیاری)</h3>
+                        <p class="text-sm text-gray-500 mb-4">برای دریافت پیام از طریق Webhook می‌توانید یک ربات در @BotFather ایجاد کنید.</p>
+                    </div>
                     <form @submit.prevent="saveTelegramSettings" class="space-y-6">
                         <div class="flex items-center justify-between mb-4">
                             <div class="flex items-center space-x-3">
@@ -687,7 +740,6 @@
                                 <input
                                     v-model="telegramForm.bot_token"
                                     type="text"
-                                    required
                                     placeholder="123456:ABC-DEF..."
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
@@ -974,6 +1026,10 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    telegramConnection: {
+        type: Object,
+        default: null,
+    },
     instagramWebhookEvents: {
         type: Array,
         default: () => [],
@@ -1034,6 +1090,57 @@ const telegramForm = useForm({
     bot_token: props.telegramSettings.bot_token || '',
     enabled: props.telegramSettings.enabled || false,
 });
+
+// Telegram user connection (QR)
+const telegramQrSvg = ref('');
+const telegramQrLoading = ref(false);
+const telegramQrError = ref('');
+const telegramQrPolling = ref(false);
+let telegramQrPollTimer = null;
+
+const startTelegramQr = async () => {
+    telegramQrLoading.value = true;
+    telegramQrError.value = '';
+    telegramQrSvg.value = '';
+    try {
+        const res = await fetch(route('settings.telegram.qr-code'));
+        const data = await res.json();
+        if (data.error) {
+            telegramQrError.value = data.error;
+            return;
+        }
+        if (data.logged_in) {
+            router.reload({ only: ['telegramConnection'] });
+            return;
+        }
+        if (data.qr_svg) {
+            telegramQrSvg.value = data.qr_svg;
+            telegramQrPolling.value = true;
+            telegramQrPollTimer = setInterval(pollTelegramQr, 3000);
+        }
+    } catch (e) {
+        telegramQrError.value = e.message || 'خطا در دریافت QR';
+    } finally {
+        telegramQrLoading.value = false;
+    }
+};
+
+const pollTelegramQr = async () => {
+    try {
+        const res = await fetch(route('settings.telegram.qr-code'));
+        const data = await res.json();
+        if (data.logged_in) {
+            if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
+            telegramQrPolling.value = false;
+            router.reload();
+        }
+    } catch {}
+};
+
+const disconnectTelegram = () => {
+    if (!confirm('قطع اتصال تلگرام؟ می‌توانید دوباره متصل شوید.')) return;
+    router.post(route('settings.telegram.disconnect'), {}, { preserveScroll: true });
+};
 
 const instagramForm = useForm({
     enabled: props.instagramSettings.enabled || false,
