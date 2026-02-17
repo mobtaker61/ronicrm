@@ -222,6 +222,7 @@ class MadelineProtoService
                     'from_id' => $fromId,
                     'text' => $text,
                     'link' => $link,
+                    'raw_json' => json_encode($msg, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
                 ];
                 if ($fromId && $fromType !== 'peerChannel') {
                     $valid[] = [

@@ -174,24 +174,22 @@
                             <!-- Crawled messages list (proof of crawl) -->
                             <div v-else-if="crawlStatus.messages_preview?.length" class="mt-6 pt-4 border-t">
                                 <h4 class="text-sm font-semibold text-gray-700 mb-2">
-                                    Crawled messages ({{ crawlStatus.messages_preview.length }})
+                                    Crawled messages ({{ crawlStatus.messages_preview.length }}) – raw API data
                                 </h4>
-                                <div class="max-h-60 overflow-y-auto space-y-1.5 text-sm">
+                                <div class="max-h-[32rem] overflow-y-auto space-y-2 text-sm">
                                     <div
                                         v-for="(m, i) in crawlStatus.messages_preview"
                                         :key="m.id || i"
-                                        class="flex items-start gap-2 p-2 rounded bg-gray-50 hover:bg-gray-100"
+                                        class="rounded border border-gray-200 overflow-hidden"
                                     >
-                                        <span class="text-gray-400 shrink-0">#{{ m.id }}</span>
-                                        <span class="text-xs text-amber-600 shrink-0">{{ m.from_type || '?' }}</span>
-                                        <span class="truncate flex-1 min-w-0">{{ m.text || '(no text)' }}</span>
-                                        <a
-                                            v-if="m.link"
-                                            :href="m.link"
-                                            target="_blank"
-                                            rel="noopener"
-                                            class="text-blue-600 hover:underline shrink-0"
-                                        >Open</a>
+                                        <div class="flex items-start gap-2 p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer" @click="toggleRaw(i)">
+                                            <span class="text-gray-400 shrink-0">#{{ m.id }}</span>
+                                            <span class="text-xs text-amber-600 shrink-0">{{ m.from_type || '?' }}</span>
+                                            <span class="truncate flex-1 min-w-0">{{ m.text || '(no text)' }}</span>
+                                            <a v-if="m.link" :href="m.link" target="_blank" rel="noopener" class="text-blue-600 hover:underline shrink-0" @click.stop>Open</a>
+                                            <span class="text-xs text-gray-400">{{ expandedRawIndices.has(i) ? '▼' : '▶' }} JSON</span>
+                                        </div>
+                                        <pre v-if="expandedRawIndices.has(i) && m.raw_json" class="p-3 text-xs bg-gray-900 text-gray-100 overflow-x-auto whitespace-pre-wrap break-all m-0">{{ m.raw_json }}</pre>
                                     </div>
                                 </div>
                             </div>
@@ -223,7 +221,15 @@ const messageText = ref('');
 const crawlStarting = ref(false);
 const crawlId = ref('');
 const crawlStatus = ref({});
+const expandedRawIndices = ref(new Set());
 let crawlPollTimer = null;
+
+const toggleRaw = (i) => {
+    const s = new Set(expandedRawIndices.value);
+    if (s.has(i)) s.delete(i);
+    else s.add(i);
+    expandedRawIndices.value = s;
+};
 
 const phaseLabel = computed(() => {
     const p = crawlStatus.value.phase;
