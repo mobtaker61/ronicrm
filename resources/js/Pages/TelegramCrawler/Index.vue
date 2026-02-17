@@ -165,6 +165,36 @@
                                 </div>
                             </div>
                             <p v-if="crawlStatus.error" class="text-red-600 text-sm">{{ crawlStatus.error }}</p>
+
+                            <!-- No messages found -->
+                            <p v-else-if="(crawlStatus.status === 'completed' || crawlStatus.phase === 'identifying_authors' || crawlStatus.phase === 'sending_messages') && (crawlStatus.messages_scanned ?? 0) === 0 && !crawlStatus.messages_preview?.length" class="mt-4 text-amber-600 text-sm">
+                                No messages were crawled. The group may be empty, or the group ID format may be incorrect (use -100 prefix for supergroups).
+                            </p>
+
+                            <!-- Crawled messages list (proof of crawl) -->
+                            <div v-else-if="crawlStatus.messages_preview?.length" class="mt-6 pt-4 border-t">
+                                <h4 class="text-sm font-semibold text-gray-700 mb-2">
+                                    Crawled messages ({{ crawlStatus.messages_preview.length }})
+                                </h4>
+                                <div class="max-h-60 overflow-y-auto space-y-1.5 text-sm">
+                                    <div
+                                        v-for="(m, i) in crawlStatus.messages_preview"
+                                        :key="m.id || i"
+                                        class="flex items-start gap-2 p-2 rounded bg-gray-50 hover:bg-gray-100"
+                                    >
+                                        <span class="text-gray-400 shrink-0">#{{ m.id }}</span>
+                                        <span class="text-xs text-amber-600 shrink-0">{{ m.from_type || '?' }}</span>
+                                        <span class="truncate flex-1 min-w-0">{{ m.text || '(no text)' }}</span>
+                                        <a
+                                            v-if="m.link"
+                                            :href="m.link"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="text-blue-600 hover:underline shrink-0"
+                                        >Open</a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </main>

@@ -48,23 +48,21 @@ class TelegramCrawlJob implements ShouldQueue
             Log::info('TelegramCrawlJob: calling start()');
             $service->start();
             Log::info('TelegramCrawlJob: start() done, fetching messages');
-            $messages = $service->getGroupMessages($this->groupId, $this->limit);
-            Log::info('TelegramCrawlJob: got messages', ['count' => count($messages)]);
+            $data = $service->getGroupMessages($this->groupId, $this->limit);
+            $messages = $data['valid'] ?? [];
+            $allPreview = $data['all'] ?? [];
+            Log::info('TelegramCrawlJob: got messages', ['valid' => count($messages), 'total' => count($allPreview)]);
+
             $authors = [];
-            $msgCount = 0;
             foreach ($messages as $msg) {
-                $msgCount++;
-                if ($msgCount % 10 === 0) {
-                    $this->setProgress('running', 0, 0, 0, null, 'identifying_authors', null, $msgCount);
-                }
                 $uid = $msg['from_id'] ?? null;
                 if ($uid && !isset($authors[$uid])) {
                     $authors[$uid] = $msg;
                 }
             }
             $total = count($authors);
-            $this->setProgress('running', 0, 0, 0, null, 'identifying_authors', null, count($messages));
-            $this->setProgress('running', 0, 0, 0, null, 'sending_messages', $total);
+            $this->setProgress('running', 0, 0, 0, null, 'identifying_authors', $total, count($allPreview), $allPreview);
+            $this->setProgress('running', 0, 0, 0, null, 'sending_messages', $total, null, $allPreview);
             Log::info('TelegramCrawlJob: sending to authors', ['total' => $total]);
             $idx = 0;
             foreach ($authors as $userId => $msg) {
@@ -135,7 +133,8 @@ class TelegramCrawlJob implements ShouldQueue
         ?string $error = null,
         ?string $phase = null,
         ?int $total = null,
-        ?int $messagesScanned = null
+        ?int $messagesScanned = null,
+        ?array $messagesPreview = null
     ): void {
         $key = 'telegram_crawl_' . $this->crawlId;
         $data = [
@@ -153,6 +152,14 @@ class TelegramCrawlJob implements ShouldQueue
         }
         if ($messagesScanned !== null) {
             $data['messages_scanned'] = $messagesScanned;
+        }
+        if ($messagesPreview !== null) {
+            $data['messages_preview'] = $messagesPreview;
+        } else {
+            $existing = Cache::get($key);
+            if (is_array($existing) && !empty($existing['messages_preview'])) {
+                $data['messages_preview'] = $existing['messages_preview'];
+            }
         }
         Cache::put($key, $data, now()->addHours(24));
     }

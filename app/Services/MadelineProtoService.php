@@ -177,34 +177,54 @@ class MadelineProtoService
     }
 
     /**
-     * Get messages from a chat/group.
+     * Get messages from a chat/group. Returns all messages with metadata for display;
+     * valid messages (with user author) are usable for sending.
      *
      * @param string $peerId Chat/group ID (e.g. -1001234567890)
      * @param int $limit Number of messages to fetch
-     * @return array Array of messages with from_id, text, etc.
+     * @return array{valid: array, all: array} valid=for authors, all=every message for preview
      */
     public function getGroupMessages(string $peerId, int $limit = 50): array
     {
         return $this->run(function () use ($peerId, $limit) {
             $api = $this->getApi();
             $api->start();
-            $peer = $api->getInfo($peerId)['Peer'] ?? ['_' => 'inputPeerChat', 'chat_id' => (int) str_replace('-100', '', $peerId)];
             $messages = $api->messages->getHistory(peer: $peerId, limit: min($limit, 100));
-            $result = [];
             $raw = $messages['messages'] ?? [];
+            $valid = [];
+            $all = [];
+            $channelId = ltrim(preg_replace('/^-100/', '', (string) $peerId), '-') ?: (string) $peerId;
             foreach ($raw as $msg) {
-                if (empty($msg['from_id']) || ($msg['from_id']['_'] ?? '') === 'peerChannel') continue;
-                $fromId = $this->extractUserId($msg['from_id']);
-                if (!$fromId) continue;
-                $result[] = [
-                    'id' => $msg['id'] ?? null,
+                $msgId = $msg['id'] ?? null;
+                $fromIdRaw = $msg['from_id'] ?? null;
+                $fromType = $fromIdRaw['_'] ?? 'empty';
+                $fromId = $this->extractUserId($fromIdRaw);
+                $text = mb_substr($msg['message'] ?? '', 0, 100);
+                $link = $this->makeMessageLink($peerId, $msgId, $channelId);
+                $all[] = [
+                    'id' => $msgId,
+                    'from_type' => $fromType,
                     'from_id' => $fromId,
-                    'text' => $msg['message'] ?? '',
-                    'date' => $msg['date'] ?? null,
+                    'text' => $text,
+                    'link' => $link,
                 ];
+                if ($fromId && $fromType !== 'peerChannel') {
+                    $valid[] = [
+                        'id' => $msgId,
+                        'from_id' => $fromId,
+                        'text' => $msg['message'] ?? '',
+                        'date' => $msg['date'] ?? null,
+                    ];
+                }
             }
-            return $result;
+            return ['valid' => $valid, 'all' => $all];
         });
+    }
+
+    protected function makeMessageLink(string $peerId, ?int $msgId, string $channelId): ?string
+    {
+        if ($msgId === null) return null;
+        return "https://t.me/c/{$channelId}/{$msgId}";
     }
 
     protected function extractUserId($fromId): ?string
