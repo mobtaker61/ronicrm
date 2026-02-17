@@ -42,8 +42,7 @@ class MadelineProtoService
             $apiId = (int) config('services.telegram.api_id');
             $apiHash = config('services.telegram.api_hash');
         }
-        $settings = new \danog\MadelineProto\Settings\AppInfo();
-        $settings->setApiId($apiId)->setApiHash($apiHash ?? '');
+        $settings = $this->makeMadelineSettings($apiId, $apiHash);
         $this->api = new \danog\MadelineProto\API($sessionPath, $settings);
         return $this->api;
     }
@@ -88,6 +87,21 @@ class MadelineProtoService
             throw $error;
         }
         return $result;
+    }
+
+    /**
+     * Create MadelineProto Settings with API credentials and FILE_LOGGER.
+     * Using FILE_LOGGER avoids "fwrite(): supplied resource is not a valid stream resource"
+     * when stdout is invalid (e.g. queue workers on shared hosting).
+     */
+    protected function makeMadelineSettings(int $apiId, string $apiHash): \danog\MadelineProto\Settings
+    {
+        $settings = new \danog\MadelineProto\Settings();
+        $settings->getAppInfo()->setApiId($apiId)->setApiHash($apiHash);
+        $settings->getLogger()
+            ->setType(\danog\MadelineProto\Logger::LOGGER_FILE)
+            ->setExtra(storage_path('logs/madelineproto.log'));
+        return $settings;
     }
 
     /**
@@ -258,8 +272,7 @@ class MadelineProtoService
 
             // Run inside EventLoop - MadelineProto requires it for async I/O
             $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $wait) {
-                $settings = new \danog\MadelineProto\Settings\AppInfo();
-                $settings->setApiId($apiId)->setApiHash($apiHash);
+                $settings = $this->makeMadelineSettings($apiId, $apiHash);
                 $api = new \danog\MadelineProto\API($sessionPath, $settings);
                 $qr = $api->qrLogin();
                 if ($qr && $wait) {
