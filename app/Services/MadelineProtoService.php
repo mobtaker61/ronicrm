@@ -640,7 +640,9 @@ class MadelineProtoService
                 Cache::put($cacheKey, $conn->id, now()->addMinutes(15));
             }
             $sessionPath = $conn->getSessionPath();
-            Log::info('MadelineProto getQrCode: starting', ['session_path' => $sessionPath]);
+            Log::info('MadelineProto getQrCode: starting', ['session_path' => $sessionPath, 'conn_id' => $conn->id, 'wait' => $wait]);
+
+            $this->connection = $conn;
 
             // On Windows, Amp\File's ParallelFilesystemDriver often fails on createDirectory.
             // Pre-create the session directory with native PHP so MadelineProto skips it.
@@ -656,7 +658,7 @@ class MadelineProtoService
                 if ($qr && $wait) {
                     try {
                         $qr = $qr->waitForLoginOrQrCodeExpiration(
-                            \danog\MadelineProto\Tools::getTimeoutCancellation(5.0)
+                            \danog\MadelineProto\Tools::getTimeoutCancellation(10.0)
                         );
                     } catch (\Amp\CancelledException) {
                         $qr = $api->qrLogin();

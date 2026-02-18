@@ -1125,14 +1125,14 @@ const startTelegramQr = async () => {
     telegramQrSvg.value = '';
     telegramQrConnId.value = null;
     try {
-        const res = await fetch(route('settings.telegram.qr-code'));
+        const res = await fetch(route('settings.telegram.qr-code'), { credentials: 'same-origin' });
         const data = await res.json();
         if (data.error) {
             telegramQrError.value = data.error;
             return;
         }
         if (data.logged_in) {
-            router.reload({ only: ['telegramConnection'] });
+            window.location.href = route('settings.index', { tab: 'telegram' });
             return;
         }
         if (data.qr_svg) {
@@ -1140,7 +1140,7 @@ const startTelegramQr = async () => {
             telegramQrConnId.value = data.conn_id ?? null;
             telegramQrPolling.value = true;
             pollTelegramQr(); // First poll immediately - must be in "wait" when user scans
-            telegramQrPollTimer = setInterval(pollTelegramQr, 2500);
+            telegramQrPollTimer = setInterval(pollTelegramQr, 1500); // Poll every 1.5s, wait=10s each
         }
     } catch (e) {
         telegramQrError.value = e.message || 'Failed to load QR';
@@ -1153,12 +1153,12 @@ const pollTelegramQr = async () => {
     try {
         const params = new URLSearchParams({ wait: '1' });
         if (telegramQrConnId.value) params.set('conn_id', String(telegramQrConnId.value));
-        const res = await fetch(route('settings.telegram.qr-code') + '?' + params.toString());
+        const res = await fetch(route('settings.telegram.qr-code') + '?' + params.toString(), { credentials: 'same-origin' });
         const data = await res.json();
         if (data.logged_in) {
             if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
             telegramQrPolling.value = false;
-            router.reload();
+            window.location.href = route('settings.index', { tab: 'telegram' });
         } else if (data.qr_svg) {
             telegramQrSvg.value = data.qr_svg;
             if (data.conn_id) telegramQrConnId.value = data.conn_id;
