@@ -738,10 +738,19 @@ class MadelineProtoService
 
             if (! $conn) {
                 if ($wait) {
-                    return ['error' => 'QR session expired. Please click "Connect via QR Code" again.', 'logged_in' => false];
+                    // Robust polling fallback: if conn_id/cache is missing, reuse latest pending/connected session.
+                    // This prevents false "expired" right after QR is shown when frontend misses conn_id once.
+                    $conn = $this->connection
+                        ?? TelegramUserConnection::whereIn('status', ['pending', 'connected'])
+                            ->orderByDesc('updated_at')
+                            ->first();
+                    if (! $conn) {
+                        return ['error' => 'QR session expired. Please click "Connect via QR Code" again.', 'logged_in' => false];
+                    }
+                } else {
+                    $conn = $this->connection ?? TelegramUserConnection::getActive()
+                        ?? $this->getOrCreatePendingConnection();
                 }
-                $conn = $this->connection ?? TelegramUserConnection::getActive()
-                    ?? $this->getOrCreatePendingConnection();
                 Cache::put($cacheKey, $conn->id, now()->addMinutes(15));
             }
 

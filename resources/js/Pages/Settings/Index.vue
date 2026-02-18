@@ -1163,6 +1163,11 @@ const parseJsonResponse = async (res) => {
 };
 
 const startTelegramQr = async () => {
+    if (telegramQrPollTimer) {
+        clearInterval(telegramQrPollTimer);
+        telegramQrPollTimer = null;
+    }
+    telegramQrPolling.value = false;
     telegramQrLoading.value = true;
     telegramQrError.value = '';
     telegramQrSvg.value = '';
