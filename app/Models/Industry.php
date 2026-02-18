@@ -40,12 +40,18 @@ class Industry extends Model
     {
         $path = [$this->name];
         $parent = $this->parent;
-        
-        while ($parent) {
+        $visited = [$this->id => true];
+        $maxDepth = 50;
+
+        while ($parent && $maxDepth-- > 0) {
+            if (isset($visited[$parent->id])) {
+                break;
+            }
+            $visited[$parent->id] = true;
             array_unshift($path, $parent->name);
             $parent = $parent->parent;
         }
-        
+
         return implode(' > ', $path);
     }
 }

@@ -66,16 +66,29 @@ class CustomerMatchService
 
         $normPhone = self::normalizePhone($phone);
         if ($normPhone !== '' && strlen($normPhone) >= 10) {
-            $matches = Customer::whereNotNull('phone')->where('phone', '!=', '')
-                ->get()
-                ->filter(fn ($c) => self::normalizePhone($c->phone) === $normPhone);
-            if ($matches->isNotEmpty()) {
-                return $matches->first();
+            $found = null;
+            Customer::whereNotNull('phone')->where('phone', '!=', '')->chunk(200, function ($customers) use ($normPhone, &$found) {
+                foreach ($customers as $c) {
+                    if (self::normalizePhone($c->phone) === $normPhone) {
+                        $found = $c;
+                        return false;
+                    }
+                }
+            });
+            if ($found) {
+                return $found;
             }
-            $contact = CustomerContact::where('type', 'phone')->with('customer')->get()
-                ->first(fn ($c) => self::normalizePhone($c->value) === $normPhone);
-            if ($contact?->customer) {
-                return $contact->customer;
+            CustomerContact::where('type', 'phone')->whereNotNull('value')->where('value', '!=', '')
+                ->with('customer')->chunk(200, function ($contacts) use ($normPhone, &$found) {
+                    foreach ($contacts as $c) {
+                        if (self::normalizePhone($c->value) === $normPhone && $c->customer) {
+                            $found = $c->customer;
+                            return false;
+                        }
+                    }
+                });
+            if ($found) {
+                return $found;
             }
         }
 

@@ -191,7 +191,13 @@ class MediaController extends Controller
         $crumbs = [['id' => null, 'name' => 'همه فایل‌ها']];
         $current = $folderId ? MediaFolder::find($folderId) : null;
         $chain = [];
-        while ($current) {
+        $visited = [];
+        $maxDepth = 50;
+        while ($current && $maxDepth-- > 0) {
+            if (isset($visited[$current->id])) {
+                break;
+            }
+            $visited[$current->id] = true;
             array_unshift($chain, ['id' => $current->id, 'name' => $current->name]);
             $current = $current->parent;
         }
