@@ -79,10 +79,15 @@ class SettingsController extends Controller
                 'webhook_url' => 'https://crm.roniplus.ae/wpwebhook',
                 'enabled' => false,
             ]),
-            'telegramSettings' => Setting::get('telegram', [
+            'telegramSettings' => array_merge(Setting::get('telegram', [
                 'bot_token' => '',
                 'webhook_url' => '',
                 'enabled' => false,
+            ]), [
+                'webhook_url_computed' => (function () {
+                    $base = trim(env('TELEGRAM_WEBHOOK_URL', '') ?: config('app.url', ''));
+                    return $base ? (rtrim($base, '/') . '/telegram-webhook') : '';
+                })(),
             ]),
             'instagramSettings' => Setting::get('instagram', [
                 'enabled' => false,
@@ -249,23 +254,30 @@ class SettingsController extends Controller
         ]);
 
         $previous = Setting::get('telegram', []);
-        Setting::set('telegram', $validated);
+        // ادغام با قبلی تا در صورت عدم ارسال token از فرم، مقدار قبلی حفظ شود
+        $toSave = array_merge($previous, $validated);
+        Setting::set('telegram', $toSave);
 
         // ثبت یا حذف وب‌هوک با تلگرام (الزامی برای دریافت پیام‌های ربات)
         $telegramService = app(\App\Services\TelegramService::class);
-        $token = trim($validated['bot_token'] ?? '');
-        $enabled = (bool) ($validated['enabled'] ?? false);
+        $token = trim($toSave['bot_token'] ?? $validated['bot_token'] ?? '');
+        $enabled = (bool) ($toSave['enabled'] ?? false);
         $prevToken = trim($previous['bot_token'] ?? '');
 
         if ($token !== '' && $enabled) {
-            $baseUrl = rtrim(config('app.url', ''), '/');
-            $webhookUrl = $baseUrl ? ($baseUrl . '/telegram-webhook') : '';
+            $webhookUrl = $this->getTelegramWebhookUrl();
             if ($webhookUrl !== '' && str_starts_with($webhookUrl, 'https://')) {
+                Log::info('Telegram: setting webhook', ['url' => $webhookUrl]);
                 $setResult = $telegramService->setWebhook($webhookUrl, $token);
+                Log::info('Telegram: setWebhook result', $setResult);
                 if (!$setResult['success']) {
                     return redirect()->back()
                         ->with('error', 'تنظیمات ذخیره شد، اما ثبت وب‌هوک تلگرام ناموفق بود: ' . ($setResult['error'] ?? 'خطای نامشخص'));
                 }
+            } else {
+                Log::warning('Telegram: webhook URL invalid or not HTTPS', ['webhook_url' => $webhookUrl ?? '(empty)']);
+                return redirect()->back()
+                    ->with('error', 'برای وب‌هوک، APP_URL یا TELEGRAM_WEBHOOK_URL در .env باید با https:// باشد.');
             }
         } elseif ($prevToken !== '') {
             $telegramService->setWebhook('', $prevToken);
@@ -273,6 +285,41 @@ class SettingsController extends Controller
 
         return redirect()->back()
             ->with('success', 'Telegram settings updated successfully.');
+    }
+
+    protected function getTelegramWebhookUrl(): string
+    {
+        $custom = trim(env('TELEGRAM_WEBHOOK_URL', ''));
+        if ($custom !== '') {
+            return str_contains($custom, '/telegram-webhook') ? $custom : rtrim($custom, '/') . '/telegram-webhook';
+        }
+        $base = rtrim(config('app.url', ''), '/');
+        return $base ? ($base . '/telegram-webhook') : '';
+    }
+
+    /**
+     * ثبت دستی وب‌هوک تلگرام (برای تست و رفع مشکل در سرور).
+     */
+    public function registerTelegramWebhook(Request $request)
+    {
+        $settings = Setting::get('telegram', []);
+        $token = trim($settings['bot_token'] ?? '');
+        if ($token === '') {
+            return redirect()->route('settings.index', ['tab' => 'telegram'])
+                ->with('error', 'ابتدا توکن ربات را ذخیره کنید.');
+        }
+        $webhookUrl = $this->getTelegramWebhookUrl();
+        if ($webhookUrl === '' || !str_starts_with($webhookUrl, 'https://')) {
+            return redirect()->route('settings.index', ['tab' => 'telegram'])
+                ->with('error', 'APP_URL یا TELEGRAM_WEBHOOK_URL در .env باید با https:// باشد.');
+        }
+        $result = app(\App\Services\TelegramService::class)->setWebhook($webhookUrl, $token);
+        if ($result['success']) {
+            return redirect()->route('settings.index', ['tab' => 'telegram'])
+                ->with('success', 'وب‌هوک با موفقیت ثبت شد: ' . $webhookUrl);
+        }
+        return redirect()->route('settings.index', ['tab' => 'telegram'])
+            ->with('error', 'خطا در ثبت وب‌هوک: ' . ($result['error'] ?? 'نامشخص'));
     }
 
     public function testTelegram(Request $request)

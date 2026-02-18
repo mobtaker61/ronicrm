@@ -114,6 +114,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/ronibot/test', [\App\Http\Controllers\SettingsController::class, 'testRonibot'])->name('settings.ronibot.test');
     Route::post('/settings/telegram', [\App\Http\Controllers\SettingsController::class, 'updateTelegram'])->name('settings.telegram.update');
     Route::post('/settings/telegram/test', [\App\Http\Controllers\SettingsController::class, 'testTelegram'])->name('settings.telegram.test');
+    Route::post('/settings/telegram/register-webhook', [\App\Http\Controllers\SettingsController::class, 'registerTelegramWebhook'])->name('settings.telegram.register-webhook');
     Route::post('/settings/instagram', [\App\Http\Controllers\SettingsController::class, 'updateInstagram'])->name('settings.instagram.update');
     Route::get('/settings/instagram/connect', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'connect'])->name('settings.instagram.connect');
     Route::get('/settings/instagram/callback', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'callback'])->name('settings.instagram.callback');

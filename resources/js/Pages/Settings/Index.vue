@@ -763,10 +763,10 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Webhook URL</label>
-                                <p class="mt-1 text-xs text-gray-500 mb-2">با ذخیره تنظیمات، این آدرس به‌طور خودکار برای ربات ثبت می‌شود (الزاماً HTTPS و APP_URL درست در .env)</p>
-                                <div class="flex items-center gap-2">
+                                <p class="mt-1 text-xs text-gray-500 mb-2">با ذخیره تنظیمات، این آدرس به‌طور خودکار ثبت می‌شود. در سرور: بعد از deploy، کش را پاک کنید و دکمه «ثبت وب‌هوک همینک» را بزنید.</p>
+                                <div class="flex items-center gap-2 flex-wrap">
                                     <input
-                                        :value="telegramWebhookUrl"
+                                        :value="telegramWebhookUrlDisplay"
                                         type="text"
                                         readonly
                                         class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-mono text-sm"
@@ -777,6 +777,13 @@
                                         class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm font-medium whitespace-nowrap"
                                     >
                                         {{ webhookCopied ? 'Copied' : 'Copy' }}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        @click="registerTelegramWebhook"
+                                        class="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 text-sm font-medium whitespace-nowrap"
+                                    >
+                                        ثبت وب‌هوک همینک
                                     </button>
                                 </div>
                             </div>
@@ -1001,7 +1008,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -1190,6 +1197,10 @@ const resetTelegramSession = () => {
     router.post(route('settings.telegram.reset-session'), {}, { preserveScroll: true });
 };
 
+const registerTelegramWebhook = () => {
+    router.post(route('settings.telegram.register-webhook'), {}, { preserveScroll: true });
+};
+
 const instagramForm = useForm({
     enabled: props.instagramSettings.enabled || false,
     access_token: props.instagramSettings.access_token || '',
@@ -1208,14 +1219,15 @@ const copyInstagramWebhookUrl = () => {
     }
 };
 
-const telegramWebhookUrl = typeof window !== 'undefined' && window.location?.origin
-    ? `${window.location.origin}/telegram-webhook`
-    : 'https://yourdomain.com/telegram-webhook';
+const telegramWebhookUrlDisplay = computed(() =>
+    props.telegramSettings?.webhook_url_computed
+        || (typeof window !== 'undefined' && window.location?.origin ? `${window.location.origin}/telegram-webhook` : 'https://yourdomain.com/telegram-webhook')
+);
 
 const webhookCopied = ref(false);
 const copyTelegramWebhookUrl = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(telegramWebhookUrl);
+        navigator.clipboard.writeText(telegramWebhookUrlDisplay.value || '');
         webhookCopied.value = true;
         setTimeout(() => { webhookCopied.value = false; }, 2000);
     }

@@ -1,5 +1,29 @@
 # راهنمای بررسی Queue و Cron
 
+## رفع مشکل اتصال تلگرام در سرور
+
+اگر وب‌هوک ربات تلگرام در سرور کار نمی‌کند:
+
+1. **پاک کردن کش لاراول:**
+   ```bash
+   php artisan config:clear
+   php artisan cache:clear
+   php artisan route:clear
+   ```
+
+2. **بررسی APP_URL در .env:** باید آدرس عمومی با `https://` باشد (مثلاً `https://crm.example.com`).
+
+3. **اختیاری – TELEGRAM_WEBHOOK_URL:** اگر APP_URL با آدرس واقعی وب‌هوک فرق دارد، در .env اضافه کنید:
+   ```
+   TELEGRAM_WEBHOOK_URL=https://your-real-domain.com
+   ```
+
+4. **ثبت دستی وب‌هوک:** Settings → Telegram → دکمه «ثبت وب‌هوک همینک» را بزنید.
+
+5. **برای اتصال اکانت کاربر (QR):** `TELEGRAM_API_ID` و `TELEGRAM_API_HASH` از my.telegram.org در .env قرار دهید.
+
+---
+
 ## ساختار فعلی
 
 ### ۱. Cron Jobs مورد نیاز

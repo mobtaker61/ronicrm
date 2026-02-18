@@ -81,6 +81,7 @@ const routeHelper = (name, params = null, absolute = false) => {
         'settings.users.store': '/settings/users',
         'settings.users.update': (id) => `/settings/users/${id}`,
         'settings.users.destroy': (id) => `/settings/users/${id}`,
+        'settings.telegram.register-webhook': '/settings/telegram/register-webhook',
     };
     
     if (typeof routes[name] === 'function') {
