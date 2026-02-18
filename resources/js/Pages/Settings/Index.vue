@@ -763,7 +763,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Webhook URL</label>
-                                <p class="mt-1 text-xs text-gray-500 mb-2">Set this URL as the bot's webhook (e.g. via Telegram API) to receive incoming messages in Inbox.</p>
+                                <p class="mt-1 text-xs text-gray-500 mb-2">با ذخیره تنظیمات، این آدرس به‌طور خودکار برای ربات ثبت می‌شود (الزاماً HTTPS و APP_URL درست در .env)</p>
                                 <div class="flex items-center gap-2">
                                     <input
                                         :value="telegramWebhookUrl"

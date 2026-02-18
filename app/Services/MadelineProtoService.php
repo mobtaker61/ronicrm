@@ -114,6 +114,49 @@ class MadelineProtoService
      * Using FILE_LOGGER avoids "fwrite(): supplied resource is not a valid stream resource"
      * when stdout is invalid (e.g. queue workers on shared hosting).
      */
+    /**
+     * Check if any pending session file is already logged in (user scanned in different tab/request).
+     * Updates the conn and returns logged_in response if found.
+     */
+    protected function checkAnySessionLoggedIn(int $apiId, string $apiHash): ?array
+    {
+        $pendings = TelegramUserConnection::whereIn('status', ['pending', 'connected'])
+            ->whereNotNull('session_path')
+            ->orderByDesc('updated_at')
+            ->get();
+        foreach ($pendings as $c) {
+            $path = storage_path('app/' . $c->session_path);
+            if (!is_dir($path) && !file_exists($path)) {
+                continue;
+            }
+            try {
+                $this->connection = $c;
+                $result = $this->run(function () use ($c, $path, $apiId, $apiHash) {
+                    $settings = $this->makeMadelineSettings($apiId, $apiHash);
+                    $api = new \danog\MadelineProto\API($path, $settings);
+                    if ($api->getAuthorization() === \danog\MadelineProto\API::LOGGED_IN) {
+                        $self = $api->getSelf();
+                        $c->update([
+                            'status' => 'connected',
+                            'phone' => $self['phone'] ?? null,
+                            'telegram_username' => $self['username'] ?? null,
+                        ]);
+                        return true;
+                    }
+                    return false;
+                });
+                if ($result) {
+                    $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
+                    Cache::forget(self::CACHE_KEY_QR_CONN . '_' . $userId);
+                    return ['logged_in' => true];
+                }
+            } catch (\Throwable $e) {
+                Log::debug('MadelineProto checkSessionLoggedIn: ' . $e->getMessage());
+            }
+        }
+        return null;
+    }
+
     protected function makeMadelineSettings(int $apiId, string $apiHash): \danog\MadelineProto\Settings
     {
         $settings = new \danog\MadelineProto\Settings();
@@ -553,18 +596,12 @@ class MadelineProtoService
     }
 
     /**
-     * Get existing pending/connected or create one. Expires pendings older than 10 min.
+     * Get existing pending/connected or create one.
+     * NEVER expire during QR flow - prevents session mismatch (user scans session_84, we create session_85).
+     * Only create when we have zero pending/connected. Reuse existing to ensure same session for QR + poll.
      */
     protected function getOrCreatePendingConnection(): TelegramUserConnection
     {
-        $cutoff = now()->subMinutes(10);
-        $oldPending = TelegramUserConnection::where('status', 'pending')
-            ->where('updated_at', '<', $cutoff)
-            ->get();
-        foreach ($oldPending as $c) {
-            $c->update(['status' => 'expired']);
-            $this->deleteSessionFolder($c);
-        }
         $conn = TelegramUserConnection::whereIn('status', ['pending', 'connected'])
             ->orderByDesc('updated_at')
             ->first();
@@ -639,6 +676,12 @@ class MadelineProtoService
                     ?? $this->getOrCreatePendingConnection();
                 Cache::put($cacheKey, $conn->id, now()->addMinutes(15));
             }
+
+            $alreadyLoggedIn = $this->checkAnySessionLoggedIn($apiId, $apiHash);
+            if ($alreadyLoggedIn) {
+                return $alreadyLoggedIn;
+            }
+
             $sessionPath = $conn->getSessionPath();
             Log::info('MadelineProto getQrCode: starting', ['session_path' => $sessionPath, 'conn_id' => $conn->id, 'wait' => $wait]);
 

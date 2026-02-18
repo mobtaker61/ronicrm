@@ -248,7 +248,28 @@ class SettingsController extends Controller
             'enabled' => 'boolean',
         ]);
 
+        $previous = Setting::get('telegram', []);
         Setting::set('telegram', $validated);
+
+        // ثبت یا حذف وب‌هوک با تلگرام (الزامی برای دریافت پیام‌های ربات)
+        $telegramService = app(\App\Services\TelegramService::class);
+        $token = trim($validated['bot_token'] ?? '');
+        $enabled = (bool) ($validated['enabled'] ?? false);
+        $prevToken = trim($previous['bot_token'] ?? '');
+
+        if ($token !== '' && $enabled) {
+            $baseUrl = rtrim(config('app.url', ''), '/');
+            $webhookUrl = $baseUrl ? ($baseUrl . '/telegram-webhook') : '';
+            if ($webhookUrl !== '' && str_starts_with($webhookUrl, 'https://')) {
+                $setResult = $telegramService->setWebhook($webhookUrl, $token);
+                if (!$setResult['success']) {
+                    return redirect()->back()
+                        ->with('error', 'تنظیمات ذخیره شد، اما ثبت وب‌هوک تلگرام ناموفق بود: ' . ($setResult['error'] ?? 'خطای نامشخص'));
+                }
+            }
+        } elseif ($prevToken !== '') {
+            $telegramService->setWebhook('', $prevToken);
+        }
 
         return redirect()->back()
             ->with('success', 'Telegram settings updated successfully.');

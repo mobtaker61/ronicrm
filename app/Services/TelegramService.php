@@ -112,13 +112,14 @@ class TelegramService
         }
     }
 
-    public function setWebhook(string $webhookUrl): array
+    public function setWebhook(string $webhookUrl, ?string $token = null): array
     {
-        if (empty($this->botToken)) {
+        $token = trim($token ?? $this->botToken ?? '');
+        if ($token === '') {
             return ['success' => false, 'error' => 'Bot token not set'];
         }
         try {
-            $response = Http::timeout(15)->post($this->apiBase . $this->botToken . '/setWebhook', [
+            $response = Http::timeout(15)->post($this->apiBase . $token . '/setWebhook', [
                 'url' => $webhookUrl,
             ]);
             $data = $response->json();
