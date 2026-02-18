@@ -61,8 +61,14 @@ class TelegramSyncContactsJob implements ShouldQueue
         try {
             $service->start();
         } catch (\Throwable $e) {
-            $this->setProgress('error', 0, 0, 'Failed to start: ' . $e->getMessage());
-            Log::warning('TelegramSyncContactsJob: start failed - ' . $e->getMessage());
+            $msg = $e->getMessage() ?: get_class($e) . ' (timeout or cancelled?)';
+            $this->setProgress('error', 0, 0, 'Failed to start: ' . $msg);
+            Log::warning('TelegramSyncContactsJob: start failed', [
+                'message' => $msg,
+                'class' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
             return;
         }
 

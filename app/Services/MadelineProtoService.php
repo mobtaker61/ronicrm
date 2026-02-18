@@ -49,7 +49,7 @@ class MadelineProtoService
     }
 
     /** Max seconds for any MadelineProto operation (prevents hanging requests). */
-    protected int $runTimeout = 90;
+    protected int $runTimeout = 180;
 
     /**
      * Run async closure and return result (blocking).
@@ -94,13 +94,17 @@ class MadelineProtoService
         });
         \Revolt\EventLoop::run();
         if ($error !== null) {
+            $msg = $error->getMessage() ?: '(no message)';
+            $cls = get_class($error);
             Log::error('MadelineProto run() error', [
-                'message' => $error->getMessage(),
+                'class' => $cls,
+                'message' => $msg,
                 'file' => $error->getFile(),
                 'line' => $error->getLine(),
                 'trace' => $error->getTraceAsString(),
             ]);
-            throw $error;
+            $wrap = new \RuntimeException("MadelineProto error: {$cls}: {$msg}", (int) $error->getCode(), $error);
+            throw $wrap;
         }
         return $result;
     }

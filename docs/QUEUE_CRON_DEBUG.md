@@ -79,20 +79,19 @@ php artisan queue:work --once
 
 ---
 
-## خطای «start failed» در TelegramFetchIncomingJob
+## خطای «start failed» یا «Failed to start» در MadelineProto
 
-اگر در لاگ می‌بینید:
-```
-TelegramFetchIncomingJob: start failed
-```
-
-الان جزئیات بیشتری لاگ می‌شود (exception, file, line, trace). موارد احتمالی:
+اگر sync یا fetch تلگرام با این خطا متوقف می‌شود، موارد احتمالی:
 
 1. **قفل session**: یک عملیات دیگر روی session تلگرام در حال اجرا است
-2. **Timeout**: اتصال به تلگرام بیش از ۹۰ ثانیه طول کشید
-3. **محدودیت هاست**: PHP یا شبکه محدودیت دارد
+2. **Timeout**: اتصال به تلگرام بیش از حد مجاز طول کشید (الان ۱۸۰ ثانیه)
+3. **محدودیت هاست یا فایروال**: دسترسی به سرورهای تلگرام مسدود است
+4. **Session خراب**: فایل‌های session تلگرام corrupt شده‌اند
 
-**راه‌حل**: دستور `withoutOverlapping(30)` اضافه شده تا اجراهای همزمان جلوگیری شود.
+**راه‌حل‌ها:**
+- Settings → Telegram → Reset Session (برای session خراب)
+- صبر کنید؛ روی shared hosting اولین بار ممکن است ۲–۳ دقیقه طول بکشد
+- از لاگ `storage/logs/madelineproto.log` و `storage/logs/laravel.log` جزئیات را ببینید
 
 ---
 
