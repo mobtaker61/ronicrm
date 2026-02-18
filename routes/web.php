@@ -69,6 +69,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/telegram-crawler/send-status/{sendId}', [\App\Http\Controllers\TelegramCrawlerController::class, 'sendToGroupsStatus'])->name('telegram-crawler.send-status');
     Route::post('/telegram-crawler/sync-contacts', [\App\Http\Controllers\TelegramCrawlerController::class, 'syncContacts'])->name('telegram-crawler.sync-contacts');
     Route::get('/telegram-crawler/sync-status/{syncId}', [\App\Http\Controllers\TelegramCrawlerController::class, 'syncContactsStatus'])->name('telegram-crawler.sync-status');
+    Route::get('/telegram-crawler/queue-status', [\App\Http\Controllers\TelegramCrawlerController::class, 'queueStatus'])->name('telegram-crawler.queue-status');
 
     // Inbox (WhatsApp Messages)
     Route::get('/inbox', [\App\Http\Controllers\InboxController::class, 'index'])->name('inbox.index');

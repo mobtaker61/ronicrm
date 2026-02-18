@@ -64,9 +64,18 @@ php artisan queue:retry all
 # تست دریافت پیام تلگرام
 php artisan telegram:fetch-incoming
 
+# Sync مخاطبین تلگرام (زمانی که Queue کار نمی‌کند)
+php artisan telegram:sync-contacts
+
 # پردازش صف (یک Job)
 php artisan queue:work --once
 ```
+
+### وضعیت صف در رابط کاربری
+
+در صفحه **Telegram Crawler** بخش Sync Contacts، وضعیت صف نمایش داده می‌شود:
+- تعداد Jobهای در انتظار
+- تعداد Jobهای شکست‌خورده
 
 ---
 

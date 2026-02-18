@@ -12,6 +12,7 @@ use App\Services\MadelineProtoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -267,5 +268,29 @@ class TelegramCrawlerController extends Controller
             return response()->json(['status' => 'pending']);
         }
         return response()->json($data);
+    }
+
+    /**
+     * Queue status for debugging (jobs pending, failed).
+     */
+    public function queueStatus(Request $request): JsonResponse
+    {
+        $jobsTable = config('queue.connections.database.table', 'jobs');
+        $pending = 0;
+        try {
+            $pending = DB::table($jobsTable)->count();
+        } catch (\Throwable $e) {
+            // table might not exist
+        }
+        $failed = 0;
+        try {
+            $failed = DB::table('failed_jobs')->count();
+        } catch (\Throwable $e) {
+            //
+        }
+        return response()->json([
+            'pending_jobs' => $pending,
+            'failed_jobs' => $failed,
+        ]);
     }
 }

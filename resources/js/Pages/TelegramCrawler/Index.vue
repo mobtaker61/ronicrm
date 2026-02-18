@@ -153,6 +153,12 @@
                         <p class="text-sm text-gray-600 mb-4">
                             Fetch full profile data (name, phone, avatar) from Telegram for customers extracted via crawl or inbox. Updates existing contacts.
                         </p>
+                        <!-- Queue status -->
+                        <div class="mb-4 p-3 bg-gray-50 rounded-lg text-sm flex items-center gap-4">
+                            <span>صف: <strong>{{ queueStatus.pending_jobs ?? 0 }}</strong> در انتظار</span>
+                            <span v-if="(queueStatus.failed_jobs ?? 0) > 0" class="text-red-600">شکست: <strong>{{ queueStatus.failed_jobs }}</strong></span>
+                            <button type="button" @click="fetchQueueStatus" class="text-blue-600 hover:underline text-xs">بروزرسانی</button>
+                        </div>
                         <div class="flex flex-wrap items-center gap-3 mb-4">
                             <label class="flex items-center gap-2 text-sm cursor-pointer">
                                 <input type="checkbox" v-model="syncContactsRunNow" class="rounded border-gray-300" />
@@ -162,6 +168,9 @@
                                 درخواست تا اتمام sync منتظر می‌ماند. برای مخاطبین زیاد ممکن است timeout شود.
                             </span>
                         </div>
+                        <p v-if="!syncContactsRunNow && (queueStatus.pending_jobs ?? 0) > 0" class="text-xs text-amber-600 mb-2">
+                            {{ queueStatus.pending_jobs }} Job در صف است. اگر مدتی است پردازش نشده، گزینه «اجرای فوری» را فعال کنید یا دستی اجرا کنید: <code class="bg-gray-200 px-1 rounded">php artisan telegram:sync-contacts</code>
+                        </p>
                         <button
                             type="button"
                             @click="startSyncContacts"
@@ -364,9 +373,10 @@ const crawlId = ref('');
 const crawlStatus = ref({});
 const expandedRawIndices = ref(new Set());
 const syncContactsStarting = ref(false);
-const syncContactsRunNow = ref(false);
+const syncContactsRunNow = ref(true);
 const syncId = ref('');
 const syncStatus = ref({});
+const queueStatus = ref({});
 let crawlPollTimer = null;
 let sendPollTimer = null;
 let syncPollTimer = null;
@@ -436,6 +446,7 @@ onMounted(() => {
     if (props.telegramConnected) {
         loadGroups(false);
     }
+    fetchQueueStatus();
 });
 
 const onTemplateChange = () => {
@@ -516,6 +527,13 @@ watch(sendId, (id) => {
     if (id) pollSendStatus();
 });
 
+const fetchQueueStatus = async () => {
+    try {
+        const res = await axios.get(route('telegram-crawler.queue-status'));
+        queueStatus.value = res.data;
+    } catch {}
+};
+
 const startSyncContacts = async () => {
     syncContactsStarting.value = true;
     syncStatus.value = {};
@@ -524,6 +542,7 @@ const startSyncContacts = async () => {
         const res = await axios.post(url, {}, { params: { sync: syncContactsRunNow.value ? 1 : 0 } });
         syncId.value = res.data.sync_id;
         syncPollTimer = setInterval(pollSyncStatus, 2000);
+        fetchQueueStatus();
     } catch (e) {
         groupsError.value = e.response?.data?.error || e.message || 'Failed to start sync';
     } finally {
@@ -538,6 +557,7 @@ const pollSyncStatus = async () => {
         syncStatus.value = res.data;
         if (['completed', 'error'].includes(res.data?.status)) {
             if (syncPollTimer) clearInterval(syncPollTimer);
+            fetchQueueStatus();
         }
     } catch {}
 };
