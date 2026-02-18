@@ -32,7 +32,8 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withSchedule(function ($schedule) {
         $schedule->command('campaigns:process')->everyMinute();
-        $schedule->command('telegram:fetch-incoming')->everyThreeMinutes();
+        // Fallback when telegram:listen-incoming is not running (they share the same session - don't run both)
+        $schedule->command('telegram:fetch-incoming')->hourly();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
