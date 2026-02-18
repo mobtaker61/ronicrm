@@ -49,27 +49,33 @@ class InboxController extends Controller
             $phoneDigits = preg_replace('/[^0-9]/', '', $searchPhone);
 
             if ($channel === 'telegram') {
+                $telegramTypeId = SocialMediaType::where('name', 'Telegram')->value('id');
                 $query = Customer::query()
-                    ->whereHas('contacts', function ($cq) {
-                        $cq->where('type', 'telegram');
-                    })
-                    ->where(function ($q) use ($searchTerm) {
+                    ->where(function ($q) use ($searchTerm, $telegramTypeId) {
                         $q->where('name', 'like', '%' . $searchTerm . '%')
                             ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
                                 $cq->where('type', 'telegram')->where('value', 'like', '%' . $searchTerm . '%');
                             });
+                        if ($telegramTypeId) {
+                            $q->orWhereHas('socialMedia', function ($sq) use ($searchTerm, $telegramTypeId) {
+                                $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchTerm);
+                                $sq->where('social_media_type_id', $telegramTypeId)
+                                    ->where('handle', 'like', '%' . $escaped . '%');
+                            });
+                        }
                     });
                 $searchResults = $query->limit(15)->get()->map(function ($customer) {
                     $tg = $customer->contacts()->where('type', 'telegram')->first();
+                    $tgHandle = $customer->socialMedia()->whereHas('socialMediaType', fn ($q) => $q->where('name', 'Telegram'))->first();
                     return [
                         'id' => $customer->id,
                         'name' => $customer->name,
                         'phone' => null,
-                        'chat_id' => $tg?->value,
+                        'chat_id' => $tg?->value ?? ($tgHandle ? ($tgHandle->handle[0] === '@' ? $tgHandle->handle : '@' . $tgHandle->handle) : null),
                         'ig_user_id' => null,
                         'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
                     ];
-                })->values()->all();
+                })->filter(fn ($r) => !empty($r['chat_id']))->values()->all();
             } elseif ($channel === 'instagram') {
                 $instagramTypeId = SocialMediaType::where('name', 'Instagram')->value('id');
                 $byContact = Customer::query()
@@ -351,6 +357,20 @@ class InboxController extends Controller
         return $contact?->customer;
     }
 
+    protected function findCustomerByTelegramHandle(string $handle): ?Customer
+    {
+        $normalized = strtolower(ltrim($handle, '@'));
+        if ($normalized === '') return null;
+        $telegramTypeId = \App\Models\SocialMediaType::where('name', 'Telegram')->value('id');
+        if (!$telegramTypeId) return null;
+        $sm = CustomerSocialMedia::where('social_media_type_id', $telegramTypeId)
+            ->where(function ($q) use ($normalized) {
+                $q->whereRaw('LOWER(TRIM(LEADING ? FROM handle)) = ?', ['@', $normalized]);
+            })
+            ->first();
+        return $sm?->customer;
+    }
+
     protected function findCustomerByInstagramId(string $igUserId): ?Customer
     {
         $contact = CustomerContact::where('type', 'instagram')->where('value', $igUserId)->first();
@@ -391,11 +411,12 @@ class InboxController extends Controller
 
         try {
             $mediaUrl = $validated['media_url'] ?? null;
+            $storedPath = null;
             $fileType = 'text';
             if ($request->hasFile('media_file')) {
                 $file = $request->file('media_file');
-                $path = $file->store($channel === 'telegram' ? 'telegram-media' : 'whatsapp-media', 'public');
-                $mediaUrl = $this->getPublicFileUrl($path, $request);
+                $storedPath = $file->store($channel === 'telegram' ? 'telegram-media' : 'whatsapp-media', 'public');
+                $mediaUrl = $this->getPublicFileUrl($storedPath, $request);
                 $fileType = $this->getFileType($file);
             }
 
@@ -407,13 +428,25 @@ class InboxController extends Controller
             $messageToSend = $message ?: '';
 
             if ($channel === 'telegram') {
-                $toChatId = $validated['to_chat_id'];
-                $telegramService = app(\App\Services\TelegramService::class);
-                $result = $telegramService->sendMessage($toChatId, $messageToSend, $mediaUrl);
-                $customer = $this->findCustomerByTelegramChatId($toChatId);
+                $toChatId = trim((string) $validated['to_chat_id']);
+                $conn = \App\Models\TelegramUserConnection::getActive();
+                $mediaPath = $storedPath ? storage_path('app/public/' . $storedPath) : $mediaUrl;
+
+                if ($conn && $conn->isConnected()) {
+                    $madelineService = new \App\Services\MadelineProtoService($conn);
+                    $result = $madelineService->sendPrivateMessage($toChatId, $messageToSend, $mediaPath);
+                    $storeChatId = $result['resolved_chat_id'] ?? $toChatId;
+                } else {
+                    $telegramService = app(\App\Services\TelegramService::class);
+                    $result = $telegramService->sendMessage($toChatId, $messageToSend, $mediaUrl);
+                    $storeChatId = $toChatId;
+                }
+
+                $customer = $this->findCustomerByTelegramChatId($storeChatId)
+                    ?? $this->findCustomerByTelegramHandle($toChatId);
                 TelegramMessage::create([
                     'telegram_message_id' => $result['message_id'] ?? null,
-                    'chat_id' => $toChatId,
+                    'chat_id' => $storeChatId,
                     'from_username' => null,
                     'message' => $messageToSend ?: null,
                     'message_type' => $mediaUrl ? $fileType : 'text',
@@ -424,10 +457,10 @@ class InboxController extends Controller
                     'status' => $result['success'] ? 'sent' : 'failed',
                 ]);
                 if ($result['success']) {
-                    return redirect()->route('inbox.index', ['channel' => 'telegram', 'chat_id' => $toChatId])
+                    return redirect()->route('inbox.index', ['channel' => 'telegram', 'chat_id' => $storeChatId])
                         ->with('success', 'Message sent successfully.')->with('refresh', true);
                 }
-                return redirect()->route('inbox.index', ['channel' => 'telegram', 'chat_id' => $toChatId])
+                return redirect()->route('inbox.index', ['channel' => 'telegram', 'chat_id' => $storeChatId])
                     ->with('error', 'Message saved but failed to send: ' . ($result['error'] ?? 'Unknown error'));
             }
             if ($channel === 'instagram') {

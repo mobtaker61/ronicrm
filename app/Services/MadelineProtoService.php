@@ -349,6 +349,31 @@ class MadelineProtoService
         return null;
     }
 
+    /**
+     * Resolve media path/URL to MadelineProto file object for sendPhoto.
+     */
+    protected function resolveMediaFile(?string $pathOrUrl)
+    {
+        if (!$pathOrUrl || trim($pathOrUrl) === '') {
+            return null;
+        }
+        $pathOrUrl = trim($pathOrUrl);
+        if (str_starts_with(strtolower($pathOrUrl), 'http://') || str_starts_with(strtolower($pathOrUrl), 'https://')) {
+            return new \danog\MadelineProto\RemoteUrl($pathOrUrl);
+        }
+        $localPath = $pathOrUrl;
+        if (!file_exists($pathOrUrl) && !str_starts_with($pathOrUrl, '/') && !preg_match('#^[A-Za-z]:[\\\\/]#', $pathOrUrl)) {
+            $localPath = storage_path('app/public/' . ltrim($pathOrUrl, '/'));
+        }
+        if (file_exists($localPath)) {
+            return new \danog\MadelineProto\LocalFile($localPath);
+        }
+        if (file_exists($pathOrUrl)) {
+            return new \danog\MadelineProto\LocalFile($pathOrUrl);
+        }
+        return null;
+    }
+
     protected function extractUserId($fromId): ?string
     {
         if ($fromId === null) return null;
@@ -367,40 +392,51 @@ class MadelineProtoService
     }
 
     /**
-     * Send private message to user, optionally with image.
+     * Send private message to user. Accepts user ID (numeric) or username (@handle or handle).
      *
-     * @param string $userId Telegram user ID (for PM, chat_id = user_id)
+     * @param string $peer Telegram user ID (e.g. "5166408066") or username ("@ronakpanahi" or "ronakpanahi")
      * @param string $text Message text (or caption when image is present)
-     * @param string|null $imagePath Full path to image file (e.g. storage_path('app/public/xxx.jpg'))
-     * @return array { success: bool, message_id?: int, error?: string }
+     * @param string|null $imagePath Full path to image file, or URL for RemoteUrl
+     * @return array { success: bool, message_id?: int, error?: string, resolved_chat_id?: string }
      */
-    public function sendPrivateMessage(string $userId, string $text, ?string $imagePath = null): array
+    public function sendPrivateMessage(string $peer, string $text, ?string $imagePath = null): array
     {
-        Log::info('MadelineProtoService::sendPrivateMessage', ['user_id' => $userId, 'has_image' => !empty($imagePath)]);
+        $peer = trim($peer);
+        $isNumeric = ctype_digit($peer) || (is_numeric($peer) && (string)(int)$peer === $peer);
+        $apiPeer = $isNumeric ? (int) $peer : ($peer[0] === '@' ? $peer : '@' . $peer);
+
+        Log::info('MadelineProtoService::sendPrivateMessage', ['peer' => $apiPeer, 'has_image' => !empty($imagePath)]);
         try {
-            $messageId = $this->run(function () use ($userId, $text, $imagePath) {
+            $out = $this->run(function () use ($apiPeer, $text, $imagePath) {
                 $api = $this->getApi();
                 $api->start();
+                $file = $this->resolveMediaFile($imagePath);
                 $result = null;
-                if ($imagePath && file_exists($imagePath)) {
+                if ($file) {
                     try {
-                        $file = new \danog\MadelineProto\LocalFile($imagePath);
-                        $result = $api->sendPhoto(peer: (int) $userId, file: $file, caption: $text);
+                        $result = $api->sendPhoto(peer: $apiPeer, file: $file, caption: $text);
                     } catch (\Throwable $e) {
                         if (str_contains($e->getMessage(), 'Return value') || str_contains($e->getMessage(), 'as array') || str_contains($e->getMessage(), 'PrivateMessage')) {
                             Log::warning('MadelineProto sendPhoto fallback to text: ' . $e->getMessage());
-                            $result = $api->messages->sendMessage(peer: (int) $userId, message: $text);
+                            $result = $api->messages->sendMessage(peer: $apiPeer, message: $text);
                         } else {
                             throw $e;
                         }
                     }
                 } else {
-                    $result = $api->messages->sendMessage(peer: (int) $userId, message: $text);
+                    $result = $api->messages->sendMessage(peer: $apiPeer, message: $text);
                 }
-                return $this->extractMessageId($result);
+                $msgId = $this->extractMessageId($result);
+                $resolvedId = (string) $api->getId($apiPeer);
+                return ['message_id' => $msgId, 'resolved_chat_id' => $resolvedId];
             });
+
             $this->connection?->update(['last_used_at' => now()]);
-            return ['success' => true, 'message_id' => $messageId];
+            return [
+                'success' => true,
+                'message_id' => $out['message_id'] ?? null,
+                'resolved_chat_id' => $out['resolved_chat_id'] ?? $peer,
+            ];
         } catch (\Throwable $e) {
             $msg = $e->getMessage();
             // MadelineProto sometimes returns PrivateMessage object; internal code may throw "as array"
