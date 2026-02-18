@@ -618,11 +618,14 @@ class MadelineProtoService
     {
         if ($connId) {
             $conn = TelegramUserConnection::find($connId);
-            if ($conn && in_array($conn->status, ['pending', 'connected'], true)) {
+            if ($conn) {
+                if ($conn->status === 'expired') {
+                    $conn->update(['status' => 'pending']);
+                }
                 return $conn;
             }
         }
-        $conn = TelegramUserConnection::where('status', 'pending')
+        $conn = TelegramUserConnection::whereIn('status', ['pending', 'connected'])
             ->orderByDesc('updated_at')
             ->first();
 
