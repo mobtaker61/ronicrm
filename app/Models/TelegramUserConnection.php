@@ -128,9 +128,13 @@ class TelegramUserConnection extends Model
 
     public static function getActive(): ?self
     {
-        return self::where('status', 'connected')
+        $conn = self::where('status', 'connected')
             ->orderBy('updated_at', 'desc')
             ->first();
+        if ($conn && $conn->session_path && !$conn->hasSessionOnDisk()) {
+            return null;
+        }
+        return $conn;
     }
 
 }
