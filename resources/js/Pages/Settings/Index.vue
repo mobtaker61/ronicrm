@@ -1116,12 +1116,14 @@ const telegramQrSvg = ref('');
 const telegramQrLoading = ref(false);
 const telegramQrError = ref('');
 const telegramQrPolling = ref(false);
+const telegramQrConnId = ref(null); // Ensure poll uses same session as displayed QR
 let telegramQrPollTimer = null;
 
 const startTelegramQr = async () => {
     telegramQrLoading.value = true;
     telegramQrError.value = '';
     telegramQrSvg.value = '';
+    telegramQrConnId.value = null;
     try {
         const res = await fetch(route('settings.telegram.qr-code'));
         const data = await res.json();
@@ -1135,8 +1137,10 @@ const startTelegramQr = async () => {
         }
         if (data.qr_svg) {
             telegramQrSvg.value = data.qr_svg;
+            telegramQrConnId.value = data.conn_id ?? null;
             telegramQrPolling.value = true;
-            telegramQrPollTimer = setInterval(pollTelegramQr, 6000);
+            // Poll every 2.5s so we catch the login quickly (QR expires fast, user scans within seconds)
+            telegramQrPollTimer = setInterval(pollTelegramQr, 2500);
         }
     } catch (e) {
         telegramQrError.value = e.message || 'Failed to load QR';
@@ -1147,14 +1151,26 @@ const startTelegramQr = async () => {
 
 const pollTelegramQr = async () => {
     try {
-        const res = await fetch(route('settings.telegram.qr-code') + '?wait=1');
+        const params = new URLSearchParams({ wait: '1' });
+        if (telegramQrConnId.value) params.set('conn_id', String(telegramQrConnId.value));
+        const res = await fetch(route('settings.telegram.qr-code') + '?' + params.toString());
         const data = await res.json();
         if (data.logged_in) {
             if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
             telegramQrPolling.value = false;
             router.reload();
+        } else if (data.qr_svg) {
+            telegramQrSvg.value = data.qr_svg;
+            if (data.conn_id) telegramQrConnId.value = data.conn_id;
+        } else if (data.error) {
+            telegramQrError.value = data.error;
         }
-    } catch {}
+    } catch (e) {
+        // Don't spam - only show if we haven't shown an error yet
+        if (!telegramQrError.value) {
+            telegramQrError.value = e.message || 'Poll failed. Keep scanning—will retry.';
+        }
+    }
 };
 
 const disconnectTelegram = () => {

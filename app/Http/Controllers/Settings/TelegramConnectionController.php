@@ -23,13 +23,15 @@ class TelegramConnectionController extends Controller
 
     /**
      * Get QR code for Telegram login (JSON for polling).
+     * ?wait=1 = long-poll for scan. ?conn_id=123 = use specific connection (for poll).
      */
     public function qrCode(Request $request): JsonResponse
     {
         try {
+            $connId = $request->integer('conn_id', 0) ?: null;
             $service = app(MadelineProtoService::class);
             $wait = $request->boolean('wait');
-            $result = $service->getQrCode($wait);
+            $result = $service->getQrCode($wait, $connId);
             return response()->json($result);
         } catch (\Throwable $e) {
             return response()->json([
@@ -40,16 +42,41 @@ class TelegramConnectionController extends Controller
 
     /**
      * Disconnect Telegram user account.
-     * Removes ALL connected records (handles duplicates).
+     * Removes ALL connected records and their session folders.
      */
     public function disconnect(Request $request): RedirectResponse
     {
         $connected = TelegramUserConnection::where('status', 'connected')->get();
         foreach ($connected as $conn) {
+            $this->deleteConnectionSession($conn);
             $conn->update(['status' => 'expired']);
             $conn->delete();
         }
         return redirect()->route('settings.index', ['tab' => 'telegram'], 303)->with('success', 'Telegram account disconnected.');
+    }
+
+    protected function deleteConnectionSession(TelegramUserConnection $conn): void
+    {
+        if (!$conn->session_path) {
+            return;
+        }
+        $path = storage_path('app/' . $conn->session_path);
+        try {
+            if (is_dir($path)) {
+                $files = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($path, \RecursiveDirectoryIterator::SKIP_DOTS),
+                    \RecursiveIteratorIterator::CHILD_FIRST
+                );
+                foreach ($files as $file) {
+                    $file->isDir() ? rmdir($file->getRealPath()) : unlink($file->getRealPath());
+                }
+                rmdir($path);
+            } elseif (file_exists($path)) {
+                unlink($path);
+            }
+        } catch (\Throwable) {
+            // Ignore
+        }
     }
 
     /**

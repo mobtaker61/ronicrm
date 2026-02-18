@@ -553,12 +553,56 @@ class MadelineProtoService
     }
 
     /**
+     * Get existing pending/connected or create one. Expires old pendings and deletes their session folders.
+     */
+    protected function getOrCreatePendingConnection(): TelegramUserConnection
+    {
+        $cutoff = now()->subMinutes(30);
+        $oldPending = TelegramUserConnection::where('status', 'pending')
+            ->where('updated_at', '<', $cutoff)
+            ->get();
+        foreach ($oldPending as $c) {
+            $c->update(['status' => 'expired']);
+            $this->deleteSessionFolder($c);
+        }
+        $conn = TelegramUserConnection::whereIn('status', ['pending', 'connected'])
+            ->orderByDesc('updated_at')
+            ->first();
+        return $conn ?? TelegramUserConnection::create(['status' => 'pending']);
+    }
+
+    protected function deleteSessionFolder(TelegramUserConnection $conn): void
+    {
+        if (!$conn->session_path) {
+            return;
+        }
+        $path = storage_path('app/' . $conn->session_path);
+        try {
+            if (is_dir($path)) {
+                $files = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($path, \RecursiveDirectoryIterator::SKIP_DOTS),
+                    \RecursiveIteratorIterator::CHILD_FIRST
+                );
+                foreach ($files as $file) {
+                    $file->isDir() ? rmdir($file->getRealPath()) : unlink($file->getRealPath());
+                }
+                rmdir($path);
+            } elseif (file_exists($path)) {
+                unlink($path);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('MadelineProto could not delete session folder: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Initiate QR login. Returns SVG of QR code or null if already logged in.
      *
      * @param bool $wait If true, wait up to 5s for user to scan (for polling).
-     * @return array { qr_svg?: string, logged_in: bool, needs_2fa?: bool, error?: string }
+     * @param int|null $connId If set, use this specific connection (ensures poll uses same session as QR).
+     * @return array { qr_svg?: string, conn_id?: int, logged_in: bool, needs_2fa?: bool, error?: string }
      */
-    public function getQrCode(bool $wait = false): array
+    public function getQrCode(bool $wait = false, ?int $connId = null): array
     {
         if (!class_exists(\danog\MadelineProto\API::class)) {
             return ['error' => 'MadelineProto is not installed. Run: composer require danog/madelineproto'];
@@ -569,9 +613,17 @@ class MadelineProtoService
             return ['error' => 'TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in .env'];
         }
         try {
-            $conn = $this->connection ?? TelegramUserConnection::getActive()
-                ?? TelegramUserConnection::whereIn('status', ['pending', 'connected'])->orderByDesc('updated_at')->first()
-                ?? TelegramUserConnection::create(['status' => 'pending']);
+            $conn = null;
+            if ($connId) {
+                $conn = TelegramUserConnection::find($connId);
+                if (!$conn || !in_array($conn->status, ['pending', 'connected'], true)) {
+                    $conn = null;
+                }
+            }
+            if (!$conn) {
+                $conn = $this->connection ?? TelegramUserConnection::getActive()
+                    ?? $this->getOrCreatePendingConnection();
+            }
             $sessionPath = $conn->getSessionPath();
             Log::info('MadelineProto getQrCode: starting', ['session_path' => $sessionPath]);
 
@@ -603,7 +655,12 @@ class MadelineProtoService
                 if (!$qr) {
                     $auth = $api->getAuthorization();
                     if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
-                        $conn->update(['status' => 'connected']);
+                        $self = $api->getSelf();
+                        $conn->update([
+                            'status' => 'connected',
+                            'phone' => $self['phone'] ?? null,
+                            'telegram_username' => $self['username'] ?? null,
+                        ]);
                         return ['logged_in' => true];
                     }
                     if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
@@ -623,6 +680,7 @@ class MadelineProtoService
                 return [
                     'logged_in' => false,
                     'qr_svg' => $qr->getQRSvg(400, 2),
+                    'conn_id' => $conn->id,
                 ];
             });
 
