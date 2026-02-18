@@ -1164,6 +1164,10 @@ const pollTelegramQr = async () => {
             if (data.conn_id) telegramQrConnId.value = data.conn_id;
         } else if (data.error) {
             telegramQrError.value = data.error;
+            if (data.error.includes('expired') || data.error.includes('Connect')) {
+                if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
+                telegramQrPolling.value = false;
+            }
         }
     } catch (e) {
         // Don't spam - only show if we haven't shown an error yet

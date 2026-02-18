@@ -8,6 +8,7 @@ use App\Services\MadelineProtoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class TelegramConnectionController extends Controller
 {
@@ -52,6 +53,8 @@ class TelegramConnectionController extends Controller
             $conn->update(['status' => 'expired']);
             $conn->delete();
         }
+        $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
+        Cache::forget(MadelineProtoService::CACHE_KEY_QR_CONN . '_' . $userId);
         return redirect()->route('settings.index', ['tab' => 'telegram'], 303)->with('success', 'Telegram account disconnected.');
     }
 

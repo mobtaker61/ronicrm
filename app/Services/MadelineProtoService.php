@@ -553,11 +553,11 @@ class MadelineProtoService
     }
 
     /**
-     * Get existing pending/connected or create one. Expires old pendings and deletes their session folders.
+     * Get existing pending/connected or create one. Expires pendings older than 10 min.
      */
     protected function getOrCreatePendingConnection(): TelegramUserConnection
     {
-        $cutoff = now()->subMinutes(30);
+        $cutoff = now()->subMinutes(10);
         $oldPending = TelegramUserConnection::where('status', 'pending')
             ->where('updated_at', '<', $cutoff)
             ->get();
@@ -595,6 +595,9 @@ class MadelineProtoService
         }
     }
 
+    /** Cache key for "current QR connection" - ensures all requests use same session during QR flow */
+    public const CACHE_KEY_QR_CONN = 'telegram_qr_conn';
+
     /**
      * Initiate QR login. Returns SVG of QR code or null if already logged in.
      *
@@ -613,16 +616,28 @@ class MadelineProtoService
             return ['error' => 'TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in .env'];
         }
         try {
+            $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
+            $cacheKey = self::CACHE_KEY_QR_CONN . '_' . $userId;
+
             $conn = null;
-            if ($connId) {
-                $conn = TelegramUserConnection::find($connId);
+            $cachedConnId = Cache::get($cacheKey);
+            $connIdToUse = $connId ?: $cachedConnId;
+
+            if ($connIdToUse) {
+                $conn = TelegramUserConnection::find($connIdToUse);
                 if (!$conn || !in_array($conn->status, ['pending', 'connected'], true)) {
                     $conn = null;
+                    Cache::forget($cacheKey);
                 }
             }
+
             if (!$conn) {
+                if ($wait) {
+                    return ['error' => 'QR session expired. Please click "Connect via QR Code" again.', 'logged_in' => false];
+                }
                 $conn = $this->connection ?? TelegramUserConnection::getActive()
                     ?? $this->getOrCreatePendingConnection();
+                Cache::put($cacheKey, $conn->id, now()->addMinutes(15));
             }
             $sessionPath = $conn->getSessionPath();
             Log::info('MadelineProto getQrCode: starting', ['session_path' => $sessionPath]);
@@ -661,6 +676,8 @@ class MadelineProtoService
                             'phone' => $self['phone'] ?? null,
                             'telegram_username' => $self['username'] ?? null,
                         ]);
+                        $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
+                        Cache::forget(self::CACHE_KEY_QR_CONN . '_' . $userId);
                         return ['logged_in' => true];
                     }
                     if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
