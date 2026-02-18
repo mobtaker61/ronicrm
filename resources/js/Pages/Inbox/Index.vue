@@ -54,8 +54,8 @@
         <!-- Full Height Inbox Container - Negative margins to override AppLayout padding -->
         <div class="-m-4 lg:-m-8 h-[calc(100vh-64px)] flex flex-col bg-white overflow-hidden">
             <div class="flex flex-1 overflow-hidden">
-                <!-- Conversations List (Left Sidebar) - 20% -->
-                <div class="w-[20%] bg-white border-r border-gray-200 flex flex-col min-w-0 flex-shrink-0">
+                <!-- Conversations List (Left Sidebar) -->
+                <div class="w-[26%] min-w-[220px] max-w-[320px] bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
                     <!-- Instagram: درخواست اجازه نوتیفیکیشن (مرورگر فقط با کلیک کاربر اجازه می‌دهد) -->
                     <div
                         v-if="channel === 'instagram' && notificationPermission === 'default'"
@@ -66,7 +66,7 @@
                             @click="requestNotificationPermission"
                             class="w-full text-left text-sm text-amber-800 hover:text-amber-900 py-1"
                         >
-                            🔔 برای دریافت اعلان پیام جدید اینجا کلیک کنید
+                            🔔 Click here to enable new message notifications
                         </button>
                     </div>
                     <!-- Search Header (Sticky) -->
@@ -145,12 +145,12 @@
                                 <div class="flex-shrink-0">
                                     <div
                                         v-if="conv.avatar"
-                                        class="w-12 h-12 rounded-full bg-cover bg-center border-2 border-gray-200"
+                                        class="w-8 h-8 rounded-full bg-cover bg-center border border-gray-200"
                                         :style="{ backgroundImage: `url(${conv.avatar})` }"
                                     ></div>
                                     <div
                                         v-else
-                                        class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold border-2 border-gray-200"
+                                        class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-semibold border border-gray-200"
                                     >
                                         {{ conv.name.charAt(0).toUpperCase() }}
                                     </div>
@@ -193,8 +193,8 @@
                     </div>
                 </div>
 
-                <!-- Messages Area (Middle) - 50% -->
-                <div class="w-[50%] flex flex-col bg-gray-50 min-w-0 flex-shrink-0">
+                <!-- Messages Area (Middle) -->
+                <div class="flex-1 flex flex-col bg-gray-50 min-w-0">
                     <div v-if="selectedContact || (channel === 'instagram' && selectedCustomer && !selectedIgUserId)" class="flex-1 flex flex-col min-h-0">
                         <!-- Conversation Header (Sticky) -->
                         <div class="flex-shrink-0 bg-white px-6 py-4 border-b border-gray-200 flex items-center justify-between">
@@ -253,10 +253,10 @@
                         <!-- No conversation yet (Instagram: customer has handle but no messages) -->
                         <div v-if="noConversationYet" class="flex-1 flex items-center justify-center p-8 bg-gray-50">
                             <div class="text-center max-w-md">
-                                <p class="text-gray-600 mb-2">این مخاطب هنوز در اینستاگرام با شما گفتگو نکرده است.</p>
-                                <p class="text-sm text-gray-500 mb-2">وقتی در اینستاگرام پیام دهد، اینجا نمایش داده می‌شود و شناسه عددی او به‌طور خودکار در مخاطب ثبت می‌شود تا بتوانید از همین اینباکس برای او پیام بفرستید.</p>
-                                <p class="text-xs text-gray-400 mb-4">API متا شناسه عددی را فقط پس از تعامل (مثلاً اولین پیام) در اختیار قرار می‌دهد؛ از روی تنها username نمی‌توان آن را گرفت.</p>
-                                <Link :href="route('customers.show', selectedCustomer.id)" class="text-blue-600 hover:underline font-medium">مشاهده کارت مخاطب</Link>
+                                <p class="text-gray-600 mb-2">This contact has not messaged you on Instagram yet.</p>
+                                <p class="text-sm text-gray-500 mb-2">When they send a message on Instagram, it will appear here and their numeric ID will be automatically saved to the contact so you can reply from this inbox.</p>
+                                <p class="text-xs text-gray-400 mb-4">The Meta API provides the numeric ID only after interaction (e.g. first message); it cannot be obtained from username alone.</p>
+                                <Link :href="route('customers.show', selectedCustomer.id)" class="text-blue-600 hover:underline font-medium">View customer card</Link>
                             </div>
                         </div>
 
@@ -366,7 +366,7 @@
                                         type="button"
                                         @click="$refs.fileInput?.click()"
                                         class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-                                        title="آپلود فایل"
+                                        title="Upload file"
                                     >
                                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -376,7 +376,7 @@
                                         type="button"
                                         @click="showMediaPicker = true"
                                         class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-                                        title="انتخاب از مدیا"
+                                        title="Select from media"
                                     >
                                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -386,7 +386,7 @@
                                         type="button"
                                         @click="showTemplatePicker = true"
                                         class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-                                        title="انتخاب تمپلت"
+                                        title="Select template"
                                     >
                                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -409,7 +409,7 @@
                                         :disabled="sendingMessage || (!newMessage.trim() && !selectedFile)"
                                         class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex-shrink-0 whitespace-nowrap"
                                     >
-                                        {{ sendingMessage ? 'در حال ارسال...' : 'ارسال' }}
+                                        {{ sendingMessage ? 'Sending...' : 'Send' }}
                                     </button>
                                 </div>
                             </form>
@@ -437,9 +437,9 @@
                             </svg>
                             <p class="text-lg">{{ channel === 'telegram' ? 'Search for a contact with Telegram or open a conversation from the list' : (channel === 'instagram' ? 'Search for a contact with Instagram or open a conversation from the list' : 'Search for a contact or enter a phone number to start a conversation') }}</p>
                             <div v-if="channel === 'instagram'" class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 max-w-md mx-auto text-right">
-                                <p class="font-medium mb-1">ارسال پیام از طریق اینستاگرام</p>
-                                <p class="mb-2">برای ارسال و دریافت DM اینستاگرام باید اپ متا (Facebook Developer) را به اکانت اینستاگرام Business/Creator وصل کنید و در تنظیمات (Settings) بخش Instagram، توکن دسترسی (Access Token) را وارد کنید. شناسه مخاطب (Instagram Scoped User ID) از API متا هنگام دریافت پیام یا از وب‌هوک به‌دست می‌آید.</p>
-                                <a :href="route('settings.index')" class="text-amber-700 underline font-medium">رفتن به تنظیمات</a>
+                                <p class="font-medium mb-1">Sending messages via Instagram</p>
+                                <p class="mb-2">To send and receive Instagram DMs, connect the Meta app (Facebook Developer) to your Instagram Business/Creator account and enter the Access Token in Settings → Instagram. The contact's Instagram Scoped User ID is obtained from the Meta API when receiving a message or via webhook.</p>
+                                <a :href="route('settings.index')" class="text-amber-700 underline font-medium">Go to Settings</a>
                             </div>
                         </div>
                     </div>
@@ -1153,7 +1153,7 @@ function runInstagramPoll() {
                     const hasNew = newLen > instagramPollPrevCount.value || newUnread > instagramPollPrevUnread.value;
                     if (hasNew) {
                         try {
-                            new Notification('پیام جدید اینستاگرام', { body: 'یک پیام جدید دریافت شد.' });
+                            new Notification('New Instagram message', { body: 'You have received a new message.' });
                         } catch (_) {}
                     }
                     instagramPollPrevCount.value = newLen;

@@ -249,12 +249,7 @@ class InboxController extends Controller
             }
         }
 
-        $templateType = match ($channel) {
-            'telegram' => 'telegram',
-            'instagram' => 'whatsapp',
-            default => 'whatsapp',
-        };
-        $templates = CampaignTemplate::where('type', $templateType)
+        $templates = CampaignTemplate::whereIn('type', ['whatsapp', 'telegram'])
             ->orderBy('name')
             ->get()
             ->map(fn ($t) => [
