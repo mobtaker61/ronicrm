@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\CampaignTemplate;
+use App\Models\TelegramGroup;
 use App\Models\TelegramUserConnection;
 use App\Services\MadelineProtoService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -20,7 +21,8 @@ class TelegramSendToGroupsJob implements ShouldQueue
     public function __construct(
         public array $groupIds,
         public int $templateId,
-        public string $sendId
+        public string $sendId,
+        public ?array $groupTitles = null
     ) {}
 
     public function handle(): void
@@ -43,18 +45,33 @@ class TelegramSendToGroupsJob implements ShouldQueue
         $sent = 0;
         $failed = 0;
         $results = [];
+        $titles = $this->groupTitles ?? [];
 
         $this->setProgress('running', 0, $sent, $failed, $results);
         $service->start();
 
         foreach ($this->groupIds as $i => $groupId) {
             $r = $service->sendGroupMessage($groupId, $text, $imagePath);
+            $title = $titles[$groupId] ?? null;
             if ($r['success']) {
                 $sent++;
                 $results[] = ['group_id' => $groupId, 'status' => 'sent'];
+                $tg = TelegramGroup::where('telegram_user_connection_id', $conn->id)
+                    ->where('telegram_group_id', $groupId)
+                    ->first();
+                if ($tg) {
+                    $tg->markCanPost();
+                } else {
+                    TelegramGroup::findOrCreateForConnection($conn->id, $groupId, $title, null);
+                }
             } else {
                 $failed++;
-                $results[] = ['group_id' => $groupId, 'status' => 'failed', 'error' => $r['error'] ?? ''];
+                $err = $r['error'] ?? '';
+                $results[] = ['group_id' => $groupId, 'status' => 'failed', 'error' => $err];
+                if (static::isNonPostableError($err)) {
+                    $tg = TelegramGroup::findOrCreateForConnection($conn->id, $groupId, $title, null);
+                    $tg->markCannotPost($err);
+                }
             }
             $this->setProgress('running', $i + 1, $sent, $failed, $results);
             sleep(rand(3, 6));
@@ -77,5 +94,22 @@ class TelegramSendToGroupsJob implements ShouldQueue
             $data['error'] = $error;
         }
         Cache::put($key, $data, now()->addHours(24));
+    }
+
+    protected static function isNonPostableError(string $error): bool
+    {
+        $nonPostable = [
+            'CHAT_ADMIN_REQUIRED',
+            'CHAT_WRITE_FORBIDDEN',
+            'CHANNEL_PRIVATE',
+            'USER_BANNED_IN_CHANNEL',
+            'PEER_ID_INVALID',
+        ];
+        foreach ($nonPostable as $code) {
+            if (str_contains($error, $code)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

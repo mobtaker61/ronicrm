@@ -322,11 +322,20 @@ class MadelineProtoService
                 $api = $this->getApi();
                 $api->start();
                 if ($imagePath && file_exists($imagePath)) {
-                    $file = new \danog\MadelineProto\LocalFile($imagePath);
-                    $result = $api->sendPhoto(peer: $groupId, file: $file, caption: $text);
-                } else {
-                    $result = $api->messages->sendMessage(peer: $groupId, message: $text);
+                    try {
+                        $file = new \danog\MadelineProto\LocalFile($imagePath);
+                        $result = $api->sendPhoto(peer: $groupId, file: $file, caption: $text);
+                        return \is_array($result) ? ($result['id'] ?? null) : (isset($result->id) ? $result->id : null);
+                    } catch (\Throwable $e) {
+                        if (str_contains($e->getMessage(), 'Return value') || str_contains($e->getMessage(), 'sendMedia')) {
+                            Log::warning('MadelineProto sendPhoto failed (type error), falling back to text only: ' . $e->getMessage());
+                            $result = $api->messages->sendMessage(peer: $groupId, message: $text);
+                            return $result['id'] ?? null;
+                        }
+                        throw $e;
+                    }
                 }
+                $result = $api->messages->sendMessage(peer: $groupId, message: $text);
                 return $result['id'] ?? null;
             });
             $this->connection?->update(['last_used_at' => now()]);

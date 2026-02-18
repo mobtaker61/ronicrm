@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\TelegramCrawlJob;
 use App\Jobs\TelegramSendToGroupsJob;
 use App\Models\CampaignTemplate;
+use App\Models\TelegramGroup;
 use App\Models\TelegramUserConnection;
 use App\Services\MadelineProtoService;
 use Illuminate\Http\JsonResponse;
@@ -46,8 +47,21 @@ class TelegramCrawlerController extends Controller
         $forceRefresh = $request->boolean('refresh');
         $cached = Cache::get($cacheKey);
 
-        // Return cached list unless user explicitly requested refresh
+        // Return cached list unless user explicitly requested refresh (enrich with DB can_post)
         if (!$forceRefresh && $cached !== null && count($cached) > 0) {
+            $dbGroups = TelegramGroup::where('telegram_user_connection_id', $conn->id)
+                ->whereIn('telegram_group_id', array_column($cached, 'id'))
+                ->get()
+                ->keyBy('telegram_group_id');
+            foreach ($cached as &$g) {
+                $g['can_post'] = true;
+                $g['last_error'] = null;
+                $db = $dbGroups->get($g['id'] ?? '');
+                if ($db) {
+                    $g['can_post'] = $db->can_post;
+                    $g['last_error'] = $db->last_error;
+                }
+            }
             return response()->json(['groups' => $cached]);
         }
 
@@ -67,6 +81,22 @@ class TelegramCrawlerController extends Controller
             }
             $groups = array_values($byId);
             usort($groups, fn ($a, $b) => strcasecmp($a['title'] ?? '', $b['title'] ?? ''));
+
+            $dbGroups = TelegramGroup::where('telegram_user_connection_id', $conn->id)
+                ->whereIn('telegram_group_id', array_column($groups, 'id'))
+                ->get()
+                ->keyBy('telegram_group_id');
+
+            foreach ($groups as &$g) {
+                $g['can_post'] = true;
+                $g['last_error'] = null;
+                $db = $dbGroups->get($g['id'] ?? '');
+                if ($db) {
+                    $g['can_post'] = $db->can_post;
+                    $g['last_error'] = $db->last_error;
+                }
+                TelegramGroup::findOrCreateForConnection($conn->id, (string) ($g['id'] ?? ''), $g['title'] ?? null, $g['type'] ?? null);
+            }
 
             Cache::put($cacheKey, $groups, now()->addDays(1));
             return response()->json(['groups' => $groups]);
@@ -131,6 +161,8 @@ class TelegramCrawlerController extends Controller
             'group_ids' => 'required|array',
             'group_ids.*' => 'required|string|max:50',
             'template_id' => 'required|exists:campaign_templates,id',
+            'group_titles' => 'nullable|array',
+            'group_titles.*' => 'nullable|string|max:255',
         ]);
         $conn = TelegramUserConnection::getActive();
         if (!$conn) {
@@ -149,7 +181,16 @@ class TelegramCrawlerController extends Controller
             'results' => [],
         ], now()->addHours(24));
 
-        TelegramSendToGroupsJob::dispatch($validated['group_ids'], (int) $validated['template_id'], $sendId);
+        $titles = [];
+        foreach ($validated['group_ids'] as $gid) {
+            $titles[$gid] = $validated['group_titles'][$gid] ?? null;
+        }
+        TelegramSendToGroupsJob::dispatch(
+            $validated['group_ids'],
+            (int) $validated['template_id'],
+            $sendId,
+            $titles
+        );
         return response()->json(['send_id' => $sendId]);
     }
 

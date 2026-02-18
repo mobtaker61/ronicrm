@@ -44,21 +44,31 @@
                             <div
                                 v-for="g in groups"
                                 :key="g.id"
-                                class="flex items-start gap-3 w-full text-left px-3 py-2.5 rounded-lg border cursor-pointer transition-colors hover:bg-gray-50"
-                                :class="selectedGroupId === g.id || selectedGroupIds.has(g.id)
-                                    ? 'border-blue-500 bg-blue-50 text-blue-900'
-                                    : 'border-gray-200 bg-white text-gray-800'"
-                                @click="showSendToGroups ? toggleGroupSelection(g.id) : (selectedGroupId = g.id)"
+                                class="flex items-start gap-3 w-full text-left px-3 py-2.5 rounded-lg border transition-colors"
+                                :class="[
+                                    showSendToGroups && !g.can_post
+                                        ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                                        : 'hover:bg-gray-50 cursor-pointer',
+                                    selectedGroupId === g.id || selectedGroupIds.has(g.id)
+                                        ? 'border-blue-500 bg-blue-50 text-blue-900'
+                                        : 'border-gray-200 bg-white text-gray-800'
+                                ]"
+                                :title="(showSendToGroups && !g.can_post && g.last_error) ? g.last_error : ''"
+                                @click="showSendToGroups ? (g.can_post !== false && toggleGroupSelection(g.id)) : (selectedGroupId = g.id)"
                             >
                                 <input
                                     v-if="showSendToGroups"
                                     type="checkbox"
                                     :checked="selectedGroupIds.has(g.id)"
-                                    @change.stop="toggleGroupSelection(g.id)"
-                                    class="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    :disabled="g.can_post === false"
+                                    @change.stop="g.can_post !== false && toggleGroupSelection(g.id)"
+                                    class="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-40"
                                 />
                                 <div class="flex-1 min-w-0">
-                                    <div class="font-medium text-sm truncate">{{ g.title }}</div>
+                                    <div class="font-medium text-sm truncate flex items-center gap-1">
+                                        {{ g.title }}
+                                        <span v-if="showSendToGroups && !g.can_post" class="text-amber-600" title="امکان ارسال در این گروه نیست">⚠</span>
+                                    </div>
                                     <div class="flex items-center justify-between mt-0.5">
                                         <span class="text-xs text-gray-500">{{ g.type }}</span>
                                         <span class="text-xs text-gray-400 font-mono truncate ml-1">{{ g.id }}</span>
@@ -423,10 +433,15 @@ const sendToSelectedGroups = async () => {
     if (selectedGroupIds.value.size === 0 || !sendToGroupsTemplateId.value) return;
     sendToGroupsStarting.value = true;
     sendStatus.value = {};
+    const groupTitles = {};
+    groups.value.forEach(g => {
+        if (selectedGroupIds.value.has(g.id)) groupTitles[g.id] = g.title || null;
+    });
     try {
         const res = await axios.post(route('telegram-crawler.send-to-groups'), {
             group_ids: Array.from(selectedGroupIds.value),
             template_id: sendToGroupsTemplateId.value,
+            group_titles: groupTitles,
         });
         sendId.value = res.data.send_id;
         sendPollTimer = setInterval(pollSendStatus, 2000);
