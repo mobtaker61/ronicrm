@@ -81,7 +81,16 @@ class MadelineProtoService
     {
         $result = null;
         $error = null;
-        $timeoutId = \Revolt\EventLoop::delay($this->runTimeout, function () {
+        $timedOut = false;
+        $timeoutSeconds = $this->runTimeout;
+        $timeoutId = \Revolt\EventLoop::delay($timeoutSeconds, function () use (&$timedOut, &$error, $timeoutSeconds) {
+            $timedOut = true;
+            if ($error === null) {
+                $error = new \RuntimeException(
+                    "MadelineProto operation timed out after {$timeoutSeconds}s. ".
+                    'Check server clock sync (NTP) and madelineproto.log.'
+                );
+            }
             \Revolt\EventLoop::getDriver()->stop();
         });
         \Revolt\EventLoop::queue(function () use ($callback, &$result, &$error, $timeoutId) {
@@ -96,6 +105,12 @@ class MadelineProtoService
             }
         });
         \Revolt\EventLoop::run();
+        if ($timedOut && $error === null) {
+            $error = new \RuntimeException(
+                "MadelineProto operation timed out after {$timeoutSeconds}s. ".
+                'Check server clock sync (NTP) and madelineproto.log.'
+            );
+        }
         if ($error !== null) {
             $msg = $error->getMessage() ?: '(no message)';
             $cls = get_class($error);
