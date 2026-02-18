@@ -51,6 +51,9 @@ class SettingsController extends Controller
         }
 
         return Inertia::render('Settings/Index', [
+            'initialTab' => in_array(request()->query('tab'), ['social-media', 'smtp', 'ronibot', 'telegram', 'instagram', 'users'], true)
+                ? request()->query('tab')
+                : 'social-media',
             'isAdmin' => $isAdmin,
             'users' => $users,
             'roles' => $roles,

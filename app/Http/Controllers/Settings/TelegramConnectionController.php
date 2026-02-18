@@ -48,7 +48,7 @@ class TelegramConnectionController extends Controller
             $conn->update(['status' => 'expired']);
             $conn->delete();
         }
-        return redirect()->route('settings.index')->with('success', 'Telegram account disconnected.');
+        return redirect()->route('settings.index', ['tab' => 'telegram'], 303)->with('success', 'Telegram account disconnected.');
     }
 
     /**
@@ -60,9 +60,9 @@ class TelegramConnectionController extends Controller
         $conn = TelegramUserConnection::getActive()
             ?? TelegramUserConnection::whereIn('status', ['pending', 'connected'])->orderByDesc('updated_at')->first();
         if (!$conn) {
-            return redirect()->route('settings.index')->with('error', 'No Telegram connection found.');
+            return redirect()->route('settings.index', ['tab' => 'telegram'], 303)->with('error', 'No Telegram connection found.');
         }
         $conn->resetSessionFiles();
-        return redirect()->route('settings.index')->with('success', 'Telegram session reset. Click "Connect via QR Code" to re-connect.');
+        return redirect()->route('settings.index', ['tab' => 'telegram'], 303)->with('success', 'Telegram session reset. Click "Connect via QR Code" to re-connect.');
     }
 }

@@ -1006,6 +1006,10 @@ import { useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
+    initialTab: {
+        type: String,
+        default: 'social-media',
+    },
     isAdmin: {
         type: Boolean,
         default: false,
@@ -1052,7 +1056,7 @@ const props = defineProps({
     },
 });
 
-const activeTab = ref('social-media');
+const activeTab = ref(props.initialTab || 'social-media');
 const showAddModal = ref(false);
 const editingType = ref(null);
 const testEmail = ref('');
