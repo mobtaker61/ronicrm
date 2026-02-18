@@ -50,4 +50,19 @@ class TelegramConnectionController extends Controller
         }
         return redirect()->route('settings.index')->with('success', 'Telegram account disconnected.');
     }
+
+    /**
+     * Reset session files (fix "Could not read the lightstate file").
+     * Deletes session files from disk and sets status to pending for fresh QR login.
+     */
+    public function resetSession(Request $request): RedirectResponse
+    {
+        $conn = TelegramUserConnection::getActive()
+            ?? TelegramUserConnection::whereIn('status', ['pending', 'connected'])->orderByDesc('updated_at')->first();
+        if (!$conn) {
+            return redirect()->route('settings.index')->with('error', 'No Telegram connection found.');
+        }
+        $conn->resetSessionFiles();
+        return redirect()->route('settings.index')->with('success', 'Telegram session reset. Click "Connect via QR Code" to re-connect.');
+    }
 }

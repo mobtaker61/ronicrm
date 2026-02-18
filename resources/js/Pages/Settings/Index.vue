@@ -705,9 +705,17 @@
                                 <p class="text-sm text-gray-500" v-if="telegramConnection.phone">{{ telegramConnection.phone }}</p>
                                 <p class="text-sm text-green-600 mt-1">Connected</p>
                             </div>
-                            <form @submit.prevent="disconnectTelegram" class="inline">
-                                <button type="submit" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium">Disconnect</button>
-                            </form>
+                            <div class="flex flex-col gap-2">
+                                <div class="flex gap-2">
+                                    <form @submit.prevent="resetTelegramSession" class="inline">
+                                        <button type="submit" class="px-4 py-2 border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-50 text-sm font-medium">Reset Session</button>
+                                    </form>
+                                    <form @submit.prevent="disconnectTelegram" class="inline">
+                                        <button type="submit" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium">Disconnect</button>
+                                    </form>
+                                </div>
+                                <p class="text-xs text-amber-600">اگر خطای «lightstate» دارید، Reset Session را بزنید و دوباره با QR متصل شوید.</p>
+                            </div>
                         </div>
                         <p v-if="telegramConnection" class="text-sm mt-2">
                             <a :href="route('inbox.index', { channel: 'telegram' })" class="text-blue-600 hover:underline">Open Inbox →</a>
@@ -1140,6 +1148,11 @@ const pollTelegramQr = async () => {
 const disconnectTelegram = () => {
     if (!confirm('Disconnect Telegram? You can reconnect anytime.')) return;
     router.post(route('settings.telegram.disconnect'), {}, { preserveScroll: true });
+};
+
+const resetTelegramSession = () => {
+    if (!confirm('Reset session? This fixes "lightstate" errors. You must re-connect via QR code.')) return;
+    router.post(route('settings.telegram.reset-session'), {}, { preserveScroll: true });
 };
 
 const instagramForm = useForm({

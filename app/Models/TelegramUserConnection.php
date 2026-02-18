@@ -85,6 +85,29 @@ class TelegramUserConnection extends Model
         return $this->status === 'connected';
     }
 
+    /**
+     * Delete session files from disk and set status to pending for re-login.
+     * Use when lightstate/session is corrupted (e.g. "Could not read the lightstate file").
+     */
+    public function resetSessionFiles(): bool
+    {
+        $path = $this->getSessionPath();
+        if (is_dir($path)) {
+            $files = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($path, \RecursiveDirectoryIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($files as $file) {
+                $file->isDir() ? rmdir($file->getRealPath()) : unlink($file->getRealPath());
+            }
+            rmdir($path);
+        } elseif (file_exists($path)) {
+            unlink($path);
+        }
+        $this->update(['status' => 'pending']);
+        return true;
+    }
+
     public static function getActive(): ?self
     {
         return self::where('status', 'connected')->orderBy('updated_at', 'desc')->first();
