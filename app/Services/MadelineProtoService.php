@@ -261,26 +261,62 @@ class MadelineProtoService
     }
 
     /**
-     * Send private message to user.
+     * Send private message to user, optionally with image.
      *
      * @param string $userId Telegram user ID (for PM, chat_id = user_id)
-     * @param string $text Message text
+     * @param string $text Message text (or caption when image is present)
+     * @param string|null $imagePath Full path to image file (e.g. storage_path('app/public/xxx.jpg'))
      * @return array { success: bool, message_id?: int, error?: string }
      */
-    public function sendPrivateMessage(string $userId, string $text): array
+    public function sendPrivateMessage(string $userId, string $text, ?string $imagePath = null): array
     {
-        Log::info('MadelineProtoService::sendPrivateMessage', ['user_id' => $userId]);
+        Log::info('MadelineProtoService::sendPrivateMessage', ['user_id' => $userId, 'has_image' => !empty($imagePath)]);
         try {
-            $messageId = $this->run(function () use ($userId, $text) {
+            $messageId = $this->run(function () use ($userId, $text, $imagePath) {
                 $api = $this->getApi();
                 $api->start();
-                $result = $api->messages->sendMessage(peer: (int) $userId, message: $text);
+                if ($imagePath && file_exists($imagePath)) {
+                    $file = new \danog\MadelineProto\LocalFile($imagePath);
+                    $result = $api->sendPhoto(peer: (int) $userId, file: $file, caption: $text);
+                } else {
+                    $result = $api->messages->sendMessage(peer: (int) $userId, message: $text);
+                }
                 return $result['id'] ?? null;
             });
             $this->connection?->update(['last_used_at' => now()]);
             return ['success' => true, 'message_id' => $messageId];
         } catch (\Throwable $e) {
             Log::warning('MadelineProto sendMessage failed: ' . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Send message to a group (as group post).
+     *
+     * @param string $groupId Group/Channel ID (e.g. -1001234567890)
+     * @param string $text Message text (or caption when image is present)
+     * @param string|null $imagePath Full path to image file
+     * @return array { success: bool, message_id?: int, error?: string }
+     */
+    public function sendGroupMessage(string $groupId, string $text, ?string $imagePath = null): array
+    {
+        try {
+            $messageId = $this->run(function () use ($groupId, $text, $imagePath) {
+                $api = $this->getApi();
+                $api->start();
+                if ($imagePath && file_exists($imagePath)) {
+                    $file = new \danog\MadelineProto\LocalFile($imagePath);
+                    $result = $api->sendPhoto(peer: $groupId, file: $file, caption: $text);
+                } else {
+                    $result = $api->messages->sendMessage(peer: $groupId, message: $text);
+                }
+                return $result['id'] ?? null;
+            });
+            $this->connection?->update(['last_used_at' => now()]);
+            return ['success' => true, 'message_id' => $messageId];
+        } catch (\Throwable $e) {
+            Log::warning('MadelineProto sendGroupMessage failed: ' . $e->getMessage());
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }

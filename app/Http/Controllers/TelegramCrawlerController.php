@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\TelegramCrawlJob;
+use App\Jobs\TelegramSendToGroupsJob;
 use App\Models\CampaignTemplate;
 use App\Models\TelegramUserConnection;
 use App\Services\MadelineProtoService;
@@ -23,7 +24,12 @@ class TelegramCrawlerController extends Controller
     public function index(Request $request): Response
     {
         $conn = TelegramUserConnection::getActive();
-        $templates = CampaignTemplate::where('type', 'telegram')->orderBy('name')->get(['id', 'name', 'content']);
+        $templates = CampaignTemplate::where('type', 'telegram')->orderBy('name')->get()->map(fn ($t) => [
+            'id' => $t->id,
+            'name' => $t->name,
+            'content' => $t->content,
+            'image' => $t->image ? asset('storage/' . $t->image) : null,
+        ]);
         return Inertia::render('TelegramCrawler/Index', [
             'telegramConnected' => $conn !== null,
             'templates' => $templates,
@@ -113,6 +119,43 @@ class TelegramCrawlerController extends Controller
     public function crawlStatus(string $crawlId): JsonResponse
     {
         $data = Cache::get('telegram_crawl_' . $crawlId);
+        if (!$data) {
+            return response()->json(['status' => 'pending']);
+        }
+        return response()->json($data);
+    }
+
+    public function sendToGroups(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'group_ids' => 'required|array',
+            'group_ids.*' => 'required|string|max:50',
+            'template_id' => 'required|exists:campaign_templates,id',
+        ]);
+        $conn = TelegramUserConnection::getActive();
+        if (!$conn) {
+            return response()->json(['error' => 'Not connected.'], 403);
+        }
+        $tmpl = CampaignTemplate::find($validated['template_id']);
+        if (!$tmpl || $tmpl->type !== 'telegram') {
+            return response()->json(['error' => 'Invalid template.'], 400);
+        }
+        $sendId = Str::uuid()->toString();
+        Cache::put('telegram_send_groups_' . $sendId, [
+            'status' => 'queued',
+            'processed' => 0,
+            'sent' => 0,
+            'failed' => 0,
+            'results' => [],
+        ], now()->addHours(24));
+
+        TelegramSendToGroupsJob::dispatch($validated['group_ids'], (int) $validated['template_id'], $sendId);
+        return response()->json(['send_id' => $sendId]);
+    }
+
+    public function sendToGroupsStatus(string $sendId): JsonResponse
+    {
+        $data = Cache::get('telegram_send_groups_' . $sendId);
         if (!$data) {
             return response()->json(['status' => 'pending']);
         }

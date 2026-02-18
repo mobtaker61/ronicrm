@@ -4,74 +4,131 @@
             Telegram Group Crawl
         </template>
 
-        <div class="space-y-6">
-            <div v-if="$page.props.flash?.success" class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+        <div v-if="$page.props.flash?.success || $page.props.flash?.error" class="absolute top-20 left-0 right-0 z-50 px-4 lg:px-8">
+            <div v-if="$page.props.flash?.success" class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg shadow-lg">
                 {{ $page.props.flash.success }}
             </div>
-            <div v-if="$page.props.flash?.error" class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+            <div v-if="$page.props.flash?.error" class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg shadow-lg">
                 {{ $page.props.flash.error }}
             </div>
+        </div>
 
-            <!-- Not Connected -->
-            <div v-if="!telegramConnected" class="p-6 border border-amber-200 rounded-lg bg-amber-50">
-                <p class="text-gray-800 mb-4">To crawl groups, connect your Telegram account first in Settings.</p>
-                <a :href="route('settings.index')" class="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">
-                    Go to Telegram Settings
-                </a>
-            </div>
+        <!-- Not Connected -->
+        <div v-if="!telegramConnected" class="p-6 border border-amber-200 rounded-lg bg-amber-50">
+            <p class="text-gray-800 mb-4">To crawl groups, connect your Telegram account first in Settings.</p>
+            <a :href="route('settings.index')" class="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">
+                Go to Telegram Settings
+            </a>
+        </div>
 
-            <!-- Connected - Two Column Layout -->
-            <div v-else class="flex flex-col lg:flex-row gap-6">
-                <!-- Left Sidebar: Group List -->
-                <aside class="w-full lg:w-80 flex-shrink-0">
-                    <div class="bg-white rounded-lg shadow p-4 sticky top-4">
+        <!-- Connected - Full Height Layout (like Inbox) -->
+        <div v-else class="-m-4 lg:-m-8 h-[calc(100vh-64px)] flex flex-col bg-white overflow-hidden">
+            <div class="flex flex-1 overflow-hidden">
+                <!-- Left Sidebar: Group List - Full Height -->
+                <aside class="w-full lg:w-80 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col min-w-0">
+                    <div class="flex-shrink-0 p-4 border-b border-gray-200 bg-gray-50">
                         <h2 class="text-lg font-semibold text-gray-900 mb-3">Groups</h2>
-                        <div class="flex gap-2">
-                            <button
-                                type="button"
-                                @click="loadGroups(false)"
-                                :disabled="groupsLoading"
-                                class="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 text-sm font-medium"
-                            >
-                                {{ groupsLoading ? 'Loading...' : 'Load' }}
-                            </button>
-                            <button
-                                type="button"
-                                @click="loadGroups(true)"
-                                :disabled="groupsLoading"
-                                title="Refresh from Telegram"
-                                class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
-                            >
-                                {{ groupsLoading ? '...' : 'Refresh' }}
-                            </button>
-                        </div>
+                        <button
+                            type="button"
+                            @click="loadGroups(true)"
+                            :disabled="groupsLoading"
+                            title="Refresh from Telegram"
+                            class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+                        >
+                            {{ groupsLoading ? 'Loading...' : 'Refresh' }}
+                        </button>
                         <p v-if="groupsError" class="text-red-600 text-sm mt-2">{{ groupsError }}</p>
-                        <div v-if="groups.length > 0" class="mt-4 space-y-1.5 max-h-80 overflow-y-auto">
-                            <button
+                    </div>
+                    <div class="flex-1 overflow-y-auto">
+                        <div v-if="groups.length > 0" class="p-2 space-y-1">
+                            <div
                                 v-for="g in groups"
                                 :key="g.id"
-                                type="button"
-                                @click="selectedGroupId = g.id"
-                                class="w-full text-left px-4 py-3 rounded-lg border transition-colors"
-                                :class="selectedGroupId === g.id
+                                class="flex items-start gap-3 w-full text-left px-3 py-2.5 rounded-lg border cursor-pointer transition-colors hover:bg-gray-50"
+                                :class="selectedGroupId === g.id || selectedGroupIds.has(g.id)
                                     ? 'border-blue-500 bg-blue-50 text-blue-900'
-                                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-800'"
+                                    : 'border-gray-200 bg-white text-gray-800'"
+                                @click="showSendToGroups ? toggleGroupSelection(g.id) : (selectedGroupId = g.id)"
                             >
-                                <div class="font-medium text-sm truncate">{{ g.title }}</div>
-                                <div class="flex items-center justify-between mt-0.5">
-                                    <span class="text-xs text-gray-500">{{ g.type }}</span>
-                                    <span class="text-xs text-gray-400 font-mono">{{ g.id }}</span>
+                                <input
+                                    v-if="showSendToGroups"
+                                    type="checkbox"
+                                    :checked="selectedGroupIds.has(g.id)"
+                                    @change.stop="toggleGroupSelection(g.id)"
+                                    class="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-medium text-sm truncate">{{ g.title }}</div>
+                                    <div class="flex items-center justify-between mt-0.5">
+                                        <span class="text-xs text-gray-500">{{ g.type }}</span>
+                                        <span class="text-xs text-gray-400 font-mono truncate ml-1">{{ g.id }}</span>
+                                    </div>
                                 </div>
-                            </button>
+                            </div>
                         </div>
-                        <p v-else-if="!groupsLoading && groups.length === 0" class="text-gray-500 text-sm mt-3">
-                            Click Load or Refresh to fetch your Telegram groups.
+                        <p v-else-if="!groupsLoading && groups.length === 0" class="text-gray-500 text-sm p-4">
+                            Groups will load automatically. Click Refresh to fetch from Telegram.
                         </p>
                     </div>
                 </aside>
 
-                <!-- Main Content: Crawl Settings & Progress -->
-                <main class="flex-1 min-w-0 space-y-6">
+                <!-- Main Content: Scrollable -->
+                <main class="flex-1 min-w-0 overflow-y-auto p-6 space-y-6">
+                    <!-- Send Template to Groups -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">ارسال تمپلیت به گروه‌ها</h2>
+                        <p class="text-sm text-gray-600 mb-4">
+                            گروه‌های مورد نظر را از لیست انتخاب کنید و تمپلیت را مستقیماً در آن‌ها ارسال کنید.
+                        </p>
+                        <div class="flex flex-wrap gap-3 items-end">
+                            <div class="min-w-[200px]">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">تمپلیت</label>
+                                <select
+                                    v-model="sendToGroupsTemplateId"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">انتخاب تمپلیت...</option>
+                                    <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+                                </select>
+                            </div>
+                            <button
+                                type="button"
+                                @click="showSendToGroups = !showSendToGroups"
+                                class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
+                            >
+                                {{ showSendToGroups ? 'لغو انتخاب' : 'انتخاب گروه‌ها' }}
+                            </button>
+                            <button
+                                v-if="showSendToGroups"
+                                type="button"
+                                @click="sendToSelectedGroups"
+                                :disabled="sendToGroupsStarting || selectedGroupIds.size === 0 || !sendToGroupsTemplateId"
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium"
+                            >
+                                {{ sendToGroupsStarting ? 'در حال ارسال...' : `ارسال به ${selectedGroupIds.size} گروه` }}
+                            </button>
+                        </div>
+                        <div v-if="sendId" class="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
+                            <p class="font-medium text-gray-700 mb-2">وضعیت ارسال به گروه‌ها</p>
+                            <p v-if="sendStatus.error" class="text-red-600 mb-2">{{ sendStatus.error }}</p>
+                            <div class="flex gap-4 text-sm">
+                                <span>ارسال‌شده: {{ sendStatus.sent ?? 0 }}</span>
+                                <span>ناموفق: {{ sendStatus.failed ?? 0 }}</span>
+                                <span>وضعیت: {{ sendStatus.status || 'در انتظار...' }}</span>
+                            </div>
+                            <div v-if="sendStatus.results?.length" class="mt-2 max-h-40 overflow-y-auto space-y-1 text-xs">
+                                <div
+                                    v-for="(r, i) in sendStatus.results"
+                                    :key="i"
+                                    :class="r.status === 'sent' ? 'text-green-700' : 'text-red-700'"
+                                >
+                                    گروه {{ r.group_id }}: {{ r.status === 'sent' ? '✓ ارسال شد' : '✗ ' + (r.error || 'خطا') }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Crawl Settings -->
                     <div class="bg-white rounded-lg shadow p-6">
                         <h2 class="text-lg font-semibold text-gray-900 mb-4">Crawl Settings</h2>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -94,7 +151,7 @@
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="">No template (write message below)</option>
-                                <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+                                <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}{{ t.image ? ' 📷' : '' }}</option>
                             </select>
                         </div>
                         <div>
@@ -118,22 +175,20 @@
                         >
                             {{ crawlStarting ? 'Starting...' : 'Start Crawl' }}
                         </button>
-                        <p v-if="!selectedGroupId && groups.length" class="text-amber-600 text-sm mt-2">Select a group from the sidebar.</p>
+                        <p v-if="!selectedGroupId && groups.length && !showSendToGroups" class="text-amber-600 text-sm mt-2">Select a group from the sidebar (برای crawl از حالت «انتخاب گروه‌ها» خارج شوید).</p>
                     </div>
 
                     <!-- Progress Panel -->
                     <div v-if="crawlId" class="bg-white rounded-lg shadow p-6">
                         <h3 class="text-lg font-semibold mb-4">Crawl Progress</h3>
                         <p v-if="crawlStatus.status === 'pending'" class="text-sm text-amber-600 mb-4">
-                            Job queued. Make sure <code class="bg-amber-100 px-1 rounded">php artisan queue:work</code> is running. If you see 524 timeout, the queue worker may not be running.
+                            Job queued. Make sure <code class="bg-amber-100 px-1 rounded">php artisan queue:work</code> is running.
                         </p>
                         <div class="space-y-4">
-                            <!-- Phase indicator -->
                             <div v-if="crawlStatus.phase" class="flex items-center gap-2">
                                 <span class="text-sm font-medium text-gray-600">{{ phaseLabel }}</span>
                                 <span v-if="crawlStatus.phase === 'identifying_authors' && crawlStatus.messages_scanned" class="text-sm text-gray-500">({{ crawlStatus.messages_scanned }} messages scanned)</span>
                             </div>
-                            <!-- Progress bar -->
                             <div v-if="crawlStatus.total" class="space-y-1">
                                 <div class="flex justify-between text-sm">
                                     <span>{{ crawlStatus.processed || 0 }} / {{ crawlStatus.total }} authors</span>
@@ -166,17 +221,16 @@
                             </div>
                             <p v-if="crawlStatus.error" class="text-red-600 text-sm">{{ crawlStatus.error }}</p>
 
-                            <!-- No messages found -->
                             <p v-else-if="(crawlStatus.status === 'completed' || crawlStatus.phase === 'identifying_authors' || crawlStatus.phase === 'sending_messages') && (crawlStatus.messages_scanned ?? 0) === 0 && !crawlStatus.messages_preview?.length" class="mt-4 text-amber-600 text-sm">
-                                No messages were crawled. The group may be empty, or the group ID format may be incorrect (use -100 prefix for supergroups).
+                                No messages were crawled.
                             </p>
 
-                            <!-- Crawled messages list (proof of crawl) -->
+                            <!-- Crawled messages list -->
                             <div v-else-if="crawlStatus.messages_preview?.length" class="mt-6 pt-4 border-t">
                                 <h4 class="text-sm font-semibold text-gray-700 mb-2">
-                                    Crawled messages ({{ crawlStatus.messages_preview.length }}) – raw API data
+                                    پیام‌های پیمایش‌شده ({{ crawlStatus.messages_preview.length }})
                                 </h4>
-                                <div class="max-h-[32rem] overflow-y-auto space-y-2 text-sm">
+                                <div class="max-h-[24rem] overflow-y-auto space-y-2 text-sm">
                                     <div
                                         v-for="(m, i) in crawlStatus.messages_preview"
                                         :key="m.id || i"
@@ -192,6 +246,29 @@
                                         <pre v-if="expandedRawIndices.has(i) && m.raw_json" class="p-3 text-xs bg-gray-900 text-gray-100 overflow-x-auto whitespace-pre-wrap break-all m-0">{{ m.raw_json }}</pre>
                                     </div>
                                 </div>
+
+                                <!-- Authors that received messages -->
+                                <div v-if="crawlStatus.authors_sent?.length" class="mt-6 pt-4 border-t">
+                                    <h4 class="text-sm font-semibold text-gray-700 mb-2">
+                                        نویسندگانی که برایشان پیام ارسال شد ({{ crawlStatus.authors_sent.length }})
+                                    </h4>
+                                    <div class="max-h-48 overflow-y-auto space-y-1.5 text-sm">
+                                        <div
+                                            v-for="(a, i) in crawlStatus.authors_sent"
+                                            :key="i"
+                                            class="flex items-center gap-2 px-3 py-2 rounded"
+                                            :class="a.status === 'sent' ? 'bg-green-50 text-green-800' : a.status === 'skipped' ? 'bg-amber-50 text-amber-800' : 'bg-red-50 text-red-800'"
+                                        >
+                                            <span v-if="a.status === 'sent'" class="text-green-600">✓</span>
+                                            <span v-else-if="a.status === 'skipped'" class="text-amber-600">⊘</span>
+                                            <span v-else class="text-red-600">✗</span>
+                                            <span class="font-mono text-xs">{{ a.user_id }}</span>
+                                            <span class="text-xs">
+                                                {{ a.status === 'sent' ? 'ارسال شد' : a.status === 'skipped' ? 'رد شد (قبلاً پیام داده)' : 'ناموفق: ' + (a.error || '') }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -202,7 +279,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onUnmounted, computed } from 'vue';
+import { ref, watch, onUnmounted, computed, onMounted } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import axios from 'axios';
 
@@ -215,6 +292,12 @@ const groups = ref([]);
 const groupsLoading = ref(false);
 const groupsError = ref('');
 const selectedGroupId = ref('');
+const selectedGroupIds = ref(new Set());
+const showSendToGroups = ref(false);
+const sendToGroupsTemplateId = ref('');
+const sendToGroupsStarting = ref(false);
+const sendId = ref('');
+const sendStatus = ref({});
 const limit = ref(50);
 const templateId = ref('');
 const messageText = ref('');
@@ -223,6 +306,14 @@ const crawlId = ref('');
 const crawlStatus = ref({});
 const expandedRawIndices = ref(new Set());
 let crawlPollTimer = null;
+let sendPollTimer = null;
+
+const toggleGroupSelection = (gId) => {
+    const s = new Set(selectedGroupIds.value);
+    if (s.has(gId)) s.delete(gId);
+    else s.add(gId);
+    selectedGroupIds.value = s;
+};
 
 const toggleRaw = (i) => {
     const s = new Set(expandedRawIndices.value);
@@ -271,6 +362,12 @@ const loadGroups = async (refresh = false) => {
     }
 };
 
+onMounted(() => {
+    if (props.telegramConnected) {
+        loadGroups(false);
+    }
+});
+
 const onTemplateChange = () => {
     const t = props.templates.find(x => x.id == templateId.value);
     if (t) messageText.value = t.content || '';
@@ -307,11 +404,45 @@ const pollCrawlStatus = async () => {
     } catch {}
 };
 
+const sendToSelectedGroups = async () => {
+    if (selectedGroupIds.value.size === 0 || !sendToGroupsTemplateId.value) return;
+    sendToGroupsStarting.value = true;
+    sendStatus.value = {};
+    try {
+        const res = await axios.post(route('telegram-crawler.send-to-groups'), {
+            group_ids: Array.from(selectedGroupIds.value),
+            template_id: sendToGroupsTemplateId.value,
+        });
+        sendId.value = res.data.send_id;
+        sendPollTimer = setInterval(pollSendStatus, 2000);
+    } catch (e) {
+        groupsError.value = e.response?.data?.error || e.message || 'Failed to send';
+    } finally {
+        sendToGroupsStarting.value = false;
+    }
+};
+
+const pollSendStatus = async () => {
+    if (!sendId.value) return;
+    try {
+        const res = await axios.get(route('telegram-crawler.send-status', { sendId: sendId.value }));
+        sendStatus.value = res.data;
+        if (['completed', 'error'].includes(res.data?.status)) {
+            if (sendPollTimer) clearInterval(sendPollTimer);
+        }
+    } catch {}
+};
+
 watch(crawlId, (id) => {
     if (id) pollCrawlStatus();
 });
 
+watch(sendId, (id) => {
+    if (id) pollSendStatus();
+});
+
 onUnmounted(() => {
     if (crawlPollTimer) clearInterval(crawlPollTimer);
+    if (sendPollTimer) clearInterval(sendPollTimer);
 });
 </script>

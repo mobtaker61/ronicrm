@@ -64,23 +64,35 @@ class TelegramCrawlJob implements ShouldQueue
             $this->setProgress('running', 0, 0, 0, null, 'identifying_authors', $total, count($allPreview), $allPreview);
             $this->setProgress('running', 0, 0, 0, null, 'sending_messages', $total, null, $allPreview);
             Log::info('TelegramCrawlJob: sending to authors', ['total' => $total]);
+            $imagePath = null;
+            if ($this->templateId) {
+                $tmpl = CampaignTemplate::find($this->templateId);
+                if ($tmpl && $tmpl->image) {
+                    $imagePath = storage_path('app/public/' . $tmpl->image);
+                }
+            }
+            $authorsSent = [];
             $idx = 0;
             foreach ($authors as $userId => $msg) {
                 $idx++;
-                $this->setProgress('running', $idx, $sent, $skipped, null, 'sending_messages', $total);
+                $this->setProgress('running', $idx, $sent, $skipped, null, 'sending_messages', $total, null, null, $authorsSent);
                 Log::info('TelegramCrawlJob: sending to user', ['user_id' => $userId, 'idx' => $idx, 'total' => $total]);
                 if ($this->alreadyMessaged($userId)) {
                     $skipped++;
+                    $authorsSent[] = ['user_id' => $userId, 'status' => 'skipped'];
                     continue;
                 }
-                $sentResult = $service->sendPrivateMessage($userId, $this->messageText);
+                $sentResult = $service->sendPrivateMessage($userId, $this->messageText, $imagePath);
                 if ($sentResult['success']) {
                     $this->createCustomerAndSaveMessage($userId, $msg, $conn->id);
                     $sent++;
+                    $authorsSent[] = ['user_id' => $userId, 'status' => 'sent'];
+                } else {
+                    $authorsSent[] = ['user_id' => $userId, 'status' => 'failed', 'error' => $sentResult['error'] ?? ''];
                 }
                 sleep(rand(4, 7));
             }
-            $this->setProgress('completed', $total, $sent, $skipped, null, 'completed', $total);
+            $this->setProgress('completed', $total, $sent, $skipped, null, 'completed', $total, null, null, $authorsSent);
         } catch (\Throwable $e) {
             Log::error('TelegramCrawlJob error: ' . $e->getMessage());
             $this->setProgress('error', $processed, $sent, $skipped, $e->getMessage(), 'error', null);
@@ -134,7 +146,8 @@ class TelegramCrawlJob implements ShouldQueue
         ?string $phase = null,
         ?int $total = null,
         ?int $messagesScanned = null,
-        ?array $messagesPreview = null
+        ?array $messagesPreview = null,
+        ?array $authorsSent = null
     ): void {
         $key = 'telegram_crawl_' . $this->crawlId;
         $data = [
@@ -159,6 +172,14 @@ class TelegramCrawlJob implements ShouldQueue
             $existing = Cache::get($key);
             if (is_array($existing) && !empty($existing['messages_preview'])) {
                 $data['messages_preview'] = $existing['messages_preview'];
+            }
+        }
+        if ($authorsSent !== null) {
+            $data['authors_sent'] = $authorsSent;
+        } else {
+            $existing = Cache::get($key);
+            if (is_array($existing) && !empty($existing['authors_sent'])) {
+                $data['authors_sent'] = $existing['authors_sent'];
             }
         }
         Cache::put($key, $data, now()->addHours(24));
