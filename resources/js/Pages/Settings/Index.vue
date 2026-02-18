@@ -702,7 +702,7 @@
                                 <div class="inline-block p-4 bg-white rounded-lg" v-html="telegramQrSvg"></div>
                                 <p class="text-xs text-amber-600 mt-2">Warning: Userbot usage carries account ban risk. Avoid flooding or spamming.</p>
                             </div>
-                            <div v-else-if="telegramQrError" class="text-red-600 text-sm mb-4">{{ telegramQrError }}</div>
+                            <div v-if="telegramQrError" class="text-red-600 text-sm mb-4">{{ telegramQrError }}</div>
                             <div v-else class="mb-4">
                                 <button
                                     type="button"
@@ -1148,7 +1148,19 @@ const telegramNeeds2fa = ref(false);
 const telegram2faPassword = ref('');
 const telegram2faLoading = ref(false);
 const telegramQrConnId = ref(null); // Ensure poll uses same session as displayed QR
+const telegramQrEndpoint = '/settings/telegram/qr-code';
+const telegram2faEndpoint = '/settings/telegram/complete-2fa';
 let telegramQrPollTimer = null;
+let telegramQrPollInFlight = false;
+
+const parseJsonResponse = async (res) => {
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        throw new Error(`Unexpected non-JSON response (${res.status}). ${text.slice(0, 120)}`);
+    }
+    return await res.json();
+};
 
 const startTelegramQr = async () => {
     telegramQrLoading.value = true;
@@ -1158,8 +1170,11 @@ const startTelegramQr = async () => {
     telegram2faPassword.value = '';
     telegramQrConnId.value = null;
     try {
-        const res = await fetch(route('settings.telegram.qr-code'), { credentials: 'same-origin' });
-        const data = await res.json();
+        const res = await fetch(telegramQrEndpoint, {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const data = await parseJsonResponse(res);
         if (data.error) {
             telegramQrError.value = data.error;
             return;
@@ -1202,17 +1217,18 @@ const submitTelegram2fa = async () => {
             password,
             conn_id: telegramQrConnId.value,
         };
-        const res = await fetch(route('settings.telegram.complete-2fa'), {
+        const res = await fetch(telegram2faEndpoint, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': csrf,
                 'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
             },
             body: JSON.stringify(payload),
         });
-        const data = await res.json();
+        const data = await parseJsonResponse(res);
         if (data.logged_in || data.success) {
             window.location.href = route('settings.index', { tab: 'telegram' });
             return;
@@ -1226,11 +1242,16 @@ const submitTelegram2fa = async () => {
 };
 
 const pollTelegramQr = async () => {
+    if (telegramQrPollInFlight) return;
+    telegramQrPollInFlight = true;
     try {
         const params = new URLSearchParams({ wait: '1' });
         if (telegramQrConnId.value) params.set('conn_id', String(telegramQrConnId.value));
-        const res = await fetch(route('settings.telegram.qr-code') + '?' + params.toString(), { credentials: 'same-origin' });
-        const data = await res.json();
+        const res = await fetch(telegramQrEndpoint + '?' + params.toString(), {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const data = await parseJsonResponse(res);
         if (data.logged_in) {
             if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
             telegramQrPolling.value = false;
@@ -1251,10 +1272,9 @@ const pollTelegramQr = async () => {
             }
         }
     } catch (e) {
-        // Don't spam - only show if we haven't shown an error yet
-        if (!telegramQrError.value) {
-            telegramQrError.value = e.message || 'Poll failed. Keep scanning—will retry.';
-        }
+        telegramQrError.value = e.message || 'Poll failed. Keep scanning—will retry.';
+    } finally {
+        telegramQrPollInFlight = false;
     }
 };
 
