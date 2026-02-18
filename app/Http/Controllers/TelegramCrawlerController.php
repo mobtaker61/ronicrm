@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\TelegramCrawlJob;
 use App\Jobs\TelegramSendToGroupsJob;
+use App\Jobs\TelegramSyncContactsJob;
 use App\Models\CampaignTemplate;
 use App\Models\TelegramGroup;
 use App\Models\TelegramUserConnection;
@@ -220,6 +221,37 @@ class TelegramCrawlerController extends Controller
     public function sendToGroupsStatus(string $sendId): JsonResponse
     {
         $data = Cache::get('telegram_send_groups_' . $sendId);
+        if (!$data) {
+            return response()->json(['status' => 'pending']);
+        }
+        return response()->json($data);
+    }
+
+    /**
+     * Start syncing Telegram contact data (name, phone, avatar) for extracted customers.
+     */
+    public function syncContacts(Request $request): JsonResponse
+    {
+        $conn = TelegramUserConnection::getActive();
+        if (!$conn) {
+            return response()->json(['error' => 'Not connected to Telegram.'], 403);
+        }
+        $syncId = Str::uuid()->toString();
+        Cache::put('telegram_sync_' . $syncId, [
+            'status' => 'queued',
+            'processed' => 0,
+            'updated' => 0,
+            'total' => null,
+            'failed' => 0,
+        ], now()->addHours(24));
+
+        TelegramSyncContactsJob::dispatch($syncId);
+        return response()->json(['sync_id' => $syncId]);
+    }
+
+    public function syncContactsStatus(string $syncId): JsonResponse
+    {
+        $data = Cache::get('telegram_sync_' . $syncId);
         if (!$data) {
             return response()->json(['status' => 'pending']);
         }

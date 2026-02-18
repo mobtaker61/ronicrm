@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\TelegramMessage;
 use App\Models\TelegramUserConnection;
+use App\Services\CustomerMatchService;
 use App\Services\MadelineProtoService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -128,9 +129,10 @@ class TelegramCrawlJob implements ShouldQueue
 
     protected function createCustomerAndSaveMessage(string $userId, array $msg, ?int $connId): void
     {
-        $contact = CustomerContact::where('type', 'telegram')->where('value', $userId)->first();
-        $customer = $contact?->customer;
-        if (!$customer) {
+        $customer = CustomerMatchService::findExistingByTelegram($userId, null, null);
+        if ($customer) {
+            $this->ensureTelegramContact($customer, $userId);
+        } else {
             $customer = Customer::create([
                 'name' => 'Telegram User ' . substr($userId, -4),
                 'type' => 'person',
@@ -152,6 +154,14 @@ class TelegramCrawlJob implements ShouldQueue
             'direction' => 'outgoing',
             'status' => 'sent',
         ]);
+    }
+
+    protected function ensureTelegramContact(Customer $customer, string $chatId): void
+    {
+        $contact = CustomerContact::where('customer_id', $customer->id)->where('type', 'telegram')->first();
+        if ($contact && $contact->value !== $chatId) {
+            $contact->update(['value' => $chatId]);
+        }
     }
 
     protected function setProgress(

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\TelegramMessage;
+use App\Services\CustomerMatchService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -33,7 +34,11 @@ class TelegramSaveIncomingMessageJob implements ShouldQueue
             return;
         }
 
-        $customer = $this->findOrCreateCustomer($chatId, $p['from_username'] ?? null);
+        $customer = $this->findOrCreateCustomer(
+            $chatId,
+            $p['from_username'] ?? null,
+            $p['from_phone'] ?? null
+        );
 
         TelegramMessage::create([
             'telegram_message_id' => $msgId,
@@ -50,11 +55,12 @@ class TelegramSaveIncomingMessageJob implements ShouldQueue
         ]);
     }
 
-    protected function findOrCreateCustomer(string $chatId, ?string $username): ?Customer
+    protected function findOrCreateCustomer(string $chatId, ?string $username, ?string $phone = null): ?Customer
     {
-        $contact = CustomerContact::where('type', 'telegram')->where('value', $chatId)->first();
-        if ($contact?->customer) {
-            return $contact->customer;
+        $existing = CustomerMatchService::findExistingByTelegram($chatId, $username, $phone);
+        if ($existing) {
+            $this->ensureTelegramContact($existing, $chatId);
+            return $existing;
         }
 
         $name = ($username ? trim($username, '@') : null) ?: ('Telegram ' . substr($chatId, -4));
@@ -65,12 +71,29 @@ class TelegramSaveIncomingMessageJob implements ShouldQueue
             'source' => 'telegram',
             'created_by' => null,
         ]);
-        $customer->contacts()->create([
-            'type' => 'telegram',
-            'value' => $chatId,
-            'is_primary' => true,
-        ]);
-
+        $this->ensureTelegramContact($customer, $chatId);
+        if ($phone) {
+            $customer->update(['phone' => $phone]);
+            if (!CustomerContact::where('customer_id', $customer->id)->where('type', 'phone')->exists()) {
+                $customer->contacts()->create(['type' => 'phone', 'value' => $phone, 'is_primary' => false]);
+            }
+        }
         return $customer;
+    }
+
+    protected function ensureTelegramContact(Customer $customer, string $chatId): void
+    {
+        $contact = CustomerContact::where('customer_id', $customer->id)->where('type', 'telegram')->first();
+        if ($contact) {
+            if ($contact->value !== $chatId) {
+                $contact->update(['value' => $chatId]);
+            }
+        } else {
+            $customer->contacts()->create([
+                'type' => 'telegram',
+                'value' => $chatId,
+                'is_primary' => true,
+            ]);
+        }
     }
 }

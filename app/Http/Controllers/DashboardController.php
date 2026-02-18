@@ -12,6 +12,7 @@ use App\Models\TelegramMessage;
 use App\Models\TelegramUserConnection;
 use App\Models\WhatsAppMessage;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -67,42 +68,38 @@ class DashboardController extends Controller
 
         // Recent incoming messages (last 8 from any channel)
         $recentInbox = collect();
-        TelegramMessage::where('direction', 'incoming')
+        $mapInbox = function ($m, string $prefix, string $channel, $fallbackFrom) {
+            $name = $m->customer?->name ?? $fallbackFrom;
+            $avatar = $m->customer?->avatar ? asset('storage/' . $m->customer->avatar) : null;
+            return [
+                'id' => $prefix . $m->id,
+                'channel' => $channel,
+                'from' => $fallbackFrom,
+                'name' => $name,
+                'avatar' => $avatar,
+                'message' => Str::limit($m->message ?? '', 50),
+                'created_at' => $m->created_at,
+                'unread' => !$m->read_at,
+            ];
+        };
+        TelegramMessage::with('customer')
+            ->where('direction', 'incoming')
             ->orderBy('created_at', 'desc')
             ->limit(3)
             ->get()
-            ->each(fn ($m) => $recentInbox->push([
-                'id' => 'tg-' . $m->id,
-                'channel' => 'telegram',
-                'from' => $m->from_username ?? $m->chat_id,
-                'message' => \Str::limit($m->message, 50),
-                'created_at' => $m->created_at,
-                'unread' => !$m->read_at,
-            ]));
-        WhatsAppMessage::where('direction', 'incoming')
+            ->each(fn ($m) => $recentInbox->push($mapInbox($m, 'tg-', 'telegram', $m->from_username ?? $m->chat_id)));
+        WhatsAppMessage::with('customer')
+            ->where('direction', 'incoming')
             ->orderBy('created_at', 'desc')
             ->limit(3)
             ->get()
-            ->each(fn ($m) => $recentInbox->push([
-                'id' => 'wa-' . $m->id,
-                'channel' => 'whatsapp',
-                'from' => $m->from_phone,
-                'message' => \Str::limit($m->message, 50),
-                'created_at' => $m->created_at,
-                'unread' => !$m->read_at,
-            ]));
-        InstagramMessage::where('direction', 'incoming')
+            ->each(fn ($m) => $recentInbox->push($mapInbox($m, 'wa-', 'whatsapp', $m->from_phone ?? '')));
+        InstagramMessage::with('customer')
+            ->where('direction', 'incoming')
             ->orderBy('created_at', 'desc')
             ->limit(3)
             ->get()
-            ->each(fn ($m) => $recentInbox->push([
-                'id' => 'ig-' . $m->id,
-                'channel' => 'instagram',
-                'from' => $m->from_username ?? $m->ig_user_id,
-                'message' => \Str::limit($m->message, 50),
-                'created_at' => $m->created_at,
-                'unread' => !$m->read_at,
-            ]));
+            ->each(fn ($m) => $recentInbox->push($mapInbox($m, 'ig-', 'instagram', $m->from_username ?? $m->ig_user_id ?? '')));
         $recentInbox = $recentInbox->sortByDesc('created_at')->take(8)->values();
 
         // Recent campaigns

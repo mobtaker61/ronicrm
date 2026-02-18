@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\TelegramMessage;
+use App\Services\CustomerMatchService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -61,9 +62,10 @@ class TelegramWebhookController extends Controller
                 $messageType = 'document';
             }
 
+            $fromPhone = $from['phone_number'] ?? null;
             $customer = null;
             try {
-                $customer = $this->findOrCreateCustomerByTelegram($chatId, $fromUsername, $displayName);
+                $customer = $this->findOrCreateCustomerByTelegram($chatId, $fromUsername, $displayName, $fromPhone);
             } catch (\Throwable $e) {
                 Log::warning('Telegram webhook: could not find/create customer', [
                     'chat_id' => $chatId,
@@ -101,27 +103,15 @@ class TelegramWebhookController extends Controller
     }
 
     /**
-     * Find customer by chat_id or by Telegram username; otherwise create new.
-     * When matched by username, update contact value to chat_id for future webhooks.
+     * Find customer by chat_id, Telegram username, or phone; otherwise create new.
+     * Uses CustomerMatchService to prevent duplicates.
      */
-    protected function findOrCreateCustomerByTelegram(string $chatId, ?string $username, string $displayName): ?Customer
+    protected function findOrCreateCustomerByTelegram(string $chatId, ?string $username, string $displayName, ?string $phone = null): ?Customer
     {
-        $contact = CustomerContact::where('type', 'telegram')->where('value', $chatId)->first();
-        if ($contact) {
-            return $contact->customer;
-        }
-
-        if ($username !== null && $username !== '') {
-            $usernameNorm = ltrim($username, '@');
-            $contact = CustomerContact::where('type', 'telegram')
-                ->where(function ($q) use ($username, $usernameNorm) {
-                    $q->where('value', $username)->orWhere('value', '@' . $usernameNorm)->orWhere('value', $usernameNorm);
-                })
-                ->first();
-            if ($contact) {
-                $contact->update(['value' => $chatId]);
-                return $contact->customer;
-            }
+        $existing = CustomerMatchService::findExistingByTelegram($chatId, $username, $phone);
+        if ($existing) {
+            $this->ensureTelegramContact($existing, $chatId);
+            return $existing;
         }
 
         $customer = Customer::create([
@@ -132,13 +122,30 @@ class TelegramWebhookController extends Controller
             'created_by' => null,
         ]);
 
-        $customer->contacts()->create([
-            'type' => 'telegram',
-            'value' => $chatId,
-            'is_primary' => true,
-        ]);
-
+        $this->ensureTelegramContact($customer, $chatId);
+        if ($phone) {
+            $customer->update(['phone' => $phone]);
+            if (!CustomerContact::where('customer_id', $customer->id)->where('type', 'phone')->exists()) {
+                $customer->contacts()->create(['type' => 'phone', 'value' => $phone, 'is_primary' => false]);
+            }
+        }
         return $customer;
+    }
+
+    protected function ensureTelegramContact(Customer $customer, string $chatId): void
+    {
+        $contact = CustomerContact::where('customer_id', $customer->id)->where('type', 'telegram')->first();
+        if ($contact) {
+            if ($contact->value !== $chatId) {
+                $contact->update(['value' => $chatId]);
+            }
+        } else {
+            $customer->contacts()->create([
+                'type' => 'telegram',
+                'value' => $chatId,
+                'is_primary' => true,
+            ]);
+        }
     }
 
     /**

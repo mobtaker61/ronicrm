@@ -147,6 +147,32 @@
                         </div>
                     </div>
 
+                    <!-- Sync Contacts from Telegram -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Sync Contact Info from Telegram</h2>
+                        <p class="text-sm text-gray-600 mb-4">
+                            Fetch full profile data (name, phone, avatar) from Telegram for customers extracted via crawl or inbox. Updates existing contacts.
+                        </p>
+                        <button
+                            type="button"
+                            @click="startSyncContacts"
+                            :disabled="!telegramConnected || syncContactsStarting"
+                            class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 text-sm font-medium"
+                        >
+                            {{ syncContactsStarting ? 'Starting...' : 'Sync Contacts from Telegram' }}
+                        </button>
+                        <div v-if="syncId" class="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
+                            <p class="font-medium text-gray-700 mb-2">Sync status</p>
+                            <p v-if="syncStatus.error" class="text-red-600 mb-2">{{ syncStatus.error }}</p>
+                            <div class="flex gap-4 text-sm">
+                                <span>Processed: {{ syncStatus.processed ?? 0 }}{{ syncStatus.total ? ' / ' + syncStatus.total : '' }}</span>
+                                <span>Updated: {{ syncStatus.updated ?? 0 }}</span>
+                                <span v-if="syncStatus.failed">Failed: {{ syncStatus.failed }}</span>
+                                <span>Status: {{ syncStatus.status || 'Pending...' }}</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Crawl Settings -->
                     <div class="bg-white rounded-lg shadow p-6">
                         <h2 class="text-lg font-semibold text-gray-900 mb-4">Crawl Settings</h2>
@@ -328,8 +354,12 @@ const crawlStarting = ref(false);
 const crawlId = ref('');
 const crawlStatus = ref({});
 const expandedRawIndices = ref(new Set());
+const syncContactsStarting = ref(false);
+const syncId = ref('');
+const syncStatus = ref({});
 let crawlPollTimer = null;
 let sendPollTimer = null;
+let syncPollTimer = null;
 
 const toggleGroupSelection = (gId) => {
     const s = new Set(selectedGroupIds.value);
@@ -476,8 +506,38 @@ watch(sendId, (id) => {
     if (id) pollSendStatus();
 });
 
+const startSyncContacts = async () => {
+    syncContactsStarting.value = true;
+    syncStatus.value = {};
+    try {
+        const res = await axios.post(route('telegram-crawler.sync-contacts'));
+        syncId.value = res.data.sync_id;
+        syncPollTimer = setInterval(pollSyncStatus, 2000);
+    } catch (e) {
+        groupsError.value = e.response?.data?.error || e.message || 'Failed to start sync';
+    } finally {
+        syncContactsStarting.value = false;
+    }
+};
+
+const pollSyncStatus = async () => {
+    if (!syncId.value) return;
+    try {
+        const res = await axios.get(route('telegram-crawler.sync-status', { syncId: syncId.value }));
+        syncStatus.value = res.data;
+        if (['completed', 'error'].includes(res.data?.status)) {
+            if (syncPollTimer) clearInterval(syncPollTimer);
+        }
+    } catch {}
+};
+
+watch(syncId, (id) => {
+    if (id) pollSyncStatus();
+});
+
 onUnmounted(() => {
     if (crawlPollTimer) clearInterval(crawlPollTimer);
     if (sendPollTimer) clearInterval(sendPollTimer);
+    if (syncPollTimer) clearInterval(syncPollTimer);
 });
 </script>
