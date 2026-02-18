@@ -1,7 +1,12 @@
 <template>
     <AppLayout>
         <template #header>
-            Telegram Group Crawl
+            <div class="flex items-center justify-between">
+                <span>Telegram Group Crawl</span>
+                <a :href="route('telegram-groups.index')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">
+                    Groups
+                </a>
+            </div>
         </template>
 
         <div v-if="$page.props.flash?.success || $page.props.flash?.error" class="absolute top-20 left-0 right-0 z-50 px-4 lg:px-8">
@@ -67,7 +72,7 @@
                                 <div class="flex-1 min-w-0">
                                     <div class="font-medium text-sm truncate flex items-center gap-1">
                                         {{ g.title }}
-                                        <span v-if="showSendToGroups && !g.can_post" class="text-amber-600" title="امکان ارسال در این گروه نیست">⚠</span>
+                                        <span v-if="showSendToGroups && !g.can_post" class="text-amber-600" title="Cannot post in this group">⚠</span>
                                     </div>
                                     <div class="flex items-center justify-between mt-0.5">
                                         <span class="text-xs text-gray-500">{{ g.type }}</span>
@@ -86,22 +91,22 @@
                 <main class="flex-1 min-w-0 overflow-y-auto p-6 space-y-6">
                     <!-- Send Template to Groups -->
                     <div class="bg-white rounded-lg shadow p-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">ارسال تمپلیت به گروه‌ها</h2>
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Send Template to Groups</h2>
                         <p class="text-sm text-gray-600 mb-4">
-                            گروه‌های مورد نظر را از لیست انتخاب کنید و تمپلیت را مستقیماً در آن‌ها ارسال کنید.
+                            Select groups from the list and send the template directly to them.
                         </p>
                         <div class="flex flex-wrap gap-3 items-end">
                             <div class="min-w-[200px]">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">تمپلیت</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Template</label>
                                 <select
                                     v-model="sendToGroupsTemplateId"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
-                                    <option value="">انتخاب تمپلیت...</option>
+                                    <option value="">Select template...</option>
                                     <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}{{ t.image ? ' 📷' : '' }}</option>
                                 </select>
                                 <div v-if="selectedSendToGroupsTemplate?.image" class="mt-2 p-2 border border-gray-200 rounded-lg bg-gray-50">
-                                    <p class="text-xs text-gray-500 mb-1">پیش‌نمایش تصویر تمپلیت:</p>
+                                    <p class="text-xs text-gray-500 mb-1">Template image preview:</p>
                                     <img :src="selectedSendToGroupsTemplate.image" alt="Template" class="max-h-32 rounded object-cover" />
                                 </div>
                             </div>
@@ -110,7 +115,7 @@
                                 @click="showSendToGroups = !showSendToGroups"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
                             >
-                                {{ showSendToGroups ? 'لغو انتخاب' : 'انتخاب گروه‌ها' }}
+                                {{ showSendToGroups ? 'Cancel' : 'Select Groups' }}
                             </button>
                             <button
                                 v-if="showSendToGroups"
@@ -119,16 +124,16 @@
                                 :disabled="sendToGroupsStarting || selectedGroupIds.size === 0 || !sendToGroupsTemplateId"
                                 class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium"
                             >
-                                {{ sendToGroupsStarting ? 'در حال ارسال...' : `ارسال به ${selectedGroupIds.size} گروه` }}
+                                {{ sendToGroupsStarting ? 'Sending...' : `Send to ${selectedGroupIds.size} groups` }}
                             </button>
                         </div>
                         <div v-if="sendId" class="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
-                            <p class="font-medium text-gray-700 mb-2">وضعیت ارسال به گروه‌ها</p>
+                            <p class="font-medium text-gray-700 mb-2">Send to groups status</p>
                             <p v-if="sendStatus.error" class="text-red-600 mb-2">{{ sendStatus.error }}</p>
                             <div class="flex gap-4 text-sm">
-                                <span>ارسال‌شده: {{ sendStatus.sent ?? 0 }}</span>
-                                <span>ناموفق: {{ sendStatus.failed ?? 0 }}</span>
-                                <span>وضعیت: {{ sendStatus.status || 'در انتظار...' }}</span>
+                                <span>Sent: {{ sendStatus.sent ?? 0 }}</span>
+                                <span>Failed: {{ sendStatus.failed ?? 0 }}</span>
+                                <span>Status: {{ sendStatus.status || 'Pending...' }}</span>
                             </div>
                             <div v-if="sendStatus.results?.length" class="mt-2 max-h-40 overflow-y-auto space-y-1 text-xs">
                                 <div
@@ -136,7 +141,7 @@
                                     :key="i"
                                     :class="r.status === 'sent' ? 'text-green-700' : 'text-red-700'"
                                 >
-                                    گروه {{ r.group_id }}: {{ r.status === 'sent' ? '✓ ارسال شد' : '✗ ' + (r.error || 'خطا') }}
+                                    Group {{ r.group_id }}: {{ r.status === 'sent' ? '✓ Sent' : '✗ ' + (r.error || 'Error') }}
                                 </div>
                             </div>
                         </div>
@@ -168,7 +173,7 @@
                                 <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}{{ t.image ? ' 📷' : '' }}</option>
                             </select>
                             <div v-if="selectedCrawlTemplate?.image" class="mt-2 p-2 border border-gray-200 rounded-lg bg-gray-50">
-                                <p class="text-xs text-gray-500 mb-1">پیش‌نمایش تصویر تمپلیت:</p>
+                                <p class="text-xs text-gray-500 mb-1">Template image preview:</p>
                                 <img :src="selectedCrawlTemplate.image" alt="Template" class="max-h-32 rounded object-cover" />
                             </div>
                         </div>
@@ -193,7 +198,7 @@
                         >
                             {{ crawlStarting ? 'Starting...' : 'Start Crawl' }}
                         </button>
-                        <p v-if="!selectedGroupId && groups.length && !showSendToGroups" class="text-amber-600 text-sm mt-2">Select a group from the sidebar (برای crawl از حالت «انتخاب گروه‌ها» خارج شوید).</p>
+                        <p v-if="!selectedGroupId && groups.length && !showSendToGroups" class="text-amber-600 text-sm mt-2">Select a group from the sidebar (exit "Select Groups" mode for crawl).</p>
                     </div>
 
                     <!-- Progress Panel -->
@@ -246,7 +251,7 @@
                             <!-- Crawled messages list -->
                             <div v-else-if="crawlStatus.messages_preview?.length" class="mt-6 pt-4 border-t">
                                 <h4 class="text-sm font-semibold text-gray-700 mb-2">
-                                    پیام‌های پیمایش‌شده ({{ crawlStatus.messages_preview.length }})
+                                    Crawled messages ({{ crawlStatus.messages_preview.length }})
                                 </h4>
                                 <div class="max-h-[24rem] overflow-y-auto space-y-2 text-sm">
                                     <div
@@ -268,7 +273,7 @@
                                 <!-- Authors that received messages -->
                                 <div v-if="crawlStatus.authors_sent?.length" class="mt-6 pt-4 border-t">
                                     <h4 class="text-sm font-semibold text-gray-700 mb-2">
-                                        نویسندگانی که برایشان پیام ارسال شد ({{ crawlStatus.authors_sent.length }})
+                                        Authors messaged ({{ crawlStatus.authors_sent.length }})
                                     </h4>
                                     <div class="max-h-48 overflow-y-auto space-y-1.5 text-sm">
                                         <div
@@ -282,7 +287,7 @@
                                             <span v-else class="text-red-600">✗</span>
                                             <span class="font-mono text-xs">{{ a.user_id }}</span>
                                             <span class="text-xs">
-                                                {{ a.status === 'sent' ? 'ارسال شد' : a.status === 'skipped' ? 'رد شد (قبلاً پیام داده)' : 'ناموفق: ' + (a.error || '') }}
+                                                {{ a.status === 'sent' ? 'Sent' : a.status === 'skipped' ? 'Skipped (already messaged)' : 'Failed: ' + (a.error || '') }}
                                             </span>
                                         </div>
                                     </div>

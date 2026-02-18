@@ -714,7 +714,7 @@
                                         <button type="submit" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium">Disconnect</button>
                                     </form>
                                 </div>
-                                <p class="text-xs text-amber-600">اگر خطای «lightstate» دارید، Reset Session را بزنید و دوباره با QR متصل شوید.</p>
+                                <p class="text-xs text-amber-600">If you get "lightstate" error, click Reset Session and re-connect via QR code.</p>
                             </div>
                         </div>
                         <p v-if="telegramConnection" class="text-sm mt-2">

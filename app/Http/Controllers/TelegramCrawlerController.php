@@ -37,6 +37,31 @@ class TelegramCrawlerController extends Controller
         ]);
     }
 
+    public function groupsIndex(Request $request): Response
+    {
+        $conn = TelegramUserConnection::getActive();
+        $groups = $conn
+            ? TelegramGroup::where('telegram_user_connection_id', $conn->id)
+                ->orderBy('title')
+                ->paginate(50)
+                ->through(fn ($g) => [
+                    'id' => $g->id,
+                    'telegram_group_id' => $g->telegram_group_id,
+                    'title' => $g->title,
+                    'type' => $g->type,
+                    'can_post' => $g->can_post,
+                    'last_error' => $g->last_error,
+                    'last_crawled_message_id' => $g->last_crawled_message_id,
+                    'last_synced_at' => $g->last_synced_at?->toIso8601String(),
+                    'created_at' => $g->created_at->toIso8601String(),
+                ])
+            : new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50);
+        return Inertia::render('TelegramGroups/Index', [
+            'telegramConnected' => $conn !== null,
+            'groups' => $groups,
+        ]);
+    }
+
     public function groups(Request $request): JsonResponse
     {
         $conn = TelegramUserConnection::getActive();
@@ -70,27 +95,25 @@ class TelegramCrawlerController extends Controller
             $dialogs = $service->getDialogs();
             $fresh = array_filter($dialogs, fn ($d) => in_array($d['type'] ?? '', ['group', 'supergroup', 'channel']) || (isset($d['id']) && str_starts_with((string) $d['id'], '-')));
             $fresh = array_values($fresh);
+            $freshIds = array_map(fn ($g) => (string) ($g['id'] ?? ''), $fresh);
 
-            // Merge: key by id, fresh overwrites; keep existing cached entries that weren't in fresh (group left/changed)
-            $byId = [];
-            foreach ($cached ?? [] as $g) {
-                $byId[$g['id'] ?? ''] = $g;
-            }
-            foreach ($fresh as $g) {
-                $byId[$g['id'] ?? ''] = $g;
-            }
-            $groups = array_values($byId);
+            $groups = $fresh;
             usort($groups, fn ($a, $b) => strcasecmp($a['title'] ?? '', $b['title'] ?? ''));
 
+            // Remove from DB groups we left (not in fresh fetch)
+            TelegramGroup::where('telegram_user_connection_id', $conn->id)
+                ->whereNotIn('telegram_group_id', $freshIds)
+                ->delete();
+
             $dbGroups = TelegramGroup::where('telegram_user_connection_id', $conn->id)
-                ->whereIn('telegram_group_id', array_column($groups, 'id'))
+                ->whereIn('telegram_group_id', $freshIds)
                 ->get()
                 ->keyBy('telegram_group_id');
 
             foreach ($groups as &$g) {
                 $g['can_post'] = true;
                 $g['last_error'] = null;
-                $db = $dbGroups->get($g['id'] ?? '');
+                $db = $dbGroups->get((string) ($g['id'] ?? ''));
                 if ($db) {
                     $g['can_post'] = $db->can_post;
                     $g['last_error'] = $db->last_error;
