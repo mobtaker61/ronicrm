@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class TelegramFetchIncomingJob implements ShouldQueue
@@ -46,24 +47,45 @@ class TelegramFetchIncomingJob implements ShouldQueue
             }
         }
 
-        Log::info('TelegramFetchIncomingJob', ['total_dialogs' => count($dialogs), 'user_peers' => count($userPeerIds), 'sample_types' => array_slice(array_column($dialogs, 'type'), 0, 5)]);
+        // Prioritize users we've contacted (more likely to have replies)
+        $contactedIds = CustomerContact::where('type', 'telegram')->pluck('value')->flip()->toArray();
+        usort($userPeerIds, function ($a, $b) use ($contactedIds) {
+            $aHas = isset($contactedIds[$a]) ? 1 : 0;
+            $bHas = isset($contactedIds[$b]) ? 1 : 0;
+            return $bHas - $aHas;
+        });
+
+        Log::info('TelegramFetchIncomingJob', ['total_dialogs' => count($dialogs), 'user_peers' => count($userPeerIds)]);
 
         if (empty($userPeerIds)) {
             Log::info('TelegramFetchIncomingJob: No user dialogs found (only groups/channels?)');
             return;
         }
 
+        // Limit & rotate: process max 10 users per run to avoid Telegram flood limits
+        $maxPerRun = 10;
+        $offsetKey = 'telegram_fetch_offset_' . ($conn->id ?? 0);
+        $offset = (int) Cache::get($offsetKey, 0);
+        $slice = array_slice($userPeerIds, $offset, $maxPerRun);
+        $nextOffset = ($offset + count($slice)) % max(1, count($userPeerIds));
+        Cache::put($offsetKey, $nextOffset, now()->addDays(1));
+
         $fetched = 0;
-        foreach ($userPeerIds as $userId) {
+        foreach ($slice as $userId) {
             try {
                 $result = $this->fetchAndSaveForPeer($service, $userId);
                 $fetched += $result['saved'];
                 if (!empty($result['user_data']) && \is_array($result['user_data'])) {
                     $this->updateCustomerFromUserData($userId, $result['user_data']);
                 }
-                usleep(300000);
+                // 5–7 sec delay to avoid Telegram flood (messages.getHistory is rate-limited)
+                sleep(rand(5, 7));
             } catch (\Throwable $e) {
                 Log::warning("TelegramFetchIncomingJob: fetch for $userId failed - " . $e->getMessage());
+                // On flood or salt errors, wait longer before next attempt
+                if (str_contains($e->getMessage(), 'Flood') || str_contains($e->getMessage(), 'salt')) {
+                    sleep(15);
+                }
             }
         }
 
