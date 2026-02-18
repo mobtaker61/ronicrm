@@ -1,6 +1,12 @@
 <?php
 
 use Illuminate\Foundation\Application;
+
+// MadelineProto: IPC script path for WebRunner (must be within document root).
+// When running via web, public/index.php also defines this; here we cover CLI (artisan, queue).
+if (!defined('MADELINE_PHP')) {
+    define('MADELINE_PHP', dirname(__DIR__) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'madeline-ipc.php');
+}
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Support\Facades\Route;
