@@ -152,7 +152,7 @@ class MadelineProtoService
                 $chat = $dialog['peer'] ?? $dialog;
                 $id = $api->getId($peer);
                 $title = $this->extractDialogTitle($dialog, $api);
-                $type = $this->getPeerType($peer);
+                $type = $this->getPeerType($peer, $api);
                 $result[] = [
                     'id' => (string) $id,
                     'title' => $title,
@@ -180,8 +180,24 @@ class MadelineProtoService
         }
     }
 
-    protected function getPeerType($peer): string
+    /**
+     * Determine peer type from Telegram API response: group, supergroup, channel, or user.
+     * Uses getInfo when api is available to get the correct type (MadelineProto returns chat/supergroup/channel).
+     */
+    protected function getPeerType($peer, $api = null): string
     {
+        if ($api) {
+            try {
+                $info = $api->getInfo($peer);
+                $t = $info['type'] ?? '';
+                if (in_array($t, ['chat', 'group', 'supergroup', 'channel'], true)) {
+                    return $t === 'chat' ? 'group' : $t;
+                }
+                return 'user';
+            } catch (\Throwable $e) {
+                Log::warning('MadelineProto getPeerType getInfo failed: ' . $e->getMessage());
+            }
+        }
         $type = $peer['_'] ?? '';
         if (str_contains($type, 'Channel')) {
             return isset($peer['megagroup']) && $peer['megagroup'] ? 'supergroup' : 'channel';
