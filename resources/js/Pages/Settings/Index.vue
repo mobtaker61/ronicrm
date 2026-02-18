@@ -1401,24 +1401,6 @@ const pollTelegramQr = async () => {
     if (telegramQrPollInFlight) return;
     telegramQrPollInFlight = true;
     try {
-        const statusData = await checkTelegramStatus();
-        if (statusData.logged_in) {
-            if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
-            telegramQrPolling.value = false;
-            window.location.href = route('settings.index', { tab: 'telegram' });
-            return;
-        }
-        if (statusData.needs_2fa) {
-            if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
-            telegramQrPolling.value = false;
-            telegramNeeds2fa.value = true;
-            telegramQrError.value = 'Two-step verification is enabled on this Telegram account. Please complete 2FA login.';
-            return;
-        }
-        if (statusData.waiting_code) {
-            telegramWaitingOtp.value = true;
-        }
-
         const params = new URLSearchParams({ wait: '1' });
         if (telegramQrConnId.value) params.set('conn_id', String(telegramQrConnId.value));
         const res = await fetch(telegramQrEndpoint + '?' + params.toString(), {
@@ -1440,10 +1422,6 @@ const pollTelegramQr = async () => {
             if (data.conn_id) telegramQrConnId.value = data.conn_id;
         } else if (data.error) {
             telegramQrError.value = data.error;
-            if (data.error.includes('expired') || data.error.includes('Connect')) {
-                if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
-                telegramQrPolling.value = false;
-            }
         }
     } catch (e) {
         telegramQrError.value = e.message || 'Poll failed. Keep scanning—will retry.';

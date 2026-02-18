@@ -8,8 +8,6 @@ use App\Services\MadelineProtoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-
 class TelegramConnectionController extends Controller
 {
     public function __construct()
@@ -146,16 +144,10 @@ class TelegramConnectionController extends Controller
     {
         $connected = TelegramUserConnection::where('status', 'connected')->get();
         foreach ($connected as $conn) {
-            if (MadelineProtoService::isQrFlowActiveForConnection((int) $conn->id)) {
-                return redirect()->route('settings.index', ['tab' => 'telegram'], 303)
-                    ->with('error', 'Telegram connection is in progress. Please wait a bit and try disconnect again.');
-            }
             $this->deleteConnectionSession($conn);
             $conn->update(['status' => 'expired']);
             $conn->delete();
         }
-        $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
-        Cache::forget(MadelineProtoService::CACHE_KEY_QR_CONN . '_' . $userId);
         return redirect()->route('settings.index', ['tab' => 'telegram'], 303)->with('success', 'Telegram account disconnected.');
     }
 
@@ -193,10 +185,6 @@ class TelegramConnectionController extends Controller
             ?? TelegramUserConnection::whereIn('status', ['pending', 'connected'])->orderByDesc('updated_at')->first();
         if (!$conn) {
             return redirect()->route('settings.index', ['tab' => 'telegram'], 303)->with('error', 'No Telegram connection found.');
-        }
-        if (MadelineProtoService::isQrFlowActiveForConnection((int) $conn->id)) {
-            return redirect()->route('settings.index', ['tab' => 'telegram'], 303)
-                ->with('error', 'Telegram connection is in progress. Please wait, then reset session.');
         }
         $conn->resetSessionFiles();
         return redirect()->route('settings.index', ['tab' => 'telegram'], 303)->with('success', 'Telegram session reset. Click "Connect via QR Code" to re-connect.');

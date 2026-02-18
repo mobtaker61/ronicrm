@@ -28,11 +28,6 @@ class TelegramFetchIncomingJob implements ShouldQueue
             Log::warning('TelegramFetchIncomingJob: No active connection, skipping');
             return;
         }
-        if (MadelineProtoService::isQrFlowActiveForConnection((int) $conn->id)) {
-            Log::info('TelegramFetchIncomingJob: QR flow lock active, skipping this run', ['conn_id' => $conn->id]);
-            return;
-        }
-
         $service = new MadelineProtoService($conn);
         try {
             $service->start();

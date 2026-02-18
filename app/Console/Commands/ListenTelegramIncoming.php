@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\TelegramUserConnection;
-use App\Services\MadelineProtoService;
 use App\Telegram\IncomingMessageHandler;
 use Illuminate\Console\Command;
 
@@ -19,11 +18,6 @@ class ListenTelegramIncoming extends Command
             $this->error('No active Telegram user connection. Connect via Settings first.');
             return 1;
         }
-        if (MadelineProtoService::isQrFlowActiveForConnection((int) $conn->id)) {
-            $this->warn('QR flow lock is active for this session. Start listener after connection flow completes.');
-            return 0;
-        }
-
         $sessionPath = $conn->getSessionPath();
         $apiId = (int) $conn->getApiId();
         $apiHash = $conn->getApiHash();

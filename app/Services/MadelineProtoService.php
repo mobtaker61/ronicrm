@@ -12,12 +12,9 @@ class MadelineProtoService
 
     protected $api = null;
 
-    /** Cache key prefix: active QR flow for a specific connection. */
-    public const CACHE_KEY_QR_FLOW_CONN = 'telegram_qr_flow_conn_';
-
     public function __construct(?TelegramUserConnection $connection = null)
     {
-        $this->connection = $connection ?? TelegramUserConnection::getActive();
+        $this->connection = $connection;
     }
 
     public function setConnection(TelegramUserConnection $connection): self
@@ -25,20 +22,6 @@ class MadelineProtoService
         $this->connection = $connection;
 
         return $this;
-    }
-
-    public static function qrFlowLockKeyForConnection(int $connectionId): string
-    {
-        return self::CACHE_KEY_QR_FLOW_CONN.$connectionId;
-    }
-
-    public static function isQrFlowActiveForConnection(?int $connectionId): bool
-    {
-        if (! $connectionId) {
-            return false;
-        }
-
-        return (bool) Cache::get(self::qrFlowLockKeyForConnection($connectionId), false);
     }
 
     /**
@@ -143,63 +126,6 @@ class MadelineProtoService
         }
 
         return $result;
-    }
-
-    /**
-     * Create MadelineProto Settings with API credentials and FILE_LOGGER.
-     * Using FILE_LOGGER avoids "fwrite(): supplied resource is not a valid stream resource"
-     * when stdout is invalid (e.g. queue workers on shared hosting).
-     */
-    /**
-     * Check if any pending session file is already logged in (user scanned in different tab/request).
-     * Updates the conn and returns logged_in response if found.
-     */
-    protected function checkAnySessionLoggedIn(int $apiId, string $apiHash, ?int $preferredConnId = null): ?array
-    {
-        $pendingsQuery = TelegramUserConnection::whereIn('status', ['pending', 'connected'])
-            ->whereNotNull('session_path');
-        if ($preferredConnId) {
-            $pendingsQuery->where('id', $preferredConnId);
-        } else {
-            // Safety cap: never iterate many sessions in one request.
-            $pendingsQuery->orderByDesc('updated_at')->limit(3);
-        }
-        $pendings = $pendingsQuery->get();
-        foreach ($pendings as $c) {
-            $path = storage_path('app/'.$c->session_path);
-            if (! is_dir($path) && ! file_exists($path)) {
-                continue;
-            }
-            try {
-                $this->connection = $c;
-                $result = $this->run(function () use ($c, $path, $apiId, $apiHash) {
-                    $settings = $this->makeMadelineSettings($apiId, $apiHash);
-                    $api = new \danog\MadelineProto\API($path, $settings);
-                    if ($api->getAuthorization() === \danog\MadelineProto\API::LOGGED_IN) {
-                        $self = $api->getSelf();
-                        $c->update([
-                            'status' => 'connected',
-                            'phone' => $self['phone'] ?? null,
-                            'telegram_username' => $self['username'] ?? null,
-                        ]);
-
-                        return true;
-                    }
-
-                    return false;
-                });
-                if ($result) {
-                    $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
-                    Cache::forget(self::CACHE_KEY_QR_CONN.'_'.$userId);
-
-                    return ['logged_in' => true, 'conn_id' => $c->id];
-                }
-            } catch (\Throwable $e) {
-                Log::debug('MadelineProto checkSessionLoggedIn: '.$e->getMessage());
-            }
-        }
-
-        return null;
     }
 
     protected function makeMadelineSettings(int $apiId, string $apiHash): \danog\MadelineProto\Settings
@@ -686,148 +612,75 @@ class MadelineProtoService
     }
 
     /**
-     * Get existing pending for QR flow or create one. Sets auth_flow and user_id in DB.
+     * Find connection by ID, or find/create a pending one for login flows.
      */
-    protected function getOrCreatePendingConnection(?string $authFlow = null): TelegramUserConnection
+    protected function findOrCreateConnection(?int $connId): TelegramUserConnection
     {
-        $userId = \Illuminate\Support\Facades\Auth::id();
-        if ($authFlow === TelegramUserConnection::AUTH_FLOW_QR) {
-            $conn = TelegramUserConnection::where('auth_flow', TelegramUserConnection::AUTH_FLOW_QR)
-                ->whereIn('status', ['pending', 'connected'])
-                ->orderByDesc('updated_at')
-                ->first();
-            if ($conn) {
+        if ($connId) {
+            $conn = TelegramUserConnection::find($connId);
+            if ($conn && in_array($conn->status, ['pending', 'connected'], true)) {
                 return $conn;
             }
-            return TelegramUserConnection::create([
-                'status' => 'pending',
-                'auth_flow' => TelegramUserConnection::AUTH_FLOW_QR,
-                'user_id' => $userId,
-            ]);
         }
         $conn = TelegramUserConnection::where('status', 'pending')
-            ->whereNull('auth_flow')
             ->orderByDesc('updated_at')
             ->first();
 
-        return $conn ?? TelegramUserConnection::create(['status' => 'pending', 'user_id' => $userId]);
+        return $conn ?? TelegramUserConnection::create([
+            'status' => 'pending',
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+        ]);
     }
-
-    protected function deleteSessionFolder(TelegramUserConnection $conn): void
-    {
-        if (! $conn->session_path) {
-            return;
-        }
-        $path = storage_path('app/'.$conn->session_path);
-        try {
-            if (is_dir($path)) {
-                $files = new \RecursiveIteratorIterator(
-                    new \RecursiveDirectoryIterator($path, \RecursiveDirectoryIterator::SKIP_DOTS),
-                    \RecursiveIteratorIterator::CHILD_FIRST
-                );
-                foreach ($files as $file) {
-                    $file->isDir() ? rmdir($file->getRealPath()) : unlink($file->getRealPath());
-                }
-                rmdir($path);
-            } elseif (file_exists($path)) {
-                unlink($path);
-            }
-        } catch (\Throwable $e) {
-            Log::warning('MadelineProto could not delete session folder: '.$e->getMessage());
-        }
-    }
-
-    /** Cache key for "current QR connection" - ensures all requests use same session during QR flow */
-    public const CACHE_KEY_QR_CONN = 'telegram_qr_conn';
 
     /**
-     * Initiate QR login. Returns SVG of QR code or null if already logged in.
-     *
-     * @param  bool  $wait  If true, wait up to 5s for user to scan (for polling).
-     * @param  int|null  $connId  If set, use this specific connection (ensures poll uses same session as QR).
-     * @return array { qr_svg?: string, conn_id?: int, logged_in: bool, needs_2fa?: bool, error?: string }
+     * Mark connection as connected after successful login.
+     */
+    protected function markConnected(TelegramUserConnection $conn, $api): void
+    {
+        $self = $api->getSelf();
+        $conn->update([
+            'status' => 'connected',
+            'auth_flow' => null,
+            'phone' => $self['phone'] ?? null,
+            'telegram_username' => $self['username'] ?? null,
+        ]);
+    }
+
+    /**
+     * Initiate QR login or poll for scan result.
+     * Simple flow: find conn by ID → open same session → check auth / generate QR.
      */
     public function getQrCode(bool $wait = false, ?int $connId = null): array
     {
         if (! class_exists(\danog\MadelineProto\API::class)) {
-            return ['error' => 'MadelineProto is not installed. Run: composer require danog/madelineproto'];
+            return ['error' => 'MadelineProto is not installed.', 'logged_in' => false];
         }
         $apiId = (int) config('services.telegram.api_id');
-        $apiHash = config('services.telegram.api_hash');
+        $apiHash = (string) config('services.telegram.api_hash');
         if (! $apiId || ! $apiHash) {
-            return ['error' => 'TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in .env'];
+            return ['error' => 'TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in .env', 'logged_in' => false];
         }
 
         try {
-            $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
-            $cacheKey = self::CACHE_KEY_QR_CONN.'_'.$userId;
-
-            $conn = null;
-            $cachedConnId = Cache::get($cacheKey);
-            $connIdToUse = $connId ?: $cachedConnId;
-            Log::debug('MadelineProto getQrCode: request context', [
-                'wait' => $wait,
-                'conn_id_param' => $connId,
-                'conn_id_cached' => $cachedConnId,
-                'conn_id_selected' => $connIdToUse,
-            ]);
-
-            if ($connIdToUse) {
-                $conn = TelegramUserConnection::findForQrFlow($userId, $connIdToUse)
-                    ?? TelegramUserConnection::find($connIdToUse);
-                if ($conn && $conn->status === 'expired') {
-                    $conn->update(['status' => 'pending', 'auth_flow' => TelegramUserConnection::AUTH_FLOW_QR]);
-                }
-                if ($conn && in_array($conn->status, ['pending', 'connected'], true)) {
-                    $conn->update(['auth_flow' => TelegramUserConnection::AUTH_FLOW_QR]);
-                }
-                if (! $conn || ! in_array($conn->status, ['pending', 'connected'], true)) {
-                    $conn = null;
-                    Cache::forget($cacheKey);
-                    if ($connIdToUse) {
-                        Log::warning('MadelineProto getQrCode: conn not found or invalid', ['conn_id' => $connIdToUse]);
-                    }
-                }
-            }
-
-            if (! $conn) {
-                if ($wait) {
-                    $conn = TelegramUserConnection::findForQrFlow($userId, null);
-                    if (! $conn) {
-                        return [
-                            'logged_in' => false,
-                            'error' => 'No pending Telegram session found. Click "Connect via QR Code" to start a new flow.',
-                        ];
-                    }
-                } else {
-                    $conn = $this->connection ?? TelegramUserConnection::getActive()
-                        ?? $this->getOrCreatePendingConnection(TelegramUserConnection::AUTH_FLOW_QR);
-                    $conn->update(['auth_flow' => TelegramUserConnection::AUTH_FLOW_QR]);
-                }
-                Cache::put($cacheKey, $conn->id, now()->addMinutes(15));
-            }
-
-            $alreadyLoggedIn = $this->checkAnySessionLoggedIn($apiId, $apiHash, (int) $conn->id);
-            if ($alreadyLoggedIn) {
-                return $alreadyLoggedIn;
-            }
-
+            $conn = $this->findOrCreateConnection($connId);
             $sessionPath = $conn->getSessionPath();
-            Log::info('MadelineProto getQrCode: starting', ['session_path' => $sessionPath, 'conn_id' => $conn->id, 'wait' => $wait]);
-
             $this->connection = $conn;
-            Cache::put(self::qrFlowLockKeyForConnection((int) $conn->id), true, now()->addMinutes(20));
 
-            // On Windows, Amp\File's ParallelFilesystemDriver often fails on createDirectory.
-            // Pre-create the session directory with native PHP so MadelineProto skips it.
             if (! is_dir($sessionPath)) {
                 mkdir($sessionPath, 0755, true);
             }
 
-            // Run inside EventLoop - MadelineProto requires it for async I/O
+            Log::info('MadelineProto getQrCode', ['conn_id' => $conn->id, 'wait' => $wait, 'session' => $sessionPath]);
+
             $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $wait) {
                 $settings = $this->makeMadelineSettings($apiId, $apiHash);
                 $api = new \danog\MadelineProto\API($sessionPath, $settings);
+
+                if ($api->getAuthorization() === \danog\MadelineProto\API::LOGGED_IN) {
+                    $this->markConnected($conn, $api);
+                    return ['logged_in' => true, 'conn_id' => $conn->id];
+                }
+
                 $qr = $api->qrLogin();
                 if ($qr && $wait) {
                     try {
@@ -838,45 +691,17 @@ class MadelineProtoService
                         $qr = $api->qrLogin();
                     }
                 }
-                Log::info('MadelineProto getQrCode: qrLogin done', [
-                    'qr_is_null' => $qr === null,
-                    'qr_class' => $qr ? get_class($qr) : null,
-                    'auth' => $api->getAuthorization(),
-                ]);
+
                 $auth = $api->getAuthorization();
                 if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
-                    $self = $api->getSelf();
-                    $conn->update([
-                        'status' => 'connected',
-                        'auth_flow' => null,
-                        'phone' => $self['phone'] ?? null,
-                        'telegram_username' => $self['username'] ?? null,
-                    ]);
-                    $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
-                    Cache::forget(self::CACHE_KEY_QR_CONN.'_'.$userId);
-                    Cache::forget(self::qrFlowLockKeyForConnection((int) $conn->id));
-
-                    return ['logged_in' => true];
+                    $this->markConnected($conn, $api);
+                    return ['logged_in' => true, 'conn_id' => $conn->id];
                 }
                 if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
-                    return [
-                        'logged_in' => false,
-                        'needs_2fa' => true,
-                        'conn_id' => $conn->id,
-                    ];
+                    return ['logged_in' => false, 'needs_2fa' => true, 'conn_id' => $conn->id];
                 }
                 if (! $qr) {
-                    return ['logged_in' => false];
-                }
-
-                // Persist session so next poll returns same QR instead of creating a new one
-                // serialize() is on APIWrapper, not API - access via reflection
-                $ref = new \ReflectionClass($api);
-                $wrapperProp = $ref->getProperty('wrapper');
-                $wrapperProp->setAccessible(true);
-                $wrapper = $wrapperProp->getValue($api);
-                if (method_exists($wrapper, 'serialize')) {
-                    $wrapper->serialize();
+                    return ['logged_in' => false, 'conn_id' => $conn->id];
                 }
 
                 return [
@@ -886,21 +711,15 @@ class MadelineProtoService
                 ];
             });
 
-            Log::info('MadelineProto getQrCode: after run', [
-                'result_type' => gettype($result),
-                'result' => is_array($result) ? array_keys($result) : $result,
-            ]);
-
-            return is_array($result) ? $result : ['logged_in' => false, 'error' => 'Unknown response (type: '.gettype($result).')'];
+            return is_array($result) ? $result : ['logged_in' => false, 'error' => 'Unknown response'];
         } catch (\Throwable $e) {
             Log::error('Telegram getQrCode error: '.$e->getMessage());
-
             return ['error' => $e->getMessage(), 'logged_in' => false];
         }
     }
 
     /**
-     * Read auth status from the current Telegram session without rotating QR.
+     * Read current auth status from session (without generating QR).
      */
     public function getConnectionStatus(?int $connId = null): array
     {
@@ -914,27 +733,13 @@ class MadelineProtoService
         }
 
         try {
-            $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
-            $cacheKey = self::CACHE_KEY_QR_CONN.'_'.$userId;
-            $connIdToUse = $connId ?: (Cache::get($cacheKey) ?: null);
-            $conn = null;
-            if ($connIdToUse) {
-                $conn = TelegramUserConnection::findForQrFlow($userId, $connIdToUse)
-                    ?? TelegramUserConnection::find($connIdToUse);
-            }
-            if (! $conn) {
-                $conn = TelegramUserConnection::findForQrFlow($userId, null);
-            }
+            $conn = $connId ? TelegramUserConnection::find($connId) : null;
             if (! $conn) {
                 $conn = TelegramUserConnection::whereIn('status', ['pending', 'connected'])
                     ->orderByDesc('updated_at')->first();
             }
-            if ($conn && $conn->status === 'expired') {
-                $conn->update(['status' => 'pending']);
-            }
-
             if (! $conn) {
-                return ['logged_in' => false, 'error' => 'No Telegram session found. Start QR or phone login first.'];
+                return ['logged_in' => false];
             }
 
             $sessionPath = $conn->getSessionPath();
@@ -946,14 +751,7 @@ class MadelineProtoService
                 $auth = $api->getAuthorization();
 
                 if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
-                    $self = $api->getSelf();
-                    $conn->update([
-                        'status' => 'connected',
-                        'auth_flow' => null,
-                        'phone' => $self['phone'] ?? null,
-                        'telegram_username' => $self['username'] ?? null,
-                    ]);
-
+                    $this->markConnected($conn, $api);
                     return ['logged_in' => true, 'conn_id' => $conn->id];
                 }
 
@@ -965,23 +763,15 @@ class MadelineProtoService
                 ];
             });
 
-            if (($result['logged_in'] ?? false) === true) {
-                Cache::forget($cacheKey);
-                Cache::forget(self::qrFlowLockKeyForConnection((int) $conn->id));
-            } else {
-                Cache::put($cacheKey, $conn->id, now()->addMinutes(15));
-            }
-
-            return is_array($result) ? $result : ['logged_in' => false, 'error' => 'Unexpected status response.'];
+            return is_array($result) ? $result : ['logged_in' => false];
         } catch (\Throwable $e) {
             Log::error('Telegram getConnectionStatus error: '.$e->getMessage());
-
             return ['logged_in' => false, 'error' => $e->getMessage()];
         }
     }
 
     /**
-     * Start phone login by sending OTP to Telegram account.
+     * Start phone login — send OTP to the given phone number.
      */
     public function startPhoneLogin(string $phone, ?int $connId = null): array
     {
@@ -999,36 +789,14 @@ class MadelineProtoService
         }
 
         try {
-            $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
-            $cacheKey = self::CACHE_KEY_QR_CONN.'_'.$userId;
-            $connIdToUse = $connId ?: (Cache::get($cacheKey) ?: null);
-            $conn = null;
-            if ($connIdToUse) {
-                $conn = TelegramUserConnection::find($connIdToUse);
-            }
-            if (! $conn) {
-                $conn = TelegramUserConnection::create([
-                    'status' => 'pending',
-                    'auth_flow' => TelegramUserConnection::AUTH_FLOW_PHONE_OTP,
-                    'user_id' => $userId,
-                ]);
-            }
-            if ($conn->status === 'expired') {
-                $conn->update(['status' => 'pending', 'auth_flow' => TelegramUserConnection::AUTH_FLOW_PHONE_OTP]);
-            } else {
-                $conn->update(['auth_flow' => TelegramUserConnection::AUTH_FLOW_PHONE_OTP, 'user_id' => $userId]);
-            }
-
-            Cache::put($cacheKey, $conn->id, now()->addMinutes(15));
-            Cache::put(self::qrFlowLockKeyForConnection((int) $conn->id), true, now()->addMinutes(20));
-
+            $conn = $this->findOrCreateConnection($connId);
             $sessionPath = $conn->getSessionPath();
             $this->connection = $conn;
             if (! is_dir($sessionPath)) {
                 mkdir($sessionPath, 0755, true);
             }
 
-            Log::info('MadelineProto startPhoneLogin', ['conn_id' => $conn->id, 'session_path' => $sessionPath]);
+            Log::info('MadelineProto startPhoneLogin', ['conn_id' => $conn->id, 'session' => $sessionPath]);
 
             $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $phone) {
                 $settings = $this->makeMadelineSettings($apiId, $apiHash);
@@ -1037,37 +805,22 @@ class MadelineProtoService
                 $auth = $api->getAuthorization();
 
                 if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
-                    $self = $api->getSelf();
-                    $conn->update([
-                        'status' => 'connected',
-                        'auth_flow' => null,
-                        'phone' => $self['phone'] ?? null,
-                        'telegram_username' => $self['username'] ?? null,
-                    ]);
-
+                    $this->markConnected($conn, $api);
                     return ['success' => true, 'logged_in' => true, 'conn_id' => $conn->id];
                 }
-
                 if ($auth === \danog\MadelineProto\API::WAITING_CODE) {
                     return ['success' => true, 'logged_in' => false, 'waiting_code' => true, 'conn_id' => $conn->id];
                 }
                 if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
-                    $conn->update(['auth_flow' => TelegramUserConnection::AUTH_FLOW_PHONE_2FA]);
                     return ['success' => true, 'logged_in' => false, 'needs_2fa' => true, 'conn_id' => $conn->id];
                 }
 
-                return ['success' => false, 'logged_in' => false, 'conn_id' => $conn->id, 'error' => 'Unexpected auth state after phone login.'];
+                return ['success' => false, 'logged_in' => false, 'conn_id' => $conn->id, 'error' => 'Unexpected auth state.'];
             });
 
-            if (($result['logged_in'] ?? false) === true) {
-                Cache::forget($cacheKey);
-                Cache::forget(self::qrFlowLockKeyForConnection((int) $conn->id));
-            }
-
-            return is_array($result) ? $result : ['success' => false, 'logged_in' => false, 'error' => 'Unexpected phone login response.'];
+            return is_array($result) ? $result : ['success' => false, 'logged_in' => false, 'error' => 'Unexpected response.'];
         } catch (\Throwable $e) {
             Log::error('Telegram startPhoneLogin error: '.$e->getMessage());
-
             return ['success' => false, 'logged_in' => false, 'error' => $e->getMessage()];
         }
     }
@@ -1091,29 +844,19 @@ class MadelineProtoService
         }
 
         try {
-            $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
-            $cacheKey = self::CACHE_KEY_QR_CONN.'_'.$userId;
-            $connIdToUse = $connId ?: (Cache::get($cacheKey) ?: null);
-            $conn = null;
-            if ($connIdToUse) {
-                $conn = TelegramUserConnection::find($connIdToUse);
+            $conn = $connId ? TelegramUserConnection::find($connId) : null;
+            if (! $conn) {
+                $conn = TelegramUserConnection::whereIn('status', ['pending', 'connected'])
+                    ->orderByDesc('updated_at')->first();
             }
             if (! $conn) {
-                $conn = TelegramUserConnection::findForPhoneOtpFlow($userId);
+                return ['success' => false, 'logged_in' => false, 'error' => 'No pending Telegram session found. Start phone login first.'];
             }
-            if ($conn && $conn->status === 'expired') {
-                $conn->update(['status' => 'pending']);
-            }
-
-            if (! $conn) {
-                Log::warning('Telegram completePhoneLogin: no session found', ['conn_id_req' => $connId, 'user_id' => $userId]);
-                return ['success' => false, 'logged_in' => false, 'error' => 'No pending Telegram phone-login session found.'];
-            }
-
-            Log::info('Telegram completePhoneLogin: using conn', ['conn_id' => $conn->id, 'session_path' => $conn->session_path]);
 
             $sessionPath = $conn->getSessionPath();
             $this->connection = $conn;
+
+            Log::info('Telegram completePhoneLogin', ['conn_id' => $conn->id]);
 
             $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $code) {
                 $settings = $this->makeMadelineSettings($apiId, $apiHash);
@@ -1122,39 +865,25 @@ class MadelineProtoService
                 $auth = $api->getAuthorization();
 
                 if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
-                    $self = $api->getSelf();
-                    $conn->update([
-                        'status' => 'connected',
-                        'auth_flow' => null,
-                        'phone' => $self['phone'] ?? null,
-                        'telegram_username' => $self['username'] ?? null,
-                    ]);
-
+                    $this->markConnected($conn, $api);
                     return ['success' => true, 'logged_in' => true, 'conn_id' => $conn->id];
                 }
                 if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
-                    $conn->update(['auth_flow' => TelegramUserConnection::AUTH_FLOW_PHONE_2FA]);
                     return ['success' => true, 'logged_in' => false, 'needs_2fa' => true, 'conn_id' => $conn->id];
                 }
 
                 return ['success' => false, 'logged_in' => false, 'conn_id' => $conn->id, 'error' => 'Telegram is not fully authenticated yet.'];
             });
 
-            if (($result['logged_in'] ?? false) === true) {
-                Cache::forget($cacheKey);
-                Cache::forget(self::qrFlowLockKeyForConnection((int) $conn->id));
-            }
-
             return is_array($result) ? $result : ['success' => false, 'logged_in' => false, 'error' => 'Unexpected OTP response.'];
         } catch (\Throwable $e) {
             Log::error('Telegram completePhoneLogin error: '.$e->getMessage());
-
             return ['success' => false, 'logged_in' => false, 'error' => $e->getMessage()];
         }
     }
 
     /**
-     * Complete Telegram 2FA login (cloud password) after QR scan.
+     * Complete 2FA login (cloud password) after QR or phone login.
      */
     public function complete2faLogin(string $password, ?int $connId = null): array
     {
@@ -1172,22 +901,13 @@ class MadelineProtoService
         }
 
         try {
-            $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
-            $cacheKey = self::CACHE_KEY_QR_CONN.'_'.$userId;
-            $connIdToUse = $connId ?: (Cache::get($cacheKey) ?: null);
-            $conn = null;
-            if ($connIdToUse) {
-                $conn = TelegramUserConnection::find($connIdToUse);
+            $conn = $connId ? TelegramUserConnection::find($connId) : null;
+            if (! $conn) {
+                $conn = TelegramUserConnection::whereIn('status', ['pending', 'connected'])
+                    ->orderByDesc('updated_at')->first();
             }
             if (! $conn) {
-                $conn = TelegramUserConnection::findFor2faFlow($userId);
-            }
-            if ($conn && $conn->status === 'expired') {
-                $conn->update(['status' => 'pending']);
-            }
-
-            if (! $conn) {
-                return ['success' => false, 'error' => 'No pending Telegram session found. Please re-open QR login.'];
+                return ['success' => false, 'error' => 'No pending Telegram session found.'];
             }
 
             $sessionPath = $conn->getSessionPath();
@@ -1196,39 +916,23 @@ class MadelineProtoService
             $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $password) {
                 $settings = $this->makeMadelineSettings($apiId, $apiHash);
                 $api = new \danog\MadelineProto\API($sessionPath, $settings);
-                $auth = $api->getAuthorization();
-                if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
+                if ($api->getAuthorization() === \danog\MadelineProto\API::WAITING_PASSWORD) {
                     $api->complete2faLogin($password);
                 }
-
                 $auth = $api->getAuthorization();
                 if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
-                    $self = $api->getSelf();
-                    $conn->update([
-                        'status' => 'connected',
-                        'auth_flow' => null,
-                        'phone' => $self['phone'] ?? null,
-                        'telegram_username' => $self['username'] ?? null,
-                    ]);
-
+                    $this->markConnected($conn, $api);
                     return ['success' => true, 'logged_in' => true];
                 }
                 if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
                     return ['success' => false, 'logged_in' => false, 'needs_2fa' => true, 'error' => 'Invalid 2FA password.'];
                 }
-
                 return ['success' => false, 'logged_in' => false, 'error' => 'Telegram is not fully authenticated yet.'];
             });
-
-            if (($result['logged_in'] ?? false) === true) {
-                Cache::forget($cacheKey);
-                Cache::forget(self::qrFlowLockKeyForConnection((int) $conn->id));
-            }
 
             return is_array($result) ? $result : ['success' => false, 'logged_in' => false, 'error' => 'Unexpected 2FA response.'];
         } catch (\Throwable $e) {
             Log::error('Telegram complete2faLogin error: '.$e->getMessage());
-
             return ['success' => false, 'logged_in' => false, 'error' => $e->getMessage()];
         }
     }

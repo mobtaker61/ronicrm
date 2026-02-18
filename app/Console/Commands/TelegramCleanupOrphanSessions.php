@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\TelegramUserConnection;
-use App\Services\MadelineProtoService;
 use Illuminate\Console\Command;
 
 class TelegramCleanupOrphanSessions extends Command
@@ -22,10 +21,6 @@ class TelegramCleanupOrphanSessions extends Command
 
         $expired = TelegramUserConnection::where('status', 'expired')->get();
         foreach ($expired as $conn) {
-            if (MadelineProtoService::isQrFlowActiveForConnection((int) $conn->id)) {
-                $this->line("Skipped locked session (QR flow active): {$conn->session_path}");
-                continue;
-            }
             if ($conn->session_path) {
                 $path = storage_path('app/' . $conn->session_path);
                 if (file_exists($path) || is_dir($path)) {
@@ -40,12 +35,6 @@ class TelegramCleanupOrphanSessions extends Command
             ->pluck('session_path')
             ->map(fn ($p) => str_replace(['/', '\\'], DIRECTORY_SEPARATOR, storage_path('app/' . $p)))
             ->all();
-        $lockedPaths = TelegramUserConnection::whereNotNull('session_path')
-            ->get()
-            ->filter(fn ($c) => MadelineProtoService::isQrFlowActiveForConnection((int) $c->id))
-            ->pluck('session_path')
-            ->map(fn ($p) => str_replace(['/', '\\'], DIRECTORY_SEPARATOR, storage_path('app/' . $p)))
-            ->all();
 
         $entries = scandir($baseDir);
         $deleted = 0;
@@ -55,10 +44,6 @@ class TelegramCleanupOrphanSessions extends Command
             }
             $fullPath = $baseDir . DIRECTORY_SEPARATOR . $entry;
             $normalized = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $fullPath);
-            if (in_array($normalized, $lockedPaths, true)) {
-                $this->line("Skipped locked orphan: $entry");
-                continue;
-            }
             if (!in_array($normalized, $validPaths, true) && (is_dir($fullPath) || file_exists($fullPath))) {
                 $this->deletePath($fullPath);
                 $this->line("Deleted orphan: $entry");
