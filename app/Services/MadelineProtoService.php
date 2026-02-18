@@ -12,6 +12,9 @@ class MadelineProtoService
 
     protected $api = null;
 
+    /** Cache key prefix: active QR flow for a specific connection. */
+    public const CACHE_KEY_QR_FLOW_CONN = 'telegram_qr_flow_conn_';
+
     public function __construct(?TelegramUserConnection $connection = null)
     {
         $this->connection = $connection ?? TelegramUserConnection::getActive();
@@ -22,6 +25,20 @@ class MadelineProtoService
         $this->connection = $connection;
 
         return $this;
+    }
+
+    public static function qrFlowLockKeyForConnection(int $connectionId): string
+    {
+        return self::CACHE_KEY_QR_FLOW_CONN.$connectionId;
+    }
+
+    public static function isQrFlowActiveForConnection(?int $connectionId): bool
+    {
+        if (! $connectionId) {
+            return false;
+        }
+
+        return (bool) Cache::get(self::qrFlowLockKeyForConnection($connectionId), false);
     }
 
     /**
@@ -186,7 +203,9 @@ class MadelineProtoService
         $settings->getAppInfo()->setApiId($apiId)->setApiHash($apiHash);
         $settings->getLogger()
             ->setType(\danog\MadelineProto\Logger::LOGGER_FILE)
-            ->setExtra(storage_path('logs/madelineproto.log'));
+            ->setExtra(storage_path('logs/madelineproto.log'))
+            // Keep only warnings/errors in production to avoid huge update-feed logs.
+            ->setLevel(\danog\MadelineProto\Logger::LEVEL_WARNING);
 
         return $settings;
     }
@@ -727,6 +746,12 @@ class MadelineProtoService
             $conn = null;
             $cachedConnId = Cache::get($cacheKey);
             $connIdToUse = $connId ?: $cachedConnId;
+            Log::debug('MadelineProto getQrCode: request context', [
+                'wait' => $wait,
+                'conn_id_param' => $connId,
+                'conn_id_cached' => $cachedConnId,
+                'conn_id_selected' => $connIdToUse,
+            ]);
 
             if ($connIdToUse) {
                 $conn = TelegramUserConnection::find($connIdToUse);
@@ -738,15 +763,13 @@ class MadelineProtoService
 
             if (! $conn) {
                 if ($wait) {
-                    // Robust polling fallback: if conn_id/cache is missing, reuse latest pending/connected session.
-                    // This prevents false "expired" right after QR is shown when frontend misses conn_id once.
+                    // Never fail polling with "expired" if conn_id/cache is temporarily missing.
+                    // Reuse latest pending/connected, and if none exists create one on the fly.
                     $conn = $this->connection
                         ?? TelegramUserConnection::whereIn('status', ['pending', 'connected'])
                             ->orderByDesc('updated_at')
-                            ->first();
-                    if (! $conn) {
-                        return ['error' => 'QR session expired. Please click "Connect via QR Code" again.', 'logged_in' => false];
-                    }
+                            ->first()
+                        ?? $this->getOrCreatePendingConnection();
                 } else {
                     $conn = $this->connection ?? TelegramUserConnection::getActive()
                         ?? $this->getOrCreatePendingConnection();
@@ -763,6 +786,7 @@ class MadelineProtoService
             Log::info('MadelineProto getQrCode: starting', ['session_path' => $sessionPath, 'conn_id' => $conn->id, 'wait' => $wait]);
 
             $this->connection = $conn;
+            Cache::put(self::qrFlowLockKeyForConnection((int) $conn->id), true, now()->addMinutes(20));
 
             // On Windows, Amp\File's ParallelFilesystemDriver often fails on createDirectory.
             // Pre-create the session directory with native PHP so MadelineProto skips it.
@@ -799,6 +823,7 @@ class MadelineProtoService
                     ]);
                     $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
                     Cache::forget(self::CACHE_KEY_QR_CONN.'_'.$userId);
+                    Cache::forget(self::qrFlowLockKeyForConnection((int) $conn->id));
 
                     return ['logged_in' => true];
                 }
@@ -904,6 +929,7 @@ class MadelineProtoService
 
             if (($result['logged_in'] ?? false) === true) {
                 Cache::forget($cacheKey);
+                Cache::forget(self::qrFlowLockKeyForConnection((int) $conn->id));
             }
 
             return is_array($result) ? $result : ['success' => false, 'logged_in' => false, 'error' => 'Unexpected 2FA response.'];
