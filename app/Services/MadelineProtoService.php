@@ -780,26 +780,30 @@ class MadelineProtoService
                     'qr_class' => $qr ? get_class($qr) : null,
                     'auth' => $api->getAuthorization(),
                 ]);
+                $auth = $api->getAuthorization();
+                if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
+                    $self = $api->getSelf();
+                    $conn->update([
+                        'status' => 'connected',
+                        'phone' => $self['phone'] ?? null,
+                        'telegram_username' => $self['username'] ?? null,
+                    ]);
+                    $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
+                    Cache::forget(self::CACHE_KEY_QR_CONN.'_'.$userId);
+
+                    return ['logged_in' => true];
+                }
+                if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
+                    return [
+                        'logged_in' => false,
+                        'needs_2fa' => true,
+                        'conn_id' => $conn->id,
+                    ];
+                }
                 if (! $qr) {
-                    $auth = $api->getAuthorization();
-                    if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
-                        $self = $api->getSelf();
-                        $conn->update([
-                            'status' => 'connected',
-                            'phone' => $self['phone'] ?? null,
-                            'telegram_username' => $self['username'] ?? null,
-                        ]);
-                        $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
-                        Cache::forget(self::CACHE_KEY_QR_CONN.'_'.$userId);
-
-                        return ['logged_in' => true];
-                    }
-                    if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
-                        return ['logged_in' => false, 'needs_2fa' => true];
-                    }
-
                     return ['logged_in' => false];
                 }
+
                 // Persist session so next poll returns same QR instead of creating a new one
                 // serialize() is on APIWrapper, not API - access via reflection
                 $ref = new \ReflectionClass($api);
@@ -827,6 +831,77 @@ class MadelineProtoService
             Log::error('Telegram getQrCode error: '.$e->getMessage());
 
             return ['error' => $e->getMessage(), 'logged_in' => false];
+        }
+    }
+
+    /**
+     * Complete Telegram 2FA login (cloud password) after QR scan.
+     */
+    public function complete2faLogin(string $password, ?int $connId = null): array
+    {
+        if (! class_exists(\danog\MadelineProto\API::class)) {
+            return ['success' => false, 'error' => 'MadelineProto is not installed.'];
+        }
+        $password = trim($password);
+        if ($password === '') {
+            return ['success' => false, 'error' => 'Password is required.'];
+        }
+        $apiId = (int) config('services.telegram.api_id');
+        $apiHash = (string) config('services.telegram.api_hash');
+        if (! $apiId || ! $apiHash) {
+            return ['success' => false, 'error' => 'TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in .env'];
+        }
+
+        try {
+            $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
+            $cacheKey = self::CACHE_KEY_QR_CONN.'_'.$userId;
+            $connIdToUse = $connId ?: (Cache::get($cacheKey) ?: null);
+            $conn = $connIdToUse
+                ? TelegramUserConnection::find($connIdToUse)
+                : (TelegramUserConnection::whereIn('status', ['pending', 'connected'])->orderByDesc('updated_at')->first());
+
+            if (! $conn) {
+                return ['success' => false, 'error' => 'No pending Telegram session found. Please re-open QR login.'];
+            }
+
+            $sessionPath = $conn->getSessionPath();
+            $this->connection = $conn;
+
+            $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $password) {
+                $settings = $this->makeMadelineSettings($apiId, $apiHash);
+                $api = new \danog\MadelineProto\API($sessionPath, $settings);
+                $auth = $api->getAuthorization();
+                if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
+                    $api->complete2faLogin($password);
+                }
+
+                $auth = $api->getAuthorization();
+                if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
+                    $self = $api->getSelf();
+                    $conn->update([
+                        'status' => 'connected',
+                        'phone' => $self['phone'] ?? null,
+                        'telegram_username' => $self['username'] ?? null,
+                    ]);
+
+                    return ['success' => true, 'logged_in' => true];
+                }
+                if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
+                    return ['success' => false, 'logged_in' => false, 'needs_2fa' => true, 'error' => 'Invalid 2FA password.'];
+                }
+
+                return ['success' => false, 'logged_in' => false, 'error' => 'Telegram is not fully authenticated yet.'];
+            });
+
+            if (($result['logged_in'] ?? false) === true) {
+                Cache::forget($cacheKey);
+            }
+
+            return is_array($result) ? $result : ['success' => false, 'logged_in' => false, 'error' => 'Unexpected 2FA response.'];
+        } catch (\Throwable $e) {
+            Log::error('Telegram complete2faLogin error: '.$e->getMessage());
+
+            return ['success' => false, 'logged_in' => false, 'error' => $e->getMessage()];
         }
     }
 }

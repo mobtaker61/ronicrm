@@ -120,6 +120,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings/instagram/callback', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'callback'])->name('settings.instagram.callback');
     Route::post('/settings/instagram/disconnect', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'disconnect'])->name('settings.instagram.disconnect');
     Route::get('/settings/telegram/qr-code', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'qrCode'])->name('settings.telegram.qr-code');
+    Route::post('/settings/telegram/complete-2fa', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'complete2fa'])->name('settings.telegram.complete-2fa');
     Route::post('/settings/telegram/disconnect', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'disconnect'])->name('settings.telegram.disconnect');
     Route::post('/settings/telegram/reset-session', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'resetSession'])->name('settings.telegram.reset-session');
     Route::post('/settings/instagram/revalidate', [\App\Http\Controllers\SettingsController::class, 'revalidateInstagramToken'])->name('settings.instagram.revalidate');

@@ -676,6 +676,27 @@
 
                         <!-- Not Connected -->
                         <div v-if="!telegramConnection" class="p-6 border border-gray-200 rounded-lg bg-gray-50">
+                            <div v-if="telegramNeeds2fa" class="mb-4 p-4 border border-amber-200 bg-amber-50 rounded-lg">
+                                <p class="text-sm text-amber-800 mb-3">
+                                    Two-step verification is enabled on this Telegram account. Enter your Telegram 2FA password to finish connection.
+                                </p>
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <input
+                                        v-model="telegram2faPassword"
+                                        type="password"
+                                        placeholder="Telegram 2FA password"
+                                        class="flex-1 px-3 py-2 border border-amber-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        @click="submitTelegram2fa"
+                                        :disabled="telegram2faLoading"
+                                        class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
+                                    >
+                                        {{ telegram2faLoading ? 'Verifying...' : 'Complete 2FA Login' }}
+                                    </button>
+                                </div>
+                            </div>
                             <div v-if="telegramQrSvg" class="mb-4">
                                 <p class="text-sm text-gray-700 mb-2">Scan this QR code with your Telegram app:</p>
                                 <div class="inline-block p-4 bg-white rounded-lg" v-html="telegramQrSvg"></div>
@@ -1123,6 +1144,9 @@ const telegramQrSvg = ref('');
 const telegramQrLoading = ref(false);
 const telegramQrError = ref('');
 const telegramQrPolling = ref(false);
+const telegramNeeds2fa = ref(false);
+const telegram2faPassword = ref('');
+const telegram2faLoading = ref(false);
 const telegramQrConnId = ref(null); // Ensure poll uses same session as displayed QR
 let telegramQrPollTimer = null;
 
@@ -1130,6 +1154,8 @@ const startTelegramQr = async () => {
     telegramQrLoading.value = true;
     telegramQrError.value = '';
     telegramQrSvg.value = '';
+    telegramNeeds2fa.value = false;
+    telegram2faPassword.value = '';
     telegramQrConnId.value = null;
     try {
         const res = await fetch(route('settings.telegram.qr-code'), { credentials: 'same-origin' });
@@ -1140,6 +1166,12 @@ const startTelegramQr = async () => {
         }
         if (data.logged_in) {
             window.location.href = route('settings.index', { tab: 'telegram' });
+            return;
+        }
+        if (data.needs_2fa) {
+            telegramNeeds2fa.value = true;
+            telegramQrError.value = 'Two-step verification is enabled on this Telegram account. Please complete 2FA login.';
+            telegramQrPolling.value = false;
             return;
         }
         if (data.qr_svg) {
@@ -1156,6 +1188,43 @@ const startTelegramQr = async () => {
     }
 };
 
+const submitTelegram2fa = async () => {
+    const password = (telegram2faPassword.value || '').trim();
+    if (!password) {
+        telegramQrError.value = 'Please enter your Telegram 2FA password.';
+        return;
+    }
+    telegram2faLoading.value = true;
+    telegramQrError.value = '';
+    try {
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const payload = {
+            password,
+            conn_id: telegramQrConnId.value,
+        };
+        const res = await fetch(route('settings.telegram.complete-2fa'), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data.logged_in || data.success) {
+            window.location.href = route('settings.index', { tab: 'telegram' });
+            return;
+        }
+        telegramQrError.value = data.error || '2FA verification failed.';
+    } catch (e) {
+        telegramQrError.value = e.message || '2FA request failed.';
+    } finally {
+        telegram2faLoading.value = false;
+    }
+};
+
 const pollTelegramQr = async () => {
     try {
         const params = new URLSearchParams({ wait: '1' });
@@ -1166,6 +1235,11 @@ const pollTelegramQr = async () => {
             if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
             telegramQrPolling.value = false;
             window.location.href = route('settings.index', { tab: 'telegram' });
+        } else if (data.needs_2fa) {
+            if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
+            telegramQrPolling.value = false;
+            telegramNeeds2fa.value = true;
+            telegramQrError.value = 'Two-step verification is enabled on this Telegram account. Please complete 2FA login.';
         } else if (data.qr_svg) {
             telegramQrSvg.value = data.qr_svg;
             if (data.conn_id) telegramQrConnId.value = data.conn_id;

@@ -42,6 +42,32 @@ class TelegramConnectionController extends Controller
     }
 
     /**
+     * Complete Telegram 2FA login after QR scan.
+     */
+    public function complete2fa(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'password' => ['required', 'string'],
+                'conn_id' => ['nullable', 'integer'],
+            ]);
+            $service = app(MadelineProtoService::class);
+            $result = $service->complete2faLogin(
+                (string) ($validated['password'] ?? ''),
+                isset($validated['conn_id']) ? (int) $validated['conn_id'] : null
+            );
+
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'logged_in' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Disconnect Telegram user account.
      * Removes ALL connected records and their session folders.
      */
