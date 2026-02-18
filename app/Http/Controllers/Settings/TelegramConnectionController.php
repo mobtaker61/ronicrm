@@ -40,11 +40,12 @@ class TelegramConnectionController extends Controller
 
     /**
      * Disconnect Telegram user account.
+     * Removes ALL connected records (handles duplicates).
      */
     public function disconnect(Request $request): RedirectResponse
     {
-        $conn = TelegramUserConnection::getActive();
-        if ($conn) {
+        $connected = TelegramUserConnection::where('status', 'connected')->get();
+        foreach ($connected as $conn) {
             $conn->update(['status' => 'expired']);
             $conn->delete();
         }

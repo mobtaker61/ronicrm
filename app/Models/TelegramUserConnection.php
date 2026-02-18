@@ -86,6 +86,19 @@ class TelegramUserConnection extends Model
     }
 
     /**
+     * Check if session file/dir still exists on disk.
+     * If user deletes session folder manually, we should treat as disconnected.
+     */
+    public function hasSessionOnDisk(): bool
+    {
+        if (!$this->session_path) {
+            return false;
+        }
+        $path = storage_path('app/' . $this->session_path);
+        return is_dir($path) || file_exists($path);
+    }
+
+    /**
      * Delete session files from disk and set status to pending for re-login.
      * Use when lightstate/session is corrupted (e.g. "Could not read the lightstate file").
      */
@@ -110,6 +123,13 @@ class TelegramUserConnection extends Model
 
     public static function getActive(): ?self
     {
-        return self::where('status', 'connected')->orderBy('updated_at', 'desc')->first();
+        $conn = self::where('status', 'connected')->orderBy('updated_at', 'desc')->first();
+        if (!$conn || !$conn->hasSessionOnDisk()) {
+            if ($conn) {
+                $conn->update(['status' => 'expired']);
+            }
+            return null;
+        }
+        return $conn;
     }
 }

@@ -1159,7 +1159,10 @@ const pollTelegramQr = async () => {
 
 const disconnectTelegram = () => {
     if (!confirm('Disconnect Telegram? You can reconnect anytime.')) return;
-    router.post(route('settings.telegram.disconnect'), {}, { preserveScroll: true });
+    router.post(route('settings.telegram.disconnect'), {}, {
+        preserveScroll: true,
+        preserveState: false, // Force fresh page props so telegramConnection updates
+    });
 };
 
 const resetTelegramSession = () => {
