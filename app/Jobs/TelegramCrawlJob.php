@@ -55,7 +55,7 @@ class TelegramCrawlJob implements ShouldQueue
 
             $authors = [];
             foreach ($messages as $msg) {
-                $uid = $msg['from_id'] ?? null;
+                $uid = $this->normalizeUserId($msg['from_id'] ?? null);
                 if ($uid && !isset($authors[$uid])) {
                     $authors[$uid] = $msg;
                 }
@@ -74,6 +74,7 @@ class TelegramCrawlJob implements ShouldQueue
             $authorsSent = [];
             $idx = 0;
             foreach ($authors as $userId => $msg) {
+                $userId = $this->normalizeUserId($userId) ?? (string) $userId;
                 $idx++;
                 $this->setProgress('running', $idx, $sent, $skipped, null, 'sending_messages', $total, null, null, $authorsSent);
                 Log::info('TelegramCrawlJob: sending to user', ['user_id' => $userId, 'idx' => $idx, 'total' => $total]);
@@ -99,12 +100,28 @@ class TelegramCrawlJob implements ShouldQueue
         }
     }
 
+    protected function normalizeUserId($fromId): ?string
+    {
+        if ($fromId === null) return null;
+        if (is_numeric($fromId)) return (string) (int) $fromId;
+        if (is_array($fromId)) {
+            $uid = $fromId['user_id'] ?? $fromId['id'] ?? null;
+            return $uid !== null ? (string) (int) $uid : null;
+        }
+        return is_string($fromId) ? preg_replace('/\D/', '', $fromId) ?: null : null;
+    }
+
     protected function alreadyMessaged(string $userId): bool
     {
-        $contact = CustomerContact::where('type', 'telegram')->where('value', $userId)->first();
-        if (!$contact) {
-            return false;
+        $userId = (string) $userId;
+        if ($userId === '') return false;
+        // Direct check: have we ever sent to this chat_id?
+        if (TelegramMessage::where('chat_id', $userId)->where('direction', 'outgoing')->exists()) {
+            return true;
         }
+        // Also check via contact -> customer (belt and suspenders)
+        $contact = CustomerContact::where('type', 'telegram')->where('value', $userId)->first();
+        if (!$contact) return false;
         return TelegramMessage::where('customer_id', $contact->customer_id)
             ->where('direction', 'outgoing')->exists();
     }
@@ -118,7 +135,7 @@ class TelegramCrawlJob implements ShouldQueue
                 'name' => 'Telegram User ' . substr($userId, -4),
                 'type' => 'person',
                 'status' => 'lead',
-                'source' => 'telegram_group_crawl',
+                'source' => 'crawl',
                 'created_by' => null,
             ]);
             $customer->contacts()->create([

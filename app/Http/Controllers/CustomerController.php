@@ -88,7 +88,7 @@ class CustomerController extends Controller
             'industry_id' => 'nullable|exists:industries,id',
             'project_id' => 'nullable|exists:projects,id',
             'status' => 'required|in:lead,prospect,customer,inactive',
-            'source' => 'required|in:website,referral,advertisement,social_media,other,whatsapp,telegram,instagram',
+            'source' => 'required|in:website,referral,advertisement,social_media,other,whatsapp,telegram,instagram,telegram_group_crawl,crawl,exhibition,direct',
             'contact_person' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
             'contacts' => 'nullable|array',
@@ -232,7 +232,7 @@ class CustomerController extends Controller
             'industry_id' => 'nullable|exists:industries,id',
             'project_id' => 'nullable|exists:projects,id',
             'status' => 'required|in:lead,prospect,customer,inactive',
-            'source' => 'required|in:website,referral,advertisement,social_media,other,whatsapp,telegram,instagram',
+            'source' => 'required|in:website,referral,advertisement,social_media,other,whatsapp,telegram,instagram,telegram_group_crawl,crawl,exhibition,direct',
             'contact_person' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
             'contacts' => 'nullable|array',
@@ -791,6 +791,10 @@ class CustomerController extends Controller
             'whatsapp' => 'whatsapp',
             'telegram' => 'telegram',
             'instagram' => 'instagram',
+            'telegram_group_crawl' => 'telegram_group_crawl',
+            'crawl' => 'crawl',
+            'exhibition' => 'exhibition',
+            'direct' => 'direct',
         ];
 
         return $sourceMap[strtolower($source)] ?? 'other';

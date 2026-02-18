@@ -110,6 +110,13 @@
                             <option value="referral">Referral</option>
                             <option value="advertisement">Advertisement</option>
                             <option value="social_media">Social Media</option>
+                            <option value="crawl">Crawl</option>
+                            <option value="exhibition">Exhibition</option>
+                            <option value="direct">Direct</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="telegram">Telegram</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="telegram_group_crawl">Telegram Group Crawl</option>
                             <option value="other">Other</option>
                         </select>
                     </div>

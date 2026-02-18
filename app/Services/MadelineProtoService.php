@@ -275,6 +275,80 @@ class MadelineProtoService
         return "https://t.me/c/{$channelId}/{$msgId}";
     }
 
+    /**
+     * Get private chat (DM) history with a user.
+     *
+     * @param string $userId Telegram user ID (peer for PM)
+     * @param int $limit Max messages to fetch
+     * @param int|null $minId Only return messages with id > min_id (for incremental fetch)
+     * @return array{ messages: array, users: array } messages=raw messages, users=resolved User entities
+     */
+    public function getPrivateChatHistory(string $userId, int $limit = 50, ?int $minId = null): array
+    {
+        return $this->run(function () use ($userId, $limit, $minId) {
+            $api = $this->getApi();
+            $api->start();
+            $messages = $api->messages->getHistory(
+                peer: (int) $userId,
+                limit: min($limit, 100),
+                offset_id: 0,
+                offset_date: 0,
+                add_offset: 0,
+                max_id: 0,
+                min_id: $minId ?? 0,
+                hash: 0,
+            );
+            $raw = $messages['messages'] ?? [];
+            $users = $messages['users'] ?? [];
+            return ['messages' => $raw, 'users' => $users];
+        });
+    }
+
+    /**
+     * Get user info (name, username, phone if available) from Telegram.
+     *
+     * @param string $userId Telegram user ID
+     * @return array{ first_name?: string, last_name?: string, username?: string, phone?: string }
+     */
+    public function getTelegramUserInfo(string $userId): array
+    {
+        try {
+            $result = $this->run(function () use ($userId) {
+                $api = $this->getApi();
+                $api->start();
+                $info = $api->getInfo((int) $userId);
+                $user = $info['User'] ?? null;
+                if (!$user || !\is_array($user)) {
+                    return [];
+                }
+                return [
+                    'first_name' => $user['first_name'] ?? '',
+                    'last_name' => $user['last_name'] ?? '',
+                    'username' => $user['username'] ?? null,
+                    'phone' => $user['phone'] ?? null,
+                ];
+            });
+            return \is_array($result) ? $result : [];
+        } catch (\Throwable $e) {
+            Log::warning('MadelineProto getTelegramUserInfo failed: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Extract message ID from API result (array or Message object).
+     */
+    protected function extractMessageId(mixed $result): ?int
+    {
+        if (\is_array($result) && isset($result['id'])) {
+            return (int) $result['id'];
+        }
+        if (\is_object($result) && isset($result->id)) {
+            return (int) $result->id;
+        }
+        return null;
+    }
+
     protected function extractUserId($fromId): ?string
     {
         if ($fromId === null) return null;
@@ -307,19 +381,37 @@ class MadelineProtoService
             $messageId = $this->run(function () use ($userId, $text, $imagePath) {
                 $api = $this->getApi();
                 $api->start();
+                $result = null;
                 if ($imagePath && file_exists($imagePath)) {
-                    $file = new \danog\MadelineProto\LocalFile($imagePath);
-                    $result = $api->sendPhoto(peer: (int) $userId, file: $file, caption: $text);
+                    try {
+                        $file = new \danog\MadelineProto\LocalFile($imagePath);
+                        $result = $api->sendPhoto(peer: (int) $userId, file: $file, caption: $text);
+                    } catch (\Throwable $e) {
+                        if (str_contains($e->getMessage(), 'Return value') || str_contains($e->getMessage(), 'as array') || str_contains($e->getMessage(), 'PrivateMessage')) {
+                            Log::warning('MadelineProto sendPhoto fallback to text: ' . $e->getMessage());
+                            $result = $api->messages->sendMessage(peer: (int) $userId, message: $text);
+                        } else {
+                            throw $e;
+                        }
+                    }
                 } else {
                     $result = $api->messages->sendMessage(peer: (int) $userId, message: $text);
                 }
-                return $result['id'] ?? null;
+                return $this->extractMessageId($result);
             });
             $this->connection?->update(['last_used_at' => now()]);
             return ['success' => true, 'message_id' => $messageId];
         } catch (\Throwable $e) {
-            Log::warning('MadelineProto sendMessage failed: ' . $e->getMessage());
-            return ['success' => false, 'error' => $e->getMessage()];
+            $msg = $e->getMessage();
+            // MadelineProto sometimes returns PrivateMessage object; internal code may throw "as array"
+            // while the message was actually sent. Treat as success so UI shows correct sent count.
+            if (str_contains($msg, 'PrivateMessage') && str_contains($msg, 'as array')) {
+                Log::info('MadelineProto sendMessage: message sent but lib threw as-array (treating as success)');
+                $this->connection?->update(['last_used_at' => now()]);
+                return ['success' => true, 'message_id' => null];
+            }
+            Log::warning('MadelineProto sendMessage failed: ' . $msg);
+            return ['success' => false, 'error' => $msg];
         }
     }
 
@@ -341,18 +433,18 @@ class MadelineProtoService
                     try {
                         $file = new \danog\MadelineProto\LocalFile($imagePath);
                         $result = $api->sendPhoto(peer: $groupId, file: $file, caption: $text);
-                        return \is_array($result) ? ($result['id'] ?? null) : (isset($result->id) ? $result->id : null);
+                        return $this->extractMessageId($result);
                     } catch (\Throwable $e) {
-                        if (str_contains($e->getMessage(), 'Return value') || str_contains($e->getMessage(), 'sendMedia')) {
-                            Log::warning('MadelineProto sendPhoto failed (type error), falling back to text only: ' . $e->getMessage());
+                        if (str_contains($e->getMessage(), 'Return value') || str_contains($e->getMessage(), 'sendMedia') || str_contains($e->getMessage(), 'as array')) {
+                            Log::warning('MadelineProto sendPhoto fallback to text: ' . $e->getMessage());
                             $result = $api->messages->sendMessage(peer: $groupId, message: $text);
-                            return $result['id'] ?? null;
+                            return $this->extractMessageId($result);
                         }
                         throw $e;
                     }
                 }
                 $result = $api->messages->sendMessage(peer: $groupId, message: $text);
-                return $result['id'] ?? null;
+                return $this->extractMessageId($result);
             });
             $this->connection?->update(['last_used_at' => now()]);
             return ['success' => true, 'message_id' => $messageId];
