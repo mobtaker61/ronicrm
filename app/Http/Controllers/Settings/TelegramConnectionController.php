@@ -42,6 +42,77 @@ class TelegramConnectionController extends Controller
     }
 
     /**
+     * Read current Telegram auth status from active session.
+     */
+    public function status(Request $request): JsonResponse
+    {
+        try {
+            $connId = $request->integer('conn_id', 0) ?: null;
+            $service = app(MadelineProtoService::class);
+            $result = $service->getConnectionStatus($connId);
+
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'logged_in' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Start Telegram phone login (send OTP).
+     */
+    public function startPhoneLogin(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'phone' => ['required', 'string', 'max:32'],
+                'conn_id' => ['nullable', 'integer'],
+            ]);
+            $service = app(MadelineProtoService::class);
+            $result = $service->startPhoneLogin(
+                (string) $validated['phone'],
+                isset($validated['conn_id']) ? (int) $validated['conn_id'] : null
+            );
+
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'logged_in' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Complete Telegram phone login with OTP code.
+     */
+    public function completePhoneLogin(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'code' => ['required', 'string', 'max:16'],
+                'conn_id' => ['nullable', 'integer'],
+            ]);
+            $service = app(MadelineProtoService::class);
+            $result = $service->completePhoneLogin(
+                (string) $validated['code'],
+                isset($validated['conn_id']) ? (int) $validated['conn_id'] : null
+            );
+
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'logged_in' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Complete Telegram 2FA login after QR scan.
      */
     public function complete2fa(Request $request): JsonResponse

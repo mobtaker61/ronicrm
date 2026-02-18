@@ -120,6 +120,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings/instagram/callback', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'callback'])->name('settings.instagram.callback');
     Route::post('/settings/instagram/disconnect', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'disconnect'])->name('settings.instagram.disconnect');
     Route::get('/settings/telegram/qr-code', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'qrCode'])->name('settings.telegram.qr-code');
+    Route::get('/settings/telegram/status', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'status'])->name('settings.telegram.status');
+    Route::post('/settings/telegram/start-phone-login', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'startPhoneLogin'])->name('settings.telegram.start-phone-login');
+    Route::post('/settings/telegram/complete-phone-login', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'completePhoneLogin'])->name('settings.telegram.complete-phone-login');
     Route::post('/settings/telegram/complete-2fa', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'complete2fa'])->name('settings.telegram.complete-2fa');
     Route::post('/settings/telegram/disconnect', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'disconnect'])->name('settings.telegram.disconnect');
     Route::post('/settings/telegram/reset-session', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'resetSession'])->name('settings.telegram.reset-session');

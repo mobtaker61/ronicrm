@@ -869,6 +869,221 @@ class MadelineProtoService
     }
 
     /**
+     * Read auth status from the current Telegram session without rotating QR.
+     */
+    public function getConnectionStatus(?int $connId = null): array
+    {
+        if (! class_exists(\danog\MadelineProto\API::class)) {
+            return ['logged_in' => false, 'error' => 'MadelineProto is not installed.'];
+        }
+        $apiId = (int) config('services.telegram.api_id');
+        $apiHash = (string) config('services.telegram.api_hash');
+        if (! $apiId || ! $apiHash) {
+            return ['logged_in' => false, 'error' => 'TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in .env'];
+        }
+
+        try {
+            $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
+            $cacheKey = self::CACHE_KEY_QR_CONN.'_'.$userId;
+            $connIdToUse = $connId ?: (Cache::get($cacheKey) ?: null);
+            $conn = $connIdToUse
+                ? TelegramUserConnection::find($connIdToUse)
+                : (TelegramUserConnection::whereIn('status', ['pending', 'connected'])->orderByDesc('updated_at')->first());
+
+            if (! $conn) {
+                return ['logged_in' => false, 'error' => 'No Telegram session found. Start QR or phone login first.'];
+            }
+
+            $sessionPath = $conn->getSessionPath();
+            $this->connection = $conn;
+
+            $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash) {
+                $settings = $this->makeMadelineSettings($apiId, $apiHash);
+                $api = new \danog\MadelineProto\API($sessionPath, $settings);
+                $auth = $api->getAuthorization();
+
+                if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
+                    $self = $api->getSelf();
+                    $conn->update([
+                        'status' => 'connected',
+                        'phone' => $self['phone'] ?? null,
+                        'telegram_username' => $self['username'] ?? null,
+                    ]);
+
+                    return ['logged_in' => true, 'conn_id' => $conn->id];
+                }
+
+                return [
+                    'logged_in' => false,
+                    'conn_id' => $conn->id,
+                    'needs_2fa' => $auth === \danog\MadelineProto\API::WAITING_PASSWORD,
+                    'waiting_code' => $auth === \danog\MadelineProto\API::WAITING_CODE,
+                ];
+            });
+
+            if (($result['logged_in'] ?? false) === true) {
+                Cache::forget($cacheKey);
+                Cache::forget(self::qrFlowLockKeyForConnection((int) $conn->id));
+            } else {
+                Cache::put($cacheKey, $conn->id, now()->addMinutes(15));
+            }
+
+            return is_array($result) ? $result : ['logged_in' => false, 'error' => 'Unexpected status response.'];
+        } catch (\Throwable $e) {
+            Log::error('Telegram getConnectionStatus error: '.$e->getMessage());
+
+            return ['logged_in' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Start phone login by sending OTP to Telegram account.
+     */
+    public function startPhoneLogin(string $phone, ?int $connId = null): array
+    {
+        if (! class_exists(\danog\MadelineProto\API::class)) {
+            return ['success' => false, 'logged_in' => false, 'error' => 'MadelineProto is not installed.'];
+        }
+        $phone = trim($phone);
+        if ($phone === '') {
+            return ['success' => false, 'logged_in' => false, 'error' => 'Phone number is required.'];
+        }
+        $apiId = (int) config('services.telegram.api_id');
+        $apiHash = (string) config('services.telegram.api_hash');
+        if (! $apiId || ! $apiHash) {
+            return ['success' => false, 'logged_in' => false, 'error' => 'TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in .env'];
+        }
+
+        try {
+            $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
+            $cacheKey = self::CACHE_KEY_QR_CONN.'_'.$userId;
+            $connIdToUse = $connId ?: (Cache::get($cacheKey) ?: null);
+            $conn = $connIdToUse
+                ? TelegramUserConnection::find($connIdToUse)
+                : ($this->connection ?? TelegramUserConnection::getActive() ?? $this->getOrCreatePendingConnection());
+            if (! $conn) {
+                $conn = $this->getOrCreatePendingConnection();
+            }
+
+            Cache::put($cacheKey, $conn->id, now()->addMinutes(15));
+            Cache::put(self::qrFlowLockKeyForConnection((int) $conn->id), true, now()->addMinutes(20));
+
+            $sessionPath = $conn->getSessionPath();
+            $this->connection = $conn;
+            if (! is_dir($sessionPath)) {
+                mkdir($sessionPath, 0755, true);
+            }
+
+            $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $phone) {
+                $settings = $this->makeMadelineSettings($apiId, $apiHash);
+                $api = new \danog\MadelineProto\API($sessionPath, $settings);
+                $api->phoneLogin($phone);
+                $auth = $api->getAuthorization();
+
+                if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
+                    $self = $api->getSelf();
+                    $conn->update([
+                        'status' => 'connected',
+                        'phone' => $self['phone'] ?? null,
+                        'telegram_username' => $self['username'] ?? null,
+                    ]);
+
+                    return ['success' => true, 'logged_in' => true, 'conn_id' => $conn->id];
+                }
+
+                if ($auth === \danog\MadelineProto\API::WAITING_CODE) {
+                    return ['success' => true, 'logged_in' => false, 'waiting_code' => true, 'conn_id' => $conn->id];
+                }
+                if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
+                    return ['success' => true, 'logged_in' => false, 'needs_2fa' => true, 'conn_id' => $conn->id];
+                }
+
+                return ['success' => false, 'logged_in' => false, 'conn_id' => $conn->id, 'error' => 'Unexpected auth state after phone login.'];
+            });
+
+            if (($result['logged_in'] ?? false) === true) {
+                Cache::forget($cacheKey);
+                Cache::forget(self::qrFlowLockKeyForConnection((int) $conn->id));
+            }
+
+            return is_array($result) ? $result : ['success' => false, 'logged_in' => false, 'error' => 'Unexpected phone login response.'];
+        } catch (\Throwable $e) {
+            Log::error('Telegram startPhoneLogin error: '.$e->getMessage());
+
+            return ['success' => false, 'logged_in' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Complete phone login with OTP code.
+     */
+    public function completePhoneLogin(string $code, ?int $connId = null): array
+    {
+        if (! class_exists(\danog\MadelineProto\API::class)) {
+            return ['success' => false, 'logged_in' => false, 'error' => 'MadelineProto is not installed.'];
+        }
+        $code = preg_replace('/\s+/', '', trim($code));
+        if ($code === '') {
+            return ['success' => false, 'logged_in' => false, 'error' => 'OTP code is required.'];
+        }
+        $apiId = (int) config('services.telegram.api_id');
+        $apiHash = (string) config('services.telegram.api_hash');
+        if (! $apiId || ! $apiHash) {
+            return ['success' => false, 'logged_in' => false, 'error' => 'TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in .env'];
+        }
+
+        try {
+            $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
+            $cacheKey = self::CACHE_KEY_QR_CONN.'_'.$userId;
+            $connIdToUse = $connId ?: (Cache::get($cacheKey) ?: null);
+            $conn = $connIdToUse
+                ? TelegramUserConnection::find($connIdToUse)
+                : (TelegramUserConnection::whereIn('status', ['pending', 'connected'])->orderByDesc('updated_at')->first());
+
+            if (! $conn) {
+                return ['success' => false, 'logged_in' => false, 'error' => 'No pending Telegram phone-login session found.'];
+            }
+
+            $sessionPath = $conn->getSessionPath();
+            $this->connection = $conn;
+
+            $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $code) {
+                $settings = $this->makeMadelineSettings($apiId, $apiHash);
+                $api = new \danog\MadelineProto\API($sessionPath, $settings);
+                $api->completePhoneLogin($code);
+                $auth = $api->getAuthorization();
+
+                if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
+                    $self = $api->getSelf();
+                    $conn->update([
+                        'status' => 'connected',
+                        'phone' => $self['phone'] ?? null,
+                        'telegram_username' => $self['username'] ?? null,
+                    ]);
+
+                    return ['success' => true, 'logged_in' => true, 'conn_id' => $conn->id];
+                }
+                if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
+                    return ['success' => true, 'logged_in' => false, 'needs_2fa' => true, 'conn_id' => $conn->id];
+                }
+
+                return ['success' => false, 'logged_in' => false, 'conn_id' => $conn->id, 'error' => 'Telegram is not fully authenticated yet.'];
+            });
+
+            if (($result['logged_in'] ?? false) === true) {
+                Cache::forget($cacheKey);
+                Cache::forget(self::qrFlowLockKeyForConnection((int) $conn->id));
+            }
+
+            return is_array($result) ? $result : ['success' => false, 'logged_in' => false, 'error' => 'Unexpected OTP response.'];
+        } catch (\Throwable $e) {
+            Log::error('Telegram completePhoneLogin error: '.$e->getMessage());
+
+            return ['success' => false, 'logged_in' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Complete Telegram 2FA login (cloud password) after QR scan.
      */
     public function complete2faLogin(string $password, ?int $connId = null): array

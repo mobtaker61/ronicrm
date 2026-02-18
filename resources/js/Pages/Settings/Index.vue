@@ -703,7 +703,7 @@
                                 <p class="text-xs text-amber-600 mt-2">Warning: Userbot usage carries account ban risk. Avoid flooding or spamming.</p>
                             </div>
                             <div v-if="telegramQrError" class="text-red-600 text-sm mb-4">{{ telegramQrError }}</div>
-                            <div v-else class="mb-4">
+                            <div v-if="!telegramQrSvg && !telegramNeeds2fa" class="mb-4">
                                 <button
                                     type="button"
                                     @click="startTelegramQr"
@@ -712,6 +712,41 @@
                                 >
                                     {{ telegramQrLoading ? 'Loading...' : 'Connect via QR Code' }}
                                 </button>
+                            </div>
+                            <div class="mt-5 pt-4 border-t border-gray-200">
+                                <p class="text-sm text-gray-700 mb-2">Or connect with phone number + OTP code:</p>
+                                <div class="flex flex-col sm:flex-row gap-2 mb-2">
+                                    <input
+                                        v-model="telegramPhoneNumber"
+                                        type="text"
+                                        placeholder="+989121234567"
+                                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        @click="startTelegramPhoneLogin"
+                                        :disabled="telegramPhoneLoginLoading"
+                                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                    >
+                                        {{ telegramPhoneLoginLoading ? 'Sending...' : 'Send OTP' }}
+                                    </button>
+                                </div>
+                                <div v-if="telegramWaitingOtp" class="flex flex-col sm:flex-row gap-2">
+                                    <input
+                                        v-model="telegramOtpCode"
+                                        type="text"
+                                        placeholder="Enter OTP code"
+                                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        @click="completeTelegramPhoneLogin"
+                                        :disabled="telegramOtpLoginLoading"
+                                        class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                                    >
+                                        {{ telegramOtpLoginLoading ? 'Verifying...' : 'Verify OTP' }}
+                                    </button>
+                                </div>
                             </div>
                             <p v-if="telegramQrPolling" class="text-sm text-gray-500">Waiting for scan... QR is stable, connection will complete automatically after scan</p>
                         </div>
@@ -1149,7 +1184,15 @@ const telegram2faPassword = ref('');
 const telegram2faLoading = ref(false);
 const telegramQrConnId = ref(null); // Ensure poll uses same session as displayed QR
 const telegramQrEndpoint = '/settings/telegram/qr-code';
+const telegramStatusEndpoint = '/settings/telegram/status';
 const telegram2faEndpoint = '/settings/telegram/complete-2fa';
+const telegramStartPhoneEndpoint = '/settings/telegram/start-phone-login';
+const telegramCompletePhoneEndpoint = '/settings/telegram/complete-phone-login';
+const telegramPhoneNumber = ref('');
+const telegramOtpCode = ref('');
+const telegramWaitingOtp = ref(false);
+const telegramPhoneLoginLoading = ref(false);
+const telegramOtpLoginLoading = ref(false);
 let telegramQrPollTimer = null;
 let telegramQrPollInFlight = false;
 
@@ -1173,6 +1216,8 @@ const startTelegramQr = async () => {
     telegramQrSvg.value = '';
     telegramNeeds2fa.value = false;
     telegram2faPassword.value = '';
+    telegramWaitingOtp.value = false;
+    telegramOtpCode.value = '';
     telegramQrConnId.value = null;
     try {
         const res = await fetch(telegramQrEndpoint, {
@@ -1205,6 +1250,112 @@ const startTelegramQr = async () => {
         telegramQrError.value = e.message || 'Failed to load QR';
     } finally {
         telegramQrLoading.value = false;
+    }
+};
+
+const checkTelegramStatus = async () => {
+    const params = new URLSearchParams();
+    if (telegramQrConnId.value) params.set('conn_id', String(telegramQrConnId.value));
+    const res = await fetch(
+        params.toString() ? `${telegramStatusEndpoint}?${params.toString()}` : telegramStatusEndpoint,
+        {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        }
+    );
+    const data = await parseJsonResponse(res);
+    if (data.conn_id) telegramQrConnId.value = data.conn_id;
+    return data;
+};
+
+const startTelegramPhoneLogin = async () => {
+    const phone = (telegramPhoneNumber.value || '').trim();
+    if (!phone) {
+        telegramQrError.value = 'Please enter phone number with country code.';
+        return;
+    }
+    telegramPhoneLoginLoading.value = true;
+    telegramQrError.value = '';
+    telegramNeeds2fa.value = false;
+    try {
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const res = await fetch(telegramStartPhoneEndpoint, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({
+                phone,
+                conn_id: telegramQrConnId.value,
+            }),
+        });
+        const data = await parseJsonResponse(res);
+        if (data.conn_id) telegramQrConnId.value = data.conn_id;
+        if (data.logged_in) {
+            window.location.href = route('settings.index', { tab: 'telegram' });
+            return;
+        }
+        if (data.needs_2fa) {
+            telegramNeeds2fa.value = true;
+            telegramQrError.value = 'Two-step verification is enabled. Complete 2FA login.';
+            return;
+        }
+        if (data.waiting_code || data.success) {
+            telegramWaitingOtp.value = true;
+            telegramQrError.value = '';
+            return;
+        }
+        telegramQrError.value = data.error || 'Could not start phone login.';
+    } catch (e) {
+        telegramQrError.value = e.message || 'Phone login request failed.';
+    } finally {
+        telegramPhoneLoginLoading.value = false;
+    }
+};
+
+const completeTelegramPhoneLogin = async () => {
+    const code = (telegramOtpCode.value || '').trim();
+    if (!code) {
+        telegramQrError.value = 'Please enter OTP code.';
+        return;
+    }
+    telegramOtpLoginLoading.value = true;
+    telegramQrError.value = '';
+    try {
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const res = await fetch(telegramCompletePhoneEndpoint, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({
+                code,
+                conn_id: telegramQrConnId.value,
+            }),
+        });
+        const data = await parseJsonResponse(res);
+        if (data.logged_in || data.success) {
+            window.location.href = route('settings.index', { tab: 'telegram' });
+            return;
+        }
+        if (data.needs_2fa) {
+            telegramNeeds2fa.value = true;
+            telegramQrError.value = 'Two-step verification is enabled. Complete 2FA login.';
+            return;
+        }
+        telegramQrError.value = data.error || 'OTP verification failed.';
+    } catch (e) {
+        telegramQrError.value = e.message || 'OTP verification request failed.';
+    } finally {
+        telegramOtpLoginLoading.value = false;
     }
 };
 
@@ -1250,6 +1401,24 @@ const pollTelegramQr = async () => {
     if (telegramQrPollInFlight) return;
     telegramQrPollInFlight = true;
     try {
+        const statusData = await checkTelegramStatus();
+        if (statusData.logged_in) {
+            if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
+            telegramQrPolling.value = false;
+            window.location.href = route('settings.index', { tab: 'telegram' });
+            return;
+        }
+        if (statusData.needs_2fa) {
+            if (telegramQrPollTimer) clearInterval(telegramQrPollTimer);
+            telegramQrPolling.value = false;
+            telegramNeeds2fa.value = true;
+            telegramQrError.value = 'Two-step verification is enabled on this Telegram account. Please complete 2FA login.';
+            return;
+        }
+        if (statusData.waiting_code) {
+            telegramWaitingOtp.value = true;
+        }
+
         const params = new URLSearchParams({ wait: '1' });
         if (telegramQrConnId.value) params.set('conn_id', String(telegramQrConnId.value));
         const res = await fetch(telegramQrEndpoint + '?' + params.toString(), {

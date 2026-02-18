@@ -449,6 +449,11 @@ class InboxController extends Controller
                     $result = $madelineService->sendPrivateMessage($toChatId, $messageToSend, $mediaPath);
                     $storeChatId = $result['resolved_chat_id'] ?? $toChatId;
                 } else {
+                    $allowBotFallback = $request->boolean('force_bot', false);
+                    if (! $allowBotFallback) {
+                        return redirect()->route('inbox.index', ['channel' => 'telegram', 'chat_id' => $toChatId])
+                            ->with('error', 'Telegram User Account is not connected. Message was not sent via bot fallback.');
+                    }
                     $telegramService = app(\App\Services\TelegramService::class);
                     $result = $telegramService->sendMessage($toChatId, $messageToSend, $mediaUrl);
                     $storeChatId = $toChatId;
