@@ -17,10 +17,15 @@ class TelegramUserConnection extends Model
         'telegram_username',
         'session_path',
         'status',
+        'auth_flow',
         'api_id_encrypted',
         'api_hash_encrypted',
         'last_used_at',
     ];
+
+    public const AUTH_FLOW_QR = 'qr';
+    public const AUTH_FLOW_PHONE_OTP = 'phone_otp';
+    public const AUTH_FLOW_PHONE_2FA = 'phone_2fa';
 
     protected function casts(): array
     {
@@ -131,5 +136,60 @@ class TelegramUserConnection extends Model
             return null;
         }
         return $conn;
+    }
+
+    /**
+     * Find connection that is in phone OTP or 2FA flow for current user.
+     * Used by completePhoneLogin when conn_id is missing - DB is source of truth.
+     */
+    public static function findForPhoneOtpFlow(?int $userId): ?self
+    {
+        $q = self::whereIn('auth_flow', [self::AUTH_FLOW_PHONE_OTP, self::AUTH_FLOW_PHONE_2FA])
+            ->whereIn('status', ['pending', 'connected']);
+        if ($userId) {
+            $q->where(function ($q) use ($userId) {
+                $q->where('user_id', $userId)->orWhereNull('user_id');
+            });
+        }
+        return $q->orderByDesc('updated_at')->first();
+    }
+
+    /**
+     * Find connection waiting for 2FA (from QR or phone flow).
+     */
+    public static function findFor2faFlow(?int $userId): ?self
+    {
+        $q = self::whereIn('auth_flow', [self::AUTH_FLOW_QR, self::AUTH_FLOW_PHONE_2FA])
+            ->whereIn('status', ['pending', 'connected']);
+        if ($userId) {
+            $q->where(function ($q) use ($userId) {
+                $q->where('user_id', $userId)->orWhereNull('user_id');
+            });
+        }
+        return $q->orderByDesc('updated_at')->first();
+    }
+
+    /**
+     * Find connection that is in QR flow for polling/2FA.
+     */
+    public static function findForQrFlow(?int $userId, ?int $connId = null): ?self
+    {
+        if ($connId) {
+            $conn = self::find($connId);
+            if ($conn && $conn->auth_flow === self::AUTH_FLOW_QR) {
+                return $conn;
+            }
+            if ($conn && in_array($conn->status, ['pending', 'connected'], true)) {
+                return $conn;
+            }
+        }
+        $q = self::where('auth_flow', self::AUTH_FLOW_QR)
+            ->whereIn('status', ['pending', 'connected']);
+        if ($userId) {
+            $q->where(function ($q) use ($userId) {
+                $q->where('user_id', $userId)->orWhereNull('user_id');
+            });
+        }
+        return $q->orderByDesc('updated_at')->first();
     }
 }
