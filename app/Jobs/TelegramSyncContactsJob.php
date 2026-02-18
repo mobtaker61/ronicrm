@@ -46,7 +46,7 @@ class TelegramSyncContactsJob implements ShouldQueue
             ->get();
 
         $customerIds = $telegramContacts
-            ->filter(fn ($c) => ctype_digit((string) $c->value))
+            ->filter(fn ($c) => ctype_digit((string) trim($c->value ?? '')))
             ->pluck('customer_id')
             ->unique()
             ->values();
