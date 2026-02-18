@@ -39,6 +39,9 @@ class MadelineProtoService
             throw new \RuntimeException('MadelineProto is not installed. Run: composer require danog/madelineproto');
         }
         $sessionPath = $this->connection->getSessionPath();
+        if (! is_dir($sessionPath) && ! file_exists($sessionPath)) {
+            throw new \RuntimeException('Telegram session files not found. Please reconnect via Settings.');
+        }
         $apiId = (int) $this->connection->getApiId();
         $apiHash = $this->connection->getApiHash();
         if (! $apiId || ! $apiHash) {
@@ -47,6 +50,10 @@ class MadelineProtoService
         }
         $settings = $this->makeMadelineSettings($apiId, $apiHash);
         $this->api = new \danog\MadelineProto\API($sessionPath, $settings);
+        if ($this->api->getAuthorization() !== \danog\MadelineProto\API::LOGGED_IN) {
+            $this->api = null;
+            throw new \RuntimeException('Telegram session is not authenticated. Please reconnect via Settings → Telegram.');
+        }
 
         return $this->api;
     }
