@@ -707,12 +707,20 @@
                             </div>
                             <div class="flex flex-col gap-2">
                                 <div class="flex gap-2">
-                                    <form @submit.prevent="resetTelegramSession" class="inline">
-                                        <button type="submit" class="px-4 py-2 border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-50 text-sm font-medium">Reset Session</button>
-                                    </form>
-                                    <form @submit.prevent="disconnectTelegram" class="inline">
-                                        <button type="submit" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium">Disconnect</button>
-                                    </form>
+                                    <button
+                                        type="button"
+                                        @click="resetTelegramSession"
+                                        class="px-4 py-2 border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-50 text-sm font-medium"
+                                    >
+                                        Reset Session
+                                    </button>
+                                    <button
+                                        type="button"
+                                        @click="disconnectTelegram"
+                                        class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium"
+                                    >
+                                        Disconnect
+                                    </button>
                                 </div>
                                 <p class="text-xs text-amber-600">If you get "lightstate" error, click Reset Session and re-connect via QR code.</p>
                             </div>
