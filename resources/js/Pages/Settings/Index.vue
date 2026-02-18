@@ -1139,7 +1139,7 @@ const startTelegramQr = async () => {
             telegramQrSvg.value = data.qr_svg;
             telegramQrConnId.value = data.conn_id ?? null;
             telegramQrPolling.value = true;
-            // Poll every 2.5s so we catch the login quickly (QR expires fast, user scans within seconds)
+            pollTelegramQr(); // First poll immediately - must be in "wait" when user scans
             telegramQrPollTimer = setInterval(pollTelegramQr, 2500);
         }
     } catch (e) {
