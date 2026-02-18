@@ -1,0 +1,103 @@
+# راهنمای بررسی Queue و Cron
+
+## ساختار فعلی
+
+### ۱. Cron Jobs مورد نیاز
+
+| Cron | زمان | کار |
+|------|------|-----|
+| `schedule:run` | هر دقیقه | اجرای دستورات زمان‌بندی‌شده (campaigns:process هر دقیقه، telegram:fetch-incoming هر ساعت) |
+| `queue:work --stop-when-empty` | هر دقیقه | پردازش Jobهای صف و خروج بعد از اتمام |
+
+### ۲. صف‌ها (Queues)
+
+- **default**: Jobهای عمومی مثل TelegramSyncContactsJob، TelegramCrawlJob، TelegramSendToGroupsJob
+- **campaigns**: Jobهای کمپین (از ProcessCampaigns)
+
+### ۳. دستورات زمان‌بندی‌شده (Schedule)
+
+- `campaigns:process` → هر دقیقه
+- `telegram:fetch-incoming` → هر ساعت (برای دریافت پیام‌های تلگرام در Inbox)
+
+---
+
+## چگونه بررسی کنیم که کار می‌کند؟
+
+### بررسی Cron
+
+از cPanel یا SSH لاگ Cron را ببینید. معمولاً در `/var/log/cron` یا از cPanel → Cron Jobs → View Log.
+
+### تست Scheduler
+
+```bash
+cd /home/roniplusae/crm
+php artisan schedule:list
+php artisan schedule:run -v
+```
+
+خروجی باید شامل `campaigns:process` و `telegram:fetch-incoming` باشد.
+
+### بررسی صف Jobها
+
+```bash
+# پردازش یک Job (برای تست)
+php artisan queue:work --once
+
+# یا مستقیم از دیتابیس:
+# SELECT id, queue, payload, attempts, created_at FROM jobs;
+```
+
+### بررسی Jobهای شکست‌خورده
+
+```bash
+php artisan queue:failed
+```
+
+برای retry:
+```bash
+php artisan queue:retry all
+```
+
+### اجرای دستی برای تست
+
+```bash
+# تست دریافت پیام تلگرام
+php artisan telegram:fetch-incoming
+
+# پردازش صف (یک Job)
+php artisan queue:work --once
+```
+
+---
+
+## خطای «start failed» در TelegramFetchIncomingJob
+
+اگر در لاگ می‌بینید:
+```
+TelegramFetchIncomingJob: start failed
+```
+
+الان جزئیات بیشتری لاگ می‌شود (exception, file, line, trace). موارد احتمالی:
+
+1. **قفل session**: یک عملیات دیگر روی session تلگرام در حال اجرا است
+2. **Timeout**: اتصال به تلگرام بیش از ۹۰ ثانیه طول کشید
+3. **محدودیت هاست**: PHP یا شبکه محدودیت دارد
+
+**راه‌حل**: دستور `withoutOverlapping(30)` اضافه شده تا اجراهای همزمان جلوگیری شود.
+
+---
+
+## خطای ۵۲۴ (Cloudflare Timeout)
+
+وقتی «اجرای فوری» برای Sync Contacts روشن است، درخواست HTTP تا اتمام sync صبر می‌کند. Cloudflare معمولاً بعد از ۱۰۰ ثانیه قطع می‌کند → خطای ۵۲۴.
+
+**راه‌حل**: گزینه «اجرای فوری» را خاموش کنید تا از Queue استفاده شود. با cron هر دقیقه، Job پردازش می‌شود.
+
+---
+
+## مسیر پروژه
+
+در cron‌ها مسیر را چک کنید:
+```
+/home/roniplusae/crm
+```

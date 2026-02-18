@@ -34,7 +34,14 @@ class TelegramFetchIncomingJob implements ShouldQueue
             $service->start();
             Log::info('TelegramFetchIncomingJob: MadelineProto started');
         } catch (\Throwable $e) {
-            Log::warning('TelegramFetchIncomingJob: start failed - ' . $e->getMessage());
+            $msg = $e->getMessage();
+            Log::warning('TelegramFetchIncomingJob: start failed', [
+                'message' => $msg ?: '(empty)',
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return;
         }
 
