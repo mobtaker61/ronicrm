@@ -2,9 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Customer;
 use App\Models\Campaign;
+use App\Models\CampaignTemplate;
+use App\Models\Customer;
 use App\Models\Industry;
+use App\Models\InstagramMessage;
+use App\Models\TelegramGroup;
+use App\Models\TelegramMessage;
+use App\Models\TelegramUserConnection;
+use App\Models\WhatsAppMessage;
+use Carbon\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -14,10 +21,23 @@ class DashboardController extends Controller
     {
         $stats = [
             'total_customers' => Customer::count(),
+            'customers_this_week' => Customer::where('created_at', '>=', Carbon::now()->startOfWeek())->count(),
             'total_campaigns' => Campaign::count(),
             'active_campaigns' => Campaign::whereIn('status', ['scheduled', 'running'])->count(),
             'total_industries' => Industry::count(),
+            'total_templates' => CampaignTemplate::whereIn('type', ['whatsapp', 'telegram'])->count(),
+            'telegram_groups' => TelegramGroup::count(),
+            'telegram_connected' => TelegramUserConnection::where('status', 'connected')->exists(),
+            'instagram_connected' => \App\Models\InstagramConnection::whereNotNull('access_token_encrypted')->exists(),
         ];
+
+        // Unread inbox messages by channel
+        $inboxUnread = [
+            'telegram' => TelegramMessage::where('direction', 'incoming')->whereNull('read_at')->count(),
+            'whatsapp' => WhatsAppMessage::where('direction', 'incoming')->whereNull('read_at')->count(),
+            'instagram' => InstagramMessage::where('direction', 'incoming')->whereNull('read_at')->count(),
+        ];
+        $stats['unread_inbox_total'] = $inboxUnread['telegram'] + $inboxUnread['whatsapp'] + $inboxUnread['instagram'];
 
         // Customer distribution by status
         $customersByStatus = Customer::selectRaw('status, count(*) as count')
@@ -25,15 +45,65 @@ class DashboardController extends Controller
             ->pluck('count', 'status')
             ->toArray();
 
+        // Customer distribution by source (telegram, crawl, exhibition, direct, etc.)
+        $customersBySource = Customer::selectRaw('source, count(*) as count')
+            ->whereNotNull('source')
+            ->where('source', '!=', '')
+            ->groupBy('source')
+            ->orderByDesc('count')
+            ->limit(6)
+            ->pluck('count', 'source')
+            ->toArray();
+
         // Customer distribution by industry
         $customersByIndustry = Industry::withCount('customers')
             ->orderBy('customers_count', 'desc')
             ->limit(5)
             ->get()
-            ->map(fn($industry) => [
+            ->map(fn ($industry) => [
                 'name' => $industry->name,
                 'count' => $industry->customers_count,
             ]);
+
+        // Recent incoming messages (last 8 from any channel)
+        $recentInbox = collect();
+        TelegramMessage::where('direction', 'incoming')
+            ->orderBy('created_at', 'desc')
+            ->limit(3)
+            ->get()
+            ->each(fn ($m) => $recentInbox->push([
+                'id' => 'tg-' . $m->id,
+                'channel' => 'telegram',
+                'from' => $m->from_username ?? $m->chat_id,
+                'message' => \Str::limit($m->message, 50),
+                'created_at' => $m->created_at,
+                'unread' => !$m->read_at,
+            ]));
+        WhatsAppMessage::where('direction', 'incoming')
+            ->orderBy('created_at', 'desc')
+            ->limit(3)
+            ->get()
+            ->each(fn ($m) => $recentInbox->push([
+                'id' => 'wa-' . $m->id,
+                'channel' => 'whatsapp',
+                'from' => $m->from_phone,
+                'message' => \Str::limit($m->message, 50),
+                'created_at' => $m->created_at,
+                'unread' => !$m->read_at,
+            ]));
+        InstagramMessage::where('direction', 'incoming')
+            ->orderBy('created_at', 'desc')
+            ->limit(3)
+            ->get()
+            ->each(fn ($m) => $recentInbox->push([
+                'id' => 'ig-' . $m->id,
+                'channel' => 'instagram',
+                'from' => $m->from_username ?? $m->ig_user_id,
+                'message' => \Str::limit($m->message, 50),
+                'created_at' => $m->created_at,
+                'unread' => !$m->read_at,
+            ]));
+        $recentInbox = $recentInbox->sortByDesc('created_at')->take(8)->values();
 
         // Recent campaigns
         $recentCampaigns = Campaign::with(['creator'])
@@ -43,8 +113,11 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'stats' => $stats,
+            'inboxUnread' => $inboxUnread,
             'customersByStatus' => $customersByStatus,
+            'customersBySource' => $customersBySource,
             'customersByIndustry' => $customersByIndustry,
+            'recentInbox' => $recentInbox,
             'recentCampaigns' => $recentCampaigns,
         ]);
     }

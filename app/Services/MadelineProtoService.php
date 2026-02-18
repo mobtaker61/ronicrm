@@ -336,6 +336,64 @@ class MadelineProtoService
     }
 
     /**
+     * Get full user info from Telegram (name, username, phone, profile photo).
+     * Uses getFullInfo for complete data. Downloads profile photo if available.
+     *
+     * @param string $userId Telegram user ID
+     * @return array{ first_name?: string, last_name?: string, username?: string, phone?: string, avatar_path?: string }
+     */
+    public function getFullTelegramUserInfo(string $userId): array
+    {
+        try {
+            $result = $this->run(function () use ($userId) {
+                $api = $this->getApi();
+                $api->start();
+                $info = $api->getFullInfo((int) $userId);
+                $user = $info['User'] ?? null;
+                if (!$user || !\is_array($user)) {
+                    return [];
+                }
+                $full = $info['full'] ?? $info['Full'] ?? [];
+                $firstName = $user['first_name'] ?? '';
+                $lastName = $user['last_name'] ?? '';
+                $username = $user['username'] ?? null;
+                $phone = $user['phone'] ?? $full['phone'] ?? null;
+
+                $avatarPath = null;
+                $profilePhoto = $full['profile_photo'] ?? null;
+                if ($profilePhoto && isset($profilePhoto['sizes']) && \is_array($profilePhoto['sizes']) && !empty($profilePhoto['sizes'])) {
+                    $largest = $profilePhoto['sizes'][\count($profilePhoto['sizes']) - 1] ?? $profilePhoto['sizes'][0];
+                    if (($largest['_'] ?? '') === 'photoSize' || ($largest['_'] ?? '') === 'photoCachedSize') {
+                        try {
+                            $dir = storage_path('app/public/telegram-avatars');
+                            if (!is_dir($dir)) {
+                                mkdir($dir, 0755, true);
+                            }
+                            $filePath = $dir . '/user_' . $userId . '_' . time() . '.jpg';
+                            $api->downloadToFile($profilePhoto, $filePath);
+                            $avatarPath = 'telegram-avatars/' . basename($filePath);
+                        } catch (\Throwable $e) {
+                            Log::debug('MadelineProto profile photo download failed: ' . $e->getMessage());
+                        }
+                    }
+                }
+
+                return [
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'username' => $username,
+                    'phone' => $phone,
+                    'avatar_path' => $avatarPath,
+                ];
+            });
+            return \is_array($result) ? $result : [];
+        } catch (\Throwable $e) {
+            Log::warning('MadelineProto getFullTelegramUserInfo failed: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
      * Extract message ID from API result (array or Message object).
      */
     protected function extractMessageId(mixed $result): ?int
