@@ -88,8 +88,12 @@
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
                                     <option value="">انتخاب تمپلیت...</option>
-                                    <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+                                    <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}{{ t.image ? ' 📷' : '' }}</option>
                                 </select>
+                                <div v-if="selectedSendToGroupsTemplate?.image" class="mt-2 p-2 border border-gray-200 rounded-lg bg-gray-50">
+                                    <p class="text-xs text-gray-500 mb-1">پیش‌نمایش تصویر تمپلیت:</p>
+                                    <img :src="selectedSendToGroupsTemplate.image" alt="Template" class="max-h-32 rounded object-cover" />
+                                </div>
                             </div>
                             <button
                                 type="button"
@@ -153,6 +157,10 @@
                                 <option value="">No template (write message below)</option>
                                 <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}{{ t.image ? ' 📷' : '' }}</option>
                             </select>
+                            <div v-if="selectedCrawlTemplate?.image" class="mt-2 p-2 border border-gray-200 rounded-lg bg-gray-50">
+                                <p class="text-xs text-gray-500 mb-1">پیش‌نمایش تصویر تمپلیت:</p>
+                                <img :src="selectedCrawlTemplate.image" alt="Template" class="max-h-32 rounded object-cover" />
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Message for authors *</label>
@@ -347,6 +355,13 @@ const statusLabel = computed(() => {
     };
     return labels[s] || s;
 });
+
+const selectedCrawlTemplate = computed(() =>
+    props.templates.find(t => String(t.id) === String(templateId.value)) || null
+);
+const selectedSendToGroupsTemplate = computed(() =>
+    props.templates.find(t => String(t.id) === String(sendToGroupsTemplateId.value)) || null
+);
 
 const loadGroups = async (refresh = false) => {
     groupsLoading.value = true;

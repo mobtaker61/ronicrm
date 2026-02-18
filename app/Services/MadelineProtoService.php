@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\TelegramUserConnection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class MadelineProtoService
@@ -60,6 +61,21 @@ class MadelineProtoService
         if (!class_exists(\danog\MadelineProto\API::class)) {
             throw new \RuntimeException('MadelineProto is not installed. Run: composer require danog/madelineproto');
         }
+        $connId = $this->connection?->id ?? 0;
+        $lockKey = 'madeline_session_' . $connId;
+        $lock = Cache::lock($lockKey, 600);
+        if (!$lock->block(120)) {
+            throw new \RuntimeException('Could not acquire Telegram session lock (another operation in progress). Try again later.');
+        }
+        try {
+            return $this->runWithLock($callback);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    protected function runWithLock(callable $callback)
+    {
         $result = null;
         $error = null;
         $timeoutId = \Revolt\EventLoop::delay($this->runTimeout, function () {
