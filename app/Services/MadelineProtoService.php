@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 class MadelineProtoService
 {
     protected ?TelegramUserConnection $connection = null;
+
     protected $api = null;
 
     public function __construct(?TelegramUserConnection $connection = null)
@@ -19,6 +20,7 @@ class MadelineProtoService
     public function setConnection(TelegramUserConnection $connection): self
     {
         $this->connection = $connection;
+
         return $this;
     }
 
@@ -30,21 +32,22 @@ class MadelineProtoService
         if ($this->api !== null) {
             return $this->api;
         }
-        if (!$this->connection || !$this->connection->isConnected()) {
+        if (! $this->connection || ! $this->connection->isConnected()) {
             throw new \RuntimeException('No active Telegram user connection.');
         }
-        if (!class_exists(\danog\MadelineProto\API::class)) {
+        if (! class_exists(\danog\MadelineProto\API::class)) {
             throw new \RuntimeException('MadelineProto is not installed. Run: composer require danog/madelineproto');
         }
         $sessionPath = $this->connection->getSessionPath();
         $apiId = (int) $this->connection->getApiId();
         $apiHash = $this->connection->getApiHash();
-        if (!$apiId || !$apiHash) {
+        if (! $apiId || ! $apiHash) {
             $apiId = (int) config('services.telegram.api_id');
             $apiHash = config('services.telegram.api_hash');
         }
         $settings = $this->makeMadelineSettings($apiId, $apiHash);
         $this->api = new \danog\MadelineProto\API($sessionPath, $settings);
+
         return $this->api;
     }
 
@@ -58,13 +61,13 @@ class MadelineProtoService
      */
     protected function run(callable $callback)
     {
-        if (!class_exists(\danog\MadelineProto\API::class)) {
+        if (! class_exists(\danog\MadelineProto\API::class)) {
             throw new \RuntimeException('MadelineProto is not installed. Run: composer require danog/madelineproto');
         }
         $connId = $this->connection?->id ?? 0;
-        $lockKey = 'madeline_session_' . $connId;
+        $lockKey = 'madeline_session_'.$connId;
         $lock = Cache::lock($lockKey, 600);
-        if (!$lock->block(120)) {
+        if (! $lock->block(120)) {
             throw new \RuntimeException('Could not acquire Telegram session lock (another operation in progress). Try again later.');
         }
         try {
@@ -106,6 +109,7 @@ class MadelineProtoService
             $wrap = new \RuntimeException("MadelineProto error: {$cls}: {$msg}", (int) $error->getCode(), $error);
             throw $wrap;
         }
+
         return $result;
     }
 
@@ -125,8 +129,8 @@ class MadelineProtoService
             ->orderByDesc('updated_at')
             ->get();
         foreach ($pendings as $c) {
-            $path = storage_path('app/' . $c->session_path);
-            if (!is_dir($path) && !file_exists($path)) {
+            $path = storage_path('app/'.$c->session_path);
+            if (! is_dir($path) && ! file_exists($path)) {
                 continue;
             }
             try {
@@ -141,29 +145,34 @@ class MadelineProtoService
                             'phone' => $self['phone'] ?? null,
                             'telegram_username' => $self['username'] ?? null,
                         ]);
+
                         return true;
                     }
+
                     return false;
                 });
                 if ($result) {
                     $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
-                    Cache::forget(self::CACHE_KEY_QR_CONN . '_' . $userId);
+                    Cache::forget(self::CACHE_KEY_QR_CONN.'_'.$userId);
+
                     return ['logged_in' => true];
                 }
             } catch (\Throwable $e) {
-                Log::debug('MadelineProto checkSessionLoggedIn: ' . $e->getMessage());
+                Log::debug('MadelineProto checkSessionLoggedIn: '.$e->getMessage());
             }
         }
+
         return null;
     }
 
     protected function makeMadelineSettings(int $apiId, string $apiHash): \danog\MadelineProto\Settings
     {
-        $settings = new \danog\MadelineProto\Settings();
+        $settings = new \danog\MadelineProto\Settings;
         $settings->getAppInfo()->setApiId($apiId)->setApiHash($apiHash);
         $settings->getLogger()
             ->setType(\danog\MadelineProto\Logger::LOGGER_FILE)
             ->setExtra(storage_path('logs/madelineproto.log'));
+
         return $settings;
     }
 
@@ -195,7 +204,9 @@ class MadelineProtoService
             $result = [];
             foreach ($dialogs as $dialog) {
                 $peer = $dialog['peer'] ?? null;
-                if (!$peer) continue;
+                if (! $peer) {
+                    continue;
+                }
                 $chat = $dialog['peer'] ?? $dialog;
                 $id = $api->getId($peer);
                 $title = $this->extractDialogTitle($dialog, $api);
@@ -206,6 +217,7 @@ class MadelineProtoService
                     'type' => $type,
                 ];
             }
+
             return $result;
         });
     }
@@ -213,14 +225,21 @@ class MadelineProtoService
     protected function extractDialogTitle(array $dialog, $api): string
     {
         $peer = $dialog['peer'] ?? null;
-        if (!$peer) return 'Unknown';
-        if (isset($peer['title'])) return $peer['title'];
-        if (isset($peer['first_name'])) {
-            return trim(($peer['first_name'] ?? '') . ' ' . ($peer['last_name'] ?? ''));
+        if (! $peer) {
+            return 'Unknown';
         }
-        if (isset($dialog['name'])) return $dialog['name'];
+        if (isset($peer['title'])) {
+            return $peer['title'];
+        }
+        if (isset($peer['first_name'])) {
+            return trim(($peer['first_name'] ?? '').' '.($peer['last_name'] ?? ''));
+        }
+        if (isset($dialog['name'])) {
+            return $dialog['name'];
+        }
         try {
             $entity = $api->getInfo($peer);
+
             return $entity['User']['first_name'] ?? $entity['Chat']['title'] ?? 'Unknown';
         } catch (\Throwable) {
             return 'Unknown';
@@ -240,9 +259,10 @@ class MadelineProtoService
                 if (in_array($t, ['chat', 'group', 'supergroup', 'channel'], true)) {
                     return $t === 'chat' ? 'group' : $t;
                 }
+
                 return 'user';
             } catch (\Throwable $e) {
-                Log::warning('MadelineProto getPeerType getInfo failed: ' . $e->getMessage());
+                Log::warning('MadelineProto getPeerType getInfo failed: '.$e->getMessage());
             }
         }
         $type = $peer['_'] ?? '';
@@ -252,6 +272,7 @@ class MadelineProtoService
         if (str_contains($type, 'Chat')) {
             return 'group';
         }
+
         return 'user';
     }
 
@@ -259,8 +280,8 @@ class MadelineProtoService
      * Get messages from a chat/group. Returns all messages with metadata for display;
      * valid messages (with user author) are usable for sending.
      *
-     * @param string $peerId Chat/group ID (e.g. -1001234567890)
-     * @param int $limit Number of messages to fetch
+     * @param  string  $peerId  Chat/group ID (e.g. -1001234567890)
+     * @param  int  $limit  Number of messages to fetch
      * @return array{valid: array, all: array} valid=for authors, all=every message for preview
      */
     public function getGroupMessages(string $peerId, int $limit = 50): array
@@ -270,12 +291,12 @@ class MadelineProtoService
             $api->start();
             $fetchPeerId = $peerId;
             $info = $api->getInfo($peerId);
-            $isChannel = ($info['Chat']['broadcast'] ?? false) && !($info['Chat']['megagroup'] ?? false);
+            $isChannel = ($info['Chat']['broadcast'] ?? false) && ! ($info['Chat']['megagroup'] ?? false);
             if ($isChannel) {
                 $full = $api->getFullInfo($peerId);
                 $linkedChatId = $full['linked_chat_id'] ?? $full['full_chat']['linked_chat_id'] ?? null;
                 if ($linkedChatId) {
-                    $fetchPeerId = '-100' . $linkedChatId;
+                    $fetchPeerId = '-100'.$linkedChatId;
                     Log::info('MadelineProto: channel has discussion group, fetching from', ['linked' => $fetchPeerId]);
                 }
             }
@@ -289,7 +310,7 @@ class MadelineProtoService
                 $fromIdRaw = $msg['from_id'] ?? null;
                 $fromType = is_array($fromIdRaw) ? ($fromIdRaw['_'] ?? 'empty') : (is_numeric($fromIdRaw) ? 'user_id' : 'empty');
                 $fromId = $this->extractUserId($fromIdRaw);
-                if (!$fromId && !empty($msg['fwd_from']['from_id'])) {
+                if (! $fromId && ! empty($msg['fwd_from']['from_id'])) {
                     $fromId = $this->extractUserId($msg['fwd_from']['from_id']);
                     $fromType = $fromId ? 'fwd_from' : $fromType;
                 }
@@ -312,22 +333,26 @@ class MadelineProtoService
                     ];
                 }
             }
+
             return ['valid' => $valid, 'all' => $all];
         });
     }
 
     protected function makeMessageLink(string $peerId, ?int $msgId, string $channelId): ?string
     {
-        if ($msgId === null) return null;
+        if ($msgId === null) {
+            return null;
+        }
+
         return "https://t.me/c/{$channelId}/{$msgId}";
     }
 
     /**
      * Get private chat (DM) history with a user.
      *
-     * @param string $userId Telegram user ID (peer for PM)
-     * @param int $limit Max messages to fetch
-     * @param int|null $minId Only return messages with id > min_id (for incremental fetch)
+     * @param  string  $userId  Telegram user ID (peer for PM)
+     * @param  int  $limit  Max messages to fetch
+     * @param  int|null  $minId  Only return messages with id > min_id (for incremental fetch)
      * @return array{ messages: array, users: array } messages=raw messages, users=resolved User entities
      */
     public function getPrivateChatHistory(string $userId, int $limit = 50, ?int $minId = null): array
@@ -343,10 +368,11 @@ class MadelineProtoService
                 add_offset: 0,
                 max_id: 0,
                 min_id: $minId ?? 0,
-                hash: 0,
+                hash: [0],
             );
             $raw = $messages['messages'] ?? [];
             $users = $messages['users'] ?? [];
+
             return ['messages' => $raw, 'users' => $users];
         });
     }
@@ -354,7 +380,7 @@ class MadelineProtoService
     /**
      * Get user info (name, username, phone if available) from Telegram.
      *
-     * @param string $userId Telegram user ID
+     * @param  string  $userId  Telegram user ID
      * @return array{ first_name?: string, last_name?: string, username?: string, phone?: string }
      */
     public function getTelegramUserInfo(string $userId): array
@@ -365,9 +391,10 @@ class MadelineProtoService
                 $api->start();
                 $info = $api->getInfo((int) $userId);
                 $user = $info['User'] ?? null;
-                if (!$user || !\is_array($user)) {
+                if (! $user || ! \is_array($user)) {
                     return [];
                 }
+
                 return [
                     'first_name' => $user['first_name'] ?? '',
                     'last_name' => $user['last_name'] ?? '',
@@ -375,9 +402,11 @@ class MadelineProtoService
                     'phone' => $user['phone'] ?? null,
                 ];
             });
+
             return \is_array($result) ? $result : [];
         } catch (\Throwable $e) {
-            Log::warning('MadelineProto getTelegramUserInfo failed: ' . $e->getMessage());
+            Log::warning('MadelineProto getTelegramUserInfo failed: '.$e->getMessage());
+
             return [];
         }
     }
@@ -386,7 +415,7 @@ class MadelineProtoService
      * Get full user info from Telegram (name, username, phone, profile photo).
      * Uses getFullInfo for complete data. Downloads profile photo if available.
      *
-     * @param string $userId Telegram user ID
+     * @param  string  $userId  Telegram user ID
      * @return array{ first_name?: string, last_name?: string, username?: string, phone?: string, avatar_path?: string }
      */
     public function getFullTelegramUserInfo(string $userId): array
@@ -397,7 +426,7 @@ class MadelineProtoService
                 $api->start();
                 $info = $api->getFullInfo((int) $userId);
                 $user = $info['User'] ?? null;
-                if (!$user || !\is_array($user)) {
+                if (! $user || ! \is_array($user)) {
                     return [];
                 }
                 $full = $info['full'] ?? $info['Full'] ?? [];
@@ -408,19 +437,19 @@ class MadelineProtoService
 
                 $avatarPath = null;
                 $profilePhoto = $full['profile_photo'] ?? null;
-                if ($profilePhoto && isset($profilePhoto['sizes']) && \is_array($profilePhoto['sizes']) && !empty($profilePhoto['sizes'])) {
+                if ($profilePhoto && isset($profilePhoto['sizes']) && \is_array($profilePhoto['sizes']) && ! empty($profilePhoto['sizes'])) {
                     $largest = $profilePhoto['sizes'][\count($profilePhoto['sizes']) - 1] ?? $profilePhoto['sizes'][0];
                     if (($largest['_'] ?? '') === 'photoSize' || ($largest['_'] ?? '') === 'photoCachedSize') {
                         try {
                             $dir = storage_path('app/public/telegram-avatars');
-                            if (!is_dir($dir)) {
+                            if (! is_dir($dir)) {
                                 mkdir($dir, 0755, true);
                             }
-                            $filePath = $dir . '/user_' . $userId . '_' . time() . '.jpg';
+                            $filePath = $dir.'/user_'.$userId.'_'.time().'.jpg';
                             $api->downloadToFile($profilePhoto, $filePath);
-                            $avatarPath = 'telegram-avatars/' . basename($filePath);
+                            $avatarPath = 'telegram-avatars/'.basename($filePath);
                         } catch (\Throwable $e) {
-                            Log::debug('MadelineProto profile photo download failed: ' . $e->getMessage());
+                            Log::debug('MadelineProto profile photo download failed: '.$e->getMessage());
                         }
                     }
                 }
@@ -433,9 +462,11 @@ class MadelineProtoService
                     'avatar_path' => $avatarPath,
                 ];
             });
+
             return \is_array($result) ? $result : [];
         } catch (\Throwable $e) {
-            Log::warning('MadelineProto getFullTelegramUserInfo failed: ' . $e->getMessage());
+            Log::warning('MadelineProto getFullTelegramUserInfo failed: '.$e->getMessage());
+
             return [];
         }
     }
@@ -451,6 +482,7 @@ class MadelineProtoService
         if (\is_object($result) && isset($result->id)) {
             return (int) $result->id;
         }
+
         return null;
     }
 
@@ -459,7 +491,7 @@ class MadelineProtoService
      */
     protected function resolveMediaFile(?string $pathOrUrl)
     {
-        if (!$pathOrUrl || trim($pathOrUrl) === '') {
+        if (! $pathOrUrl || trim($pathOrUrl) === '') {
             return null;
         }
         $pathOrUrl = trim($pathOrUrl);
@@ -467,8 +499,8 @@ class MadelineProtoService
             return new \danog\MadelineProto\RemoteUrl($pathOrUrl);
         }
         $localPath = $pathOrUrl;
-        if (!file_exists($pathOrUrl) && !str_starts_with($pathOrUrl, '/') && !preg_match('#^[A-Za-z]:[\\\\/]#', $pathOrUrl)) {
-            $localPath = storage_path('app/public/' . ltrim($pathOrUrl, '/'));
+        if (! file_exists($pathOrUrl) && ! str_starts_with($pathOrUrl, '/') && ! preg_match('#^[A-Za-z]:[\\\\/]#', $pathOrUrl)) {
+            $localPath = storage_path('app/public/'.ltrim($pathOrUrl, '/'));
         }
         if (file_exists($localPath)) {
             return new \danog\MadelineProto\LocalFile($localPath);
@@ -476,41 +508,51 @@ class MadelineProtoService
         if (file_exists($pathOrUrl)) {
             return new \danog\MadelineProto\LocalFile($pathOrUrl);
         }
+
         return null;
     }
 
     protected function extractUserId($fromId): ?string
     {
-        if ($fromId === null) return null;
+        if ($fromId === null) {
+            return null;
+        }
         // MadelineProto can return from_id as plain integer (user_id)
         if (is_numeric($fromId)) {
             return (string) (int) $fromId;
         }
-        if (!is_array($fromId)) return null;
+        if (! is_array($fromId)) {
+            return null;
+        }
         $t = $fromId['_'] ?? '';
         if ($t === 'peerUser') {
             return (string) ($fromId['user_id'] ?? null);
         }
-        if ($t === 'peerChannel') return null;
-        if (isset($fromId['user_id'])) return (string) $fromId['user_id'];
+        if ($t === 'peerChannel') {
+            return null;
+        }
+        if (isset($fromId['user_id'])) {
+            return (string) $fromId['user_id'];
+        }
+
         return null;
     }
 
     /**
      * Send private message to user. Accepts user ID (numeric) or username (@handle or handle).
      *
-     * @param string $peer Telegram user ID (e.g. "5166408066") or username ("@ronakpanahi" or "ronakpanahi")
-     * @param string $text Message text (or caption when image is present)
-     * @param string|null $imagePath Full path to image file, or URL for RemoteUrl
+     * @param  string  $peer  Telegram user ID (e.g. "5166408066") or username ("@ronakpanahi" or "ronakpanahi")
+     * @param  string  $text  Message text (or caption when image is present)
+     * @param  string|null  $imagePath  Full path to image file, or URL for RemoteUrl
      * @return array { success: bool, message_id?: int, error?: string, resolved_chat_id?: string }
      */
     public function sendPrivateMessage(string $peer, string $text, ?string $imagePath = null): array
     {
         $peer = trim($peer);
-        $isNumeric = ctype_digit($peer) || (is_numeric($peer) && (string)(int)$peer === $peer);
-        $apiPeer = $isNumeric ? (int) $peer : ($peer[0] === '@' ? $peer : '@' . $peer);
+        $isNumeric = ctype_digit($peer) || (is_numeric($peer) && (string) (int) $peer === $peer);
+        $apiPeer = $isNumeric ? (int) $peer : ($peer[0] === '@' ? $peer : '@'.$peer);
 
-        Log::info('MadelineProtoService::sendPrivateMessage', ['peer' => $apiPeer, 'has_image' => !empty($imagePath)]);
+        Log::info('MadelineProtoService::sendPrivateMessage', ['peer' => $apiPeer, 'has_image' => ! empty($imagePath)]);
         try {
             $out = $this->run(function () use ($apiPeer, $text, $imagePath) {
                 $api = $this->getApi();
@@ -522,7 +564,7 @@ class MadelineProtoService
                         $result = $api->sendPhoto(peer: $apiPeer, file: $file, caption: $text);
                     } catch (\Throwable $e) {
                         if (str_contains($e->getMessage(), 'Return value') || str_contains($e->getMessage(), 'as array') || str_contains($e->getMessage(), 'PrivateMessage')) {
-                            Log::warning('MadelineProto sendPhoto fallback to text: ' . $e->getMessage());
+                            Log::warning('MadelineProto sendPhoto fallback to text: '.$e->getMessage());
                             $result = $api->messages->sendMessage(peer: $apiPeer, message: $text);
                         } else {
                             throw $e;
@@ -533,10 +575,12 @@ class MadelineProtoService
                 }
                 $msgId = $this->extractMessageId($result);
                 $resolvedId = (string) $api->getId($apiPeer);
+
                 return ['message_id' => $msgId, 'resolved_chat_id' => $resolvedId];
             });
 
             $this->connection?->update(['last_used_at' => now()]);
+
             return [
                 'success' => true,
                 'message_id' => $out['message_id'] ?? null,
@@ -549,9 +593,11 @@ class MadelineProtoService
             if (str_contains($msg, 'PrivateMessage') && str_contains($msg, 'as array')) {
                 Log::info('MadelineProto sendMessage: message sent but lib threw as-array (treating as success)');
                 $this->connection?->update(['last_used_at' => now()]);
+
                 return ['success' => true, 'message_id' => null];
             }
-            Log::warning('MadelineProto sendMessage failed: ' . $msg);
+            Log::warning('MadelineProto sendMessage failed: '.$msg);
+
             return ['success' => false, 'error' => $msg];
         }
     }
@@ -559,9 +605,9 @@ class MadelineProtoService
     /**
      * Send message to a group (as group post).
      *
-     * @param string $groupId Group/Channel ID (e.g. -1001234567890)
-     * @param string $text Message text (or caption when image is present)
-     * @param string|null $imagePath Full path to image file
+     * @param  string  $groupId  Group/Channel ID (e.g. -1001234567890)
+     * @param  string  $text  Message text (or caption when image is present)
+     * @param  string|null  $imagePath  Full path to image file
      * @return array { success: bool, message_id?: int, error?: string }
      */
     public function sendGroupMessage(string $groupId, string $text, ?string $imagePath = null): array
@@ -574,23 +620,28 @@ class MadelineProtoService
                     try {
                         $file = new \danog\MadelineProto\LocalFile($imagePath);
                         $result = $api->sendPhoto(peer: $groupId, file: $file, caption: $text);
+
                         return $this->extractMessageId($result);
                     } catch (\Throwable $e) {
                         if (str_contains($e->getMessage(), 'Return value') || str_contains($e->getMessage(), 'sendMedia') || str_contains($e->getMessage(), 'as array')) {
-                            Log::warning('MadelineProto sendPhoto fallback to text: ' . $e->getMessage());
+                            Log::warning('MadelineProto sendPhoto fallback to text: '.$e->getMessage());
                             $result = $api->messages->sendMessage(peer: $groupId, message: $text);
+
                             return $this->extractMessageId($result);
                         }
                         throw $e;
                     }
                 }
                 $result = $api->messages->sendMessage(peer: $groupId, message: $text);
+
                 return $this->extractMessageId($result);
             });
             $this->connection?->update(['last_used_at' => now()]);
+
             return ['success' => true, 'message_id' => $messageId];
         } catch (\Throwable $e) {
-            Log::warning('MadelineProto sendGroupMessage failed: ' . $e->getMessage());
+            Log::warning('MadelineProto sendGroupMessage failed: '.$e->getMessage());
+
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
@@ -605,15 +656,16 @@ class MadelineProtoService
         $conn = TelegramUserConnection::whereIn('status', ['pending', 'connected'])
             ->orderByDesc('updated_at')
             ->first();
+
         return $conn ?? TelegramUserConnection::create(['status' => 'pending']);
     }
 
     protected function deleteSessionFolder(TelegramUserConnection $conn): void
     {
-        if (!$conn->session_path) {
+        if (! $conn->session_path) {
             return;
         }
-        $path = storage_path('app/' . $conn->session_path);
+        $path = storage_path('app/'.$conn->session_path);
         try {
             if (is_dir($path)) {
                 $files = new \RecursiveIteratorIterator(
@@ -628,7 +680,7 @@ class MadelineProtoService
                 unlink($path);
             }
         } catch (\Throwable $e) {
-            Log::warning('MadelineProto could not delete session folder: ' . $e->getMessage());
+            Log::warning('MadelineProto could not delete session folder: '.$e->getMessage());
         }
     }
 
@@ -638,23 +690,29 @@ class MadelineProtoService
     /**
      * Initiate QR login. Returns SVG of QR code or null if already logged in.
      *
-     * @param bool $wait If true, wait up to 5s for user to scan (for polling).
-     * @param int|null $connId If set, use this specific connection (ensures poll uses same session as QR).
+     * @param  bool  $wait  If true, wait up to 5s for user to scan (for polling).
+     * @param  int|null  $connId  If set, use this specific connection (ensures poll uses same session as QR).
      * @return array { qr_svg?: string, conn_id?: int, logged_in: bool, needs_2fa?: bool, error?: string }
      */
     public function getQrCode(bool $wait = false, ?int $connId = null): array
     {
-        if (!class_exists(\danog\MadelineProto\API::class)) {
+        if (! class_exists(\danog\MadelineProto\API::class)) {
             return ['error' => 'MadelineProto is not installed. Run: composer require danog/madelineproto'];
         }
         $apiId = (int) config('services.telegram.api_id');
         $apiHash = config('services.telegram.api_hash');
-        if (!$apiId || !$apiHash) {
+        if (! $apiId || ! $apiHash) {
             return ['error' => 'TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in .env'];
         }
+
+        // رفع خطای MadelineProto WebRunner: در Laravel مسیر REQUEST_URI با root dir مطابقت ندارد.
+        // با تنظیم موقت به /، getAbsoluteRootDir() درست کار می‌کند (public/ با /).
+        $savedRequestUri = $_SERVER['REQUEST_URI'] ?? null;
+        $_SERVER['REQUEST_URI'] = '/index.php';
+
         try {
             $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
-            $cacheKey = self::CACHE_KEY_QR_CONN . '_' . $userId;
+            $cacheKey = self::CACHE_KEY_QR_CONN.'_'.$userId;
 
             $conn = null;
             $cachedConnId = Cache::get($cacheKey);
@@ -662,13 +720,13 @@ class MadelineProtoService
 
             if ($connIdToUse) {
                 $conn = TelegramUserConnection::find($connIdToUse);
-                if (!$conn || !in_array($conn->status, ['pending', 'connected'], true)) {
+                if (! $conn || ! in_array($conn->status, ['pending', 'connected'], true)) {
                     $conn = null;
                     Cache::forget($cacheKey);
                 }
             }
 
-            if (!$conn) {
+            if (! $conn) {
                 if ($wait) {
                     return ['error' => 'QR session expired. Please click "Connect via QR Code" again.', 'logged_in' => false];
                 }
@@ -689,7 +747,7 @@ class MadelineProtoService
 
             // On Windows, Amp\File's ParallelFilesystemDriver often fails on createDirectory.
             // Pre-create the session directory with native PHP so MadelineProto skips it.
-            if (!is_dir($sessionPath)) {
+            if (! is_dir($sessionPath)) {
                 mkdir($sessionPath, 0755, true);
             }
 
@@ -712,7 +770,7 @@ class MadelineProtoService
                     'qr_class' => $qr ? get_class($qr) : null,
                     'auth' => $api->getAuthorization(),
                 ]);
-                if (!$qr) {
+                if (! $qr) {
                     $auth = $api->getAuthorization();
                     if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
                         $self = $api->getSelf();
@@ -722,12 +780,14 @@ class MadelineProtoService
                             'telegram_username' => $self['username'] ?? null,
                         ]);
                         $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
-                        Cache::forget(self::CACHE_KEY_QR_CONN . '_' . $userId);
+                        Cache::forget(self::CACHE_KEY_QR_CONN.'_'.$userId);
+
                         return ['logged_in' => true];
                     }
                     if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
                         return ['logged_in' => false, 'needs_2fa' => true];
                     }
+
                     return ['logged_in' => false];
                 }
                 // Persist session so next poll returns same QR instead of creating a new one
@@ -739,6 +799,7 @@ class MadelineProtoService
                 if (method_exists($wrapper, 'serialize')) {
                     $wrapper->serialize();
                 }
+
                 return [
                     'logged_in' => false,
                     'qr_svg' => $qr->getQRSvg(400, 2),
@@ -750,10 +811,14 @@ class MadelineProtoService
                 'result_type' => gettype($result),
                 'result' => is_array($result) ? array_keys($result) : $result,
             ]);
-            return is_array($result) ? $result : ['logged_in' => false, 'error' => 'Unknown response (type: ' . gettype($result) . ')'];
+
+            return is_array($result) ? $result : ['logged_in' => false, 'error' => 'Unknown response (type: '.gettype($result).')'];
         } catch (\Throwable $e) {
-            Log::error('Telegram getQrCode error: ' . $e->getMessage());
+            Log::error('Telegram getQrCode error: '.$e->getMessage());
+
             return ['error' => $e->getMessage(), 'logged_in' => false];
+        } finally {
+            $_SERVER['REQUEST_URI'] = $savedRequestUri ?? '/';
         }
     }
 }
