@@ -382,6 +382,16 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
                                     </button>
+                                    <button
+                                        type="button"
+                                        @click="showTemplatePicker = true"
+                                        class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                                        title="انتخاب تمپلت"
+                                    >
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    </button>
                                     <textarea
                                         ref="messageTextarea"
                                         v-model="newMessage"
@@ -664,6 +674,13 @@
             @close="showMediaPicker = false"
             @select="onMediaSelect"
         />
+
+        <TemplatePickerModal
+            :show="showTemplatePicker"
+            :templates="templates"
+            @close="showTemplatePicker = false"
+            @select="onTemplateSelect"
+        />
     </AppLayout>
 </template>
 
@@ -672,6 +689,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { Link, useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import MediaPickerModal from '@/Components/MediaPickerModal.vue';
+import TemplatePickerModal from '@/Components/TemplatePickerModal.vue';
 import { debounce } from 'lodash-es';
 
 const props = defineProps({
@@ -707,6 +725,10 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    templates: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const channel = computed(() => props.channel || 'whatsapp');
@@ -730,6 +752,7 @@ const messagesContainer = ref(null);
 const messageTextarea = ref(null);
 const page = usePage();
 const instagramPollInterval = ref(null);
+const telegramPollInterval = ref(null);
 const instagramPollPrevCount = ref(0);
 const instagramPollPrevUnread = ref(0);
 const notificationPermission = ref(typeof Notification !== 'undefined' ? Notification.permission : 'denied');
@@ -927,6 +950,9 @@ const selectConversation = (contactId) => {
 };
 
 const showMediaPicker = ref(false);
+const showTemplatePicker = ref(false);
+
+const templates = computed(() => props.templates || []);
 const sendingMessage = ref(false);
 
 const handleFileSelect = (event) => {
@@ -950,6 +976,26 @@ const onMediaSelect = (file) => {
     sendForm.media_url = fullUrl;
     sendForm.media_file = null;
     selectedFile.value = { name: file.name, url: fullUrl };
+};
+
+function stripHtmlToText(html) {
+    if (!html) return '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const text = tmp.textContent || tmp.innerText || '';
+    return text.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+const onTemplateSelect = ({ content, image }) => {
+    const plainText = stripHtmlToText(content);
+    newMessage.value = (newMessage.value ? newMessage.value + '\n' : '') + (plainText || '');
+    if (image) {
+        const fullUrl = image.startsWith('http') ? image : (window.location.origin + (image.startsWith('/') ? image : '/' + image));
+        sendForm.media_url = fullUrl;
+        sendForm.media_file = null;
+        selectedFile.value = { name: 'template-image', url: fullUrl };
+    }
+    nextTick(() => autoResizeTextarea());
 };
 
 const sendMessage = () => {
@@ -1118,6 +1164,16 @@ function runInstagramPoll() {
     });
 }
 
+function runTelegramPoll() {
+    const params = { channel: 'telegram' };
+    if (props.selectedChatId) params.chat_id = props.selectedChatId;
+    router.get(route('inbox.index'), params, {
+        preserveState: true,
+        preserveScroll: true,
+        only: ['conversations', 'messages', 'selectedCustomer'],
+    });
+}
+
 onMounted(() => {
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
@@ -1138,11 +1194,20 @@ onMounted(() => {
         runInstagramPoll();
         instagramPollInterval.value = setInterval(runInstagramPoll, 15000);
     }
+
+    // Telegram: real-time polling (مشابه اینستاگرام)
+    if (channel.value === 'telegram') {
+        runTelegramPoll();
+        telegramPollInterval.value = setInterval(runTelegramPoll, 15000);
+    }
 });
 
 onUnmounted(() => {
     if (instagramPollInterval.value) {
         clearInterval(instagramPollInterval.value);
+    }
+    if (telegramPollInterval.value) {
+        clearInterval(telegramPollInterval.value);
     }
 });
 </script>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CampaignTemplate;
 use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\CustomerSocialMedia;
@@ -248,6 +249,21 @@ class InboxController extends Controller
             }
         }
 
+        $templateType = match ($channel) {
+            'telegram' => 'telegram',
+            'instagram' => 'whatsapp',
+            default => 'whatsapp',
+        };
+        $templates = CampaignTemplate::where('type', $templateType)
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'content' => $t->content,
+                'image' => $t->image ? asset('storage/' . $t->image) : null,
+            ]);
+
         return Inertia::render('Inbox/Index', [
             'channel' => $channel,
             'conversations' => $conversations,
@@ -257,6 +273,7 @@ class InboxController extends Controller
             'selectedIgUserId' => $channel === 'instagram' ? $selectedContact : null,
             'searchResults' => $searchResults,
             'selectedCustomer' => $selectedCustomer ?? null,
+            'templates' => $templates,
         ]);
     }
 
