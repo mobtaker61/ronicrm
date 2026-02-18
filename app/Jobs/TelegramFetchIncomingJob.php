@@ -23,13 +23,14 @@ class TelegramFetchIncomingJob implements ShouldQueue
     {
         $conn = TelegramUserConnection::getActive();
         if (!$conn || !$conn->isConnected()) {
-            Log::info('TelegramFetchIncomingJob: No active connection, skipping');
+            Log::warning('TelegramFetchIncomingJob: No active connection, skipping');
             return;
         }
 
         $service = new MadelineProtoService($conn);
         try {
             $service->start();
+            Log::info('TelegramFetchIncomingJob: MadelineProto started');
         } catch (\Throwable $e) {
             Log::warning('TelegramFetchIncomingJob: start failed - ' . $e->getMessage());
             return;
@@ -45,8 +46,10 @@ class TelegramFetchIncomingJob implements ShouldQueue
             }
         }
 
+        Log::info('TelegramFetchIncomingJob', ['total_dialogs' => count($dialogs), 'user_peers' => count($userPeerIds), 'sample_types' => array_slice(array_column($dialogs, 'type'), 0, 5)]);
+
         if (empty($userPeerIds)) {
-            Log::info('TelegramFetchIncomingJob: No user dialogs found');
+            Log::info('TelegramFetchIncomingJob: No user dialogs found (only groups/channels?)');
             return;
         }
 

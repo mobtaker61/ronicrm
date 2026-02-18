@@ -32,7 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withSchedule(function ($schedule) {
         $schedule->command('campaigns:process')->everyMinute();
-        $schedule->job(new \App\Jobs\TelegramFetchIncomingJob)->everyThreeMinutes();
+        $schedule->command('telegram:fetch-incoming')->everyThreeMinutes();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
