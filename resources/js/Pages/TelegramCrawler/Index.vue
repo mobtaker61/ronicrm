@@ -153,6 +153,15 @@
                         <p class="text-sm text-gray-600 mb-4">
                             Fetch full profile data (name, phone, avatar) from Telegram for customers extracted via crawl or inbox. Updates existing contacts.
                         </p>
+                        <div class="flex flex-wrap items-center gap-3 mb-4">
+                            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                                <input type="checkbox" v-model="syncContactsRunNow" class="rounded border-gray-300" />
+                                <span>اجرای فوری (بدون Queue)</span>
+                            </label>
+                            <span v-if="syncContactsRunNow" class="text-xs text-amber-600">
+                                درخواست تا اتمام sync منتظر می‌ماند. برای مخاطبین زیاد ممکن است timeout شود.
+                            </span>
+                        </div>
                         <button
                             type="button"
                             @click="startSyncContacts"
@@ -355,6 +364,7 @@ const crawlId = ref('');
 const crawlStatus = ref({});
 const expandedRawIndices = ref(new Set());
 const syncContactsStarting = ref(false);
+const syncContactsRunNow = ref(true);
 const syncId = ref('');
 const syncStatus = ref({});
 let crawlPollTimer = null;
@@ -510,7 +520,8 @@ const startSyncContacts = async () => {
     syncContactsStarting.value = true;
     syncStatus.value = {};
     try {
-        const res = await axios.post(route('telegram-crawler.sync-contacts'));
+        const url = route('telegram-crawler.sync-contacts');
+        const res = await axios.post(url, {}, { params: { sync: syncContactsRunNow.value ? 1 : 0 } });
         syncId.value = res.data.sync_id;
         syncPollTimer = setInterval(pollSyncStatus, 2000);
     } catch (e) {

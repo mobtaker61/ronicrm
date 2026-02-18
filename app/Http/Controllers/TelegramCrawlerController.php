@@ -229,6 +229,7 @@ class TelegramCrawlerController extends Controller
 
     /**
      * Start syncing Telegram contact data (name, phone, avatar) for extracted customers.
+     * Use ?sync=1 to run immediately (without queue) - useful when no queue worker is running.
      */
     public function syncContacts(Request $request): JsonResponse
     {
@@ -245,7 +246,17 @@ class TelegramCrawlerController extends Controller
             'failed' => 0,
         ], now()->addHours(24));
 
-        TelegramSyncContactsJob::dispatch($syncId);
+        $runSync = $request->boolean('sync', false);
+        if ($runSync) {
+            set_time_limit(1800);
+            try {
+                TelegramSyncContactsJob::dispatchSync($syncId);
+            } catch (\Throwable $e) {
+                return response()->json(['error' => 'Sync failed: ' . $e->getMessage()], 500);
+            }
+        } else {
+            TelegramSyncContactsJob::dispatch($syncId);
+        }
         return response()->json(['sync_id' => $syncId]);
     }
 
