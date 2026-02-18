@@ -705,11 +705,6 @@ class MadelineProtoService
             return ['error' => 'TELEGRAM_API_ID and TELEGRAM_API_HASH must be set in .env'];
         }
 
-        // رفع خطای MadelineProto WebRunner: در Laravel مسیر REQUEST_URI با root dir مطابقت ندارد.
-        // با تنظیم موقت به /، getAbsoluteRootDir() درست کار می‌کند (public/ با /).
-        $savedRequestUri = $_SERVER['REQUEST_URI'] ?? null;
-        $_SERVER['REQUEST_URI'] = '/index.php';
-
         try {
             $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
             $cacheKey = self::CACHE_KEY_QR_CONN.'_'.$userId;
@@ -817,8 +812,6 @@ class MadelineProtoService
             Log::error('Telegram getQrCode error: '.$e->getMessage());
 
             return ['error' => $e->getMessage(), 'logged_in' => false];
-        } finally {
-            $_SERVER['REQUEST_URI'] = $savedRequestUri ?? '/';
         }
     }
 }
