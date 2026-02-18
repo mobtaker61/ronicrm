@@ -154,12 +154,17 @@ class MadelineProtoService
      * Check if any pending session file is already logged in (user scanned in different tab/request).
      * Updates the conn and returns logged_in response if found.
      */
-    protected function checkAnySessionLoggedIn(int $apiId, string $apiHash): ?array
+    protected function checkAnySessionLoggedIn(int $apiId, string $apiHash, ?int $preferredConnId = null): ?array
     {
-        $pendings = TelegramUserConnection::whereIn('status', ['pending', 'connected'])
-            ->whereNotNull('session_path')
-            ->orderByDesc('updated_at')
-            ->get();
+        $pendingsQuery = TelegramUserConnection::whereIn('status', ['pending', 'connected'])
+            ->whereNotNull('session_path');
+        if ($preferredConnId) {
+            $pendingsQuery->where('id', $preferredConnId);
+        } else {
+            // Safety cap: never iterate many sessions in one request.
+            $pendingsQuery->orderByDesc('updated_at')->limit(3);
+        }
+        $pendings = $pendingsQuery->get();
         foreach ($pendings as $c) {
             $path = storage_path('app/'.$c->session_path);
             if (! is_dir($path) && ! file_exists($path)) {
@@ -187,7 +192,7 @@ class MadelineProtoService
                     $userId = \Illuminate\Support\Facades\Auth::id() ?? 0;
                     Cache::forget(self::CACHE_KEY_QR_CONN.'_'.$userId);
 
-                    return ['logged_in' => true];
+                    return ['logged_in' => true, 'conn_id' => $c->id];
                 }
             } catch (\Throwable $e) {
                 Log::debug('MadelineProto checkSessionLoggedIn: '.$e->getMessage());
@@ -687,7 +692,7 @@ class MadelineProtoService
      */
     protected function getOrCreatePendingConnection(): TelegramUserConnection
     {
-        $conn = TelegramUserConnection::whereIn('status', ['pending', 'connected'])
+        $conn = TelegramUserConnection::where('status', 'pending')
             ->orderByDesc('updated_at')
             ->first();
 
@@ -755,6 +760,15 @@ class MadelineProtoService
 
             if ($connIdToUse) {
                 $conn = TelegramUserConnection::find($connIdToUse);
+                if ($conn && $conn->status === 'expired') {
+                    $conn->update(['status' => 'pending']);
+                }
+                if (! $conn) {
+                    Log::warning('MadelineProto getQrCode: requested conn_id not found', [
+                        'requested_conn_id' => $connIdToUse,
+                        'wait' => $wait,
+                    ]);
+                }
                 if (! $conn || ! in_array($conn->status, ['pending', 'connected'], true)) {
                     $conn = null;
                     Cache::forget($cacheKey);
@@ -763,13 +777,18 @@ class MadelineProtoService
 
             if (! $conn) {
                 if ($wait) {
-                    // Never fail polling with "expired" if conn_id/cache is temporarily missing.
-                    // Reuse latest pending/connected, and if none exists create one on the fly.
+                    // During polling never create a new session automatically.
+                    // Otherwise each poll may rotate conn_id and generate endless new session folders.
                     $conn = $this->connection
                         ?? TelegramUserConnection::whereIn('status', ['pending', 'connected'])
                             ->orderByDesc('updated_at')
-                            ->first()
-                        ?? $this->getOrCreatePendingConnection();
+                            ->first();
+                    if (! $conn) {
+                        return [
+                            'logged_in' => false,
+                            'error' => 'No pending Telegram session found. Click "Connect via QR Code" to start a new flow.',
+                        ];
+                    }
                 } else {
                     $conn = $this->connection ?? TelegramUserConnection::getActive()
                         ?? $this->getOrCreatePendingConnection();
@@ -777,7 +796,7 @@ class MadelineProtoService
                 Cache::put($cacheKey, $conn->id, now()->addMinutes(15));
             }
 
-            $alreadyLoggedIn = $this->checkAnySessionLoggedIn($apiId, $apiHash);
+            $alreadyLoggedIn = $this->checkAnySessionLoggedIn($apiId, $apiHash, (int) $conn->id);
             if ($alreadyLoggedIn) {
                 return $alreadyLoggedIn;
             }
@@ -889,6 +908,9 @@ class MadelineProtoService
             $conn = $connIdToUse
                 ? TelegramUserConnection::find($connIdToUse)
                 : (TelegramUserConnection::whereIn('status', ['pending', 'connected'])->orderByDesc('updated_at')->first());
+            if ($conn && $conn->status === 'expired') {
+                $conn->update(['status' => 'pending']);
+            }
 
             if (! $conn) {
                 return ['logged_in' => false, 'error' => 'No Telegram session found. Start QR or phone login first.'];
@@ -960,9 +982,12 @@ class MadelineProtoService
             $connIdToUse = $connId ?: (Cache::get($cacheKey) ?: null);
             $conn = $connIdToUse
                 ? TelegramUserConnection::find($connIdToUse)
-                : ($this->connection ?? TelegramUserConnection::getActive() ?? $this->getOrCreatePendingConnection());
+                : ($this->connection ?? TelegramUserConnection::whereIn('status', ['pending', 'connected'])->orderByDesc('updated_at')->first() ?? $this->getOrCreatePendingConnection());
             if (! $conn) {
                 $conn = $this->getOrCreatePendingConnection();
+            }
+            if ($conn->status === 'expired') {
+                $conn->update(['status' => 'pending']);
             }
 
             Cache::put($cacheKey, $conn->id, now()->addMinutes(15));
@@ -1039,6 +1064,9 @@ class MadelineProtoService
             $conn = $connIdToUse
                 ? TelegramUserConnection::find($connIdToUse)
                 : (TelegramUserConnection::whereIn('status', ['pending', 'connected'])->orderByDesc('updated_at')->first());
+            if ($conn && $conn->status === 'expired') {
+                $conn->update(['status' => 'pending']);
+            }
 
             if (! $conn) {
                 return ['success' => false, 'logged_in' => false, 'error' => 'No pending Telegram phone-login session found.'];
@@ -1108,6 +1136,9 @@ class MadelineProtoService
             $conn = $connIdToUse
                 ? TelegramUserConnection::find($connIdToUse)
                 : (TelegramUserConnection::whereIn('status', ['pending', 'connected'])->orderByDesc('updated_at')->first());
+            if ($conn && $conn->status === 'expired') {
+                $conn->update(['status' => 'pending']);
+            }
 
             if (! $conn) {
                 return ['success' => false, 'error' => 'No pending Telegram session found. Please re-open QR login.'];
