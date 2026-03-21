@@ -10,9 +10,9 @@ use App\Models\InstagramMessage;
 use App\Models\SocialMediaType;
 use App\Models\TelegramMessage;
 use App\Models\WhatsAppMessage;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -165,18 +165,7 @@ class InboxController extends Controller
                             'read_at' => $msg->read_at,
                         ];
                     });
-                try {
-                    TelegramMessage::forChat($selectedContact)->whereNull('read_at')
-                        ->update(['read_at' => now(), 'status' => 'read']);
-                } catch (QueryException $e) {
-                    if (str_contains($e->getMessage(), '1205')) {
-                        Log::warning('Inbox: mark telegram messages read skipped (DB lock wait)', [
-                            'chat_id' => $selectedContact,
-                        ]);
-                    } else {
-                        throw $e;
-                    }
-                }
+                $this->scheduleMarkConversationReadAfterResponse('telegram', $selectedContact);
                 $selectedCustomer = $this->findCustomerByTelegramChatId($selectedContact);
                 if ($selectedCustomer) {
                     $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
@@ -205,8 +194,7 @@ class InboxController extends Controller
                             'read_at' => $msg->read_at,
                         ];
                     });
-                InstagramMessage::forIgUser($selectedContact)->whereNull('read_at')
-                    ->update(['read_at' => now(), 'status' => 'read']);
+                $this->scheduleMarkConversationReadAfterResponse('instagram', $selectedContact);
                 $selectedCustomer = $this->findCustomerByInstagramId($selectedContact);
                 if ($selectedCustomer) {
                     $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
@@ -251,9 +239,7 @@ class InboxController extends Controller
                             'read_at' => $msg->read_at,
                         ];
                     });
-                WhatsAppMessage::where('from_phone', $selectedContact)
-                    ->whereNull('read_at')
-                    ->update(['read_at' => now(), 'status' => 'read']);
+                $this->scheduleMarkConversationReadAfterResponse('whatsapp', $selectedContact);
                 $selectedCustomer = $this->findCustomerByPhone($selectedContact);
                 if ($selectedCustomer) {
                     $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
@@ -849,5 +835,41 @@ class InboxController extends Controller
         }
 
         return $baseUrl.'/storage/'.$path;
+    }
+
+    /**
+     * علامت‌گذاری پیام‌ها به‌عنوان خوانده‌شده را بعد از ارسال پاسخ HTTP انجام می‌دهد تا با INSERT/UPDATE همزمان
+     * (مثلاً daemon تلگرام + باز کردن اینباکس) قفل InnoDB (1205) کل درخواست را نشکند.
+     */
+    protected function scheduleMarkConversationReadAfterResponse(string $channel, ?string $contactKey): void
+    {
+        if ($contactKey === null || $contactKey === '') {
+            return;
+        }
+
+        app()->terminating(function () use ($channel, $contactKey): void {
+            try {
+                DB::reconnect();
+            } catch (\Throwable) {
+                // ignore
+            }
+
+            try {
+                match ($channel) {
+                    'telegram' => TelegramMessage::forChat($contactKey)->whereNull('read_at')
+                        ->update(['read_at' => now(), 'status' => 'read']),
+                    'instagram' => InstagramMessage::forIgUser($contactKey)->whereNull('read_at')
+                        ->update(['read_at' => now(), 'status' => 'read']),
+                    default => WhatsAppMessage::where('from_phone', $contactKey)->whereNull('read_at')
+                        ->update(['read_at' => now(), 'status' => 'read']),
+                };
+            } catch (\Throwable $e) {
+                Log::warning('Inbox: mark-as-read after response failed (non-fatal)', [
+                    'channel' => $channel,
+                    'contact' => $contactKey,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        });
     }
 }

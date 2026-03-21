@@ -140,9 +140,14 @@ class MadelineProtoService
         $lockTtl = max(120, (int) config('services.telegram.madeline_cache_lock_ttl', 600));
         $blockSeconds = max(30, (int) config('services.telegram.madeline_cache_lock_block', 180));
         $lock = Cache::lock($lockKey, $lockTtl);
-        if (! $lock->block($blockSeconds)) {
+        try {
+            // در Laravel block() یا true برمی‌گرداند یا LockTimeoutException می‌اندازد (هرگز false نیست).
+            $lock->block($blockSeconds);
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
             throw new \RuntimeException(
-                'قفل session تلگرام گرفته نشد (احتمالاً درخواست دیگری در حال اجراست یا queue worker مشغول MadelineProto است). چند دقیقه بعد دوباره تلاش کنید.'
+                'قفل session تلگرام پس از '.$blockSeconds.' ثانیه آزاد نشد (احتمالاً ارسال/همگام‌سازی دیگری در حال اجراست). بعداً تلاش کنید یا MADELINE_PROTO_CACHE_LOCK_BLOCK را در .env بزرگ‌تر کنید.',
+                0,
+                $e
             );
         }
         try {
