@@ -13,12 +13,14 @@ class CampaignTemplate extends Model
         'content',
         'image',
         'variables',
+        'whatsapp_settings',
     ];
 
     protected function casts(): array
     {
         return [
             'variables' => 'array',
+            'whatsapp_settings' => 'array',
             'type' => 'string',
         ];
     }

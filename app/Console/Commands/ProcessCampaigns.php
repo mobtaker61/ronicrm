@@ -9,6 +9,7 @@ use Illuminate\Console\Command;
 class ProcessCampaigns extends Command
 {
     protected $signature = 'campaigns:process';
+
     protected $description = 'Process scheduled campaigns and send messages';
 
     public function handle(): int
@@ -31,7 +32,8 @@ class ProcessCampaigns extends Command
                         $campaign->type,
                         $campaign->content ?? '',
                         $campaign->subject ?? null,
-                        $campaign->image ?? null
+                        $campaign->image ?? null,
+                        $campaign->whatsapp_settings
                     )->onQueue('campaigns');
                 }
             }

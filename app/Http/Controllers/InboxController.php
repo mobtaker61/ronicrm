@@ -32,7 +32,7 @@ class InboxController extends Controller
         if ($channel === 'instagram') {
             $selectedContact = $request->get('ig_user_id', $selectedContact);
             $instagramCustomerId = $request->get('customer_id');
-            if ($instagramCustomerId && !$selectedContact) {
+            if ($instagramCustomerId && ! $selectedContact) {
                 $cust = Customer::find($instagramCustomerId);
                 if ($cust) {
                     $igContact = $cust->contacts()->where('type', 'instagram')->first();
@@ -53,30 +53,31 @@ class InboxController extends Controller
                 $telegramTypeId = SocialMediaType::where('name', 'Telegram')->value('id');
                 $query = Customer::query()
                     ->where(function ($q) use ($searchTerm, $telegramTypeId) {
-                        $q->where('name', 'like', '%' . $searchTerm . '%')
+                        $q->where('name', 'like', '%'.$searchTerm.'%')
                             ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
-                                $cq->where('type', 'telegram')->where('value', 'like', '%' . $searchTerm . '%');
+                                $cq->where('type', 'telegram')->where('value', 'like', '%'.$searchTerm.'%');
                             });
                         if ($telegramTypeId) {
                             $q->orWhereHas('socialMedia', function ($sq) use ($searchTerm, $telegramTypeId) {
                                 $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchTerm);
                                 $sq->where('social_media_type_id', $telegramTypeId)
-                                    ->where('handle', 'like', '%' . $escaped . '%');
+                                    ->where('handle', 'like', '%'.$escaped.'%');
                             });
                         }
                     });
                 $searchResults = $query->limit(15)->get()->map(function ($customer) {
                     $tg = $customer->contacts()->where('type', 'telegram')->first();
                     $tgHandle = $customer->socialMedia()->whereHas('socialMediaType', fn ($q) => $q->where('name', 'Telegram'))->first();
+
                     return [
                         'id' => $customer->id,
                         'name' => $customer->name,
                         'phone' => null,
-                        'chat_id' => $tg?->value ?? ($tgHandle ? ($tgHandle->handle[0] === '@' ? $tgHandle->handle : '@' . $tgHandle->handle) : null),
+                        'chat_id' => $tg?->value ?? ($tgHandle ? ($tgHandle->handle[0] === '@' ? $tgHandle->handle : '@'.$tgHandle->handle) : null),
                         'ig_user_id' => null,
-                        'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
+                        'avatar' => $customer->avatar ? asset('storage/'.$customer->avatar) : null,
                     ];
-                })->filter(fn ($r) => !empty($r['chat_id']))->values()->all();
+                })->filter(fn ($r) => ! empty($r['chat_id']))->values()->all();
             } elseif ($channel === 'instagram') {
                 $instagramTypeId = SocialMediaType::where('name', 'Instagram')->value('id');
                 $byContact = Customer::query()
@@ -84,9 +85,9 @@ class InboxController extends Controller
                         $cq->where('type', 'instagram');
                     })
                     ->where(function ($q) use ($searchTerm) {
-                        $q->where('name', 'like', '%' . $searchTerm . '%')
+                        $q->where('name', 'like', '%'.$searchTerm.'%')
                             ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
-                                $cq->where('type', 'instagram')->where('value', 'like', '%' . $searchTerm . '%');
+                                $cq->where('type', 'instagram')->where('value', 'like', '%'.$searchTerm.'%');
                             });
                     })
                     ->limit(20)
@@ -96,7 +97,7 @@ class InboxController extends Controller
                     $byHandle = Customer::query()
                         ->whereHas('socialMedia', function ($sq) use ($instagramTypeId, $searchTerm) {
                             $sq->where('social_media_type_id', $instagramTypeId)
-                                ->where('handle', 'like', '%' . $searchTerm . '%');
+                                ->where('handle', 'like', '%'.$searchTerm.'%');
                         })
                         ->limit(20)
                         ->get();
@@ -104,24 +105,25 @@ class InboxController extends Controller
                 $merged = $byContact->merge($byHandle)->unique('id');
                 $searchResults = $merged->take(15)->map(function ($customer) {
                     $ig = $customer->contacts()->where('type', 'instagram')->first();
+
                     return [
                         'id' => $customer->id,
                         'name' => $customer->name,
                         'phone' => null,
                         'chat_id' => null,
                         'ig_user_id' => $ig?->value,
-                        'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
+                        'avatar' => $customer->avatar ? asset('storage/'.$customer->avatar) : null,
                     ];
                 })->values()->all();
             } else {
                 $query = Customer::query()
                     ->where(function ($q) use ($searchTerm, $phoneDigits) {
-                        $q->where('name', 'like', '%' . $searchTerm . '%');
+                        $q->where('name', 'like', '%'.$searchTerm.'%');
                         if (strlen($phoneDigits) >= 2) {
                             $q->orWhereHas('contacts', function ($cq) use ($phoneDigits) {
                                 $cq->where(function ($cq) {
                                     $cq->where('type', 'phone')->orWhere('type', 'whatsapp');
-                                })->where('value', 'like', '%' . $phoneDigits . '%');
+                                })->where('value', 'like', '%'.$phoneDigits.'%');
                             });
                         }
                     });
@@ -129,15 +131,16 @@ class InboxController extends Controller
                     $phoneContact = $customer->contacts()->where(function ($q) {
                         $q->where('type', 'phone')->orWhere('type', 'whatsapp');
                     })->first();
+
                     return [
                         'id' => $customer->id,
                         'name' => $customer->name,
                         'phone' => $phoneContact?->value,
                         'chat_id' => null,
                         'ig_user_id' => null,
-                        'avatar' => $customer->avatar ? asset('storage/' . $customer->avatar) : null,
+                        'avatar' => $customer->avatar ? asset('storage/'.$customer->avatar) : null,
                     ];
-                })->filter(fn ($r) => !empty($r['phone']))->values()->all();
+                })->filter(fn ($r) => ! empty($r['phone']))->values()->all();
             }
         }
 
@@ -167,7 +170,7 @@ class InboxController extends Controller
                 if ($selectedCustomer) {
                     $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
                     if ($selectedCustomer->avatar) {
-                        $selectedCustomer->avatar = asset('storage/' . $selectedCustomer->avatar);
+                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
                     }
                 }
             }
@@ -197,16 +200,16 @@ class InboxController extends Controller
                 if ($selectedCustomer) {
                     $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
                     if ($selectedCustomer->avatar) {
-                        $selectedCustomer->avatar = asset('storage/' . $selectedCustomer->avatar);
+                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
                     }
                 }
             }
-            if (!$selectedCustomer && !empty($instagramCustomerId)) {
+            if (! $selectedCustomer && ! empty($instagramCustomerId)) {
                 $selectedCustomer = Customer::find($instagramCustomerId);
                 if ($selectedCustomer) {
                     $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
                     if ($selectedCustomer->avatar) {
-                        $selectedCustomer->avatar = asset('storage/' . $selectedCustomer->avatar);
+                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
                     }
                 }
             }
@@ -222,9 +225,10 @@ class InboxController extends Controller
                     ->get()
                     ->map(function ($msg) {
                         $mediaUrl = $msg->media_url;
-                        if ($mediaUrl && !str_starts_with($mediaUrl, 'http')) {
-                            $mediaUrl = asset('storage/' . ltrim($mediaUrl, '/'));
+                        if ($mediaUrl && ! str_starts_with($mediaUrl, 'http')) {
+                            $mediaUrl = asset('storage/'.ltrim($mediaUrl, '/'));
                         }
+
                         return [
                             'id' => $msg->id,
                             'message' => $msg->message,
@@ -243,7 +247,7 @@ class InboxController extends Controller
                 if ($selectedCustomer) {
                     $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
                     if ($selectedCustomer->avatar) {
-                        $selectedCustomer->avatar = asset('storage/' . $selectedCustomer->avatar);
+                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
                     }
                 }
             }
@@ -256,7 +260,8 @@ class InboxController extends Controller
                 'id' => $t->id,
                 'name' => $t->name,
                 'content' => $t->content,
-                'image' => $t->image ? asset('storage/' . $t->image) : null,
+                'image' => $t->image ? asset('storage/'.$t->image) : null,
+                'whatsapp_settings' => $t->whatsapp_settings,
             ]);
 
         return Inertia::render('Inbox/Index', [
@@ -296,13 +301,14 @@ class InboxController extends Controller
                 'chat_id' => null,
                 'name' => $displayName,
                 'customer_id' => $customer?->id,
-                'avatar' => $customer?->avatar ? asset('storage/' . $customer->avatar) : null,
+                'avatar' => $customer?->avatar ? asset('storage/'.$customer->avatar) : null,
                 'last_message' => $lastMessage?->message,
                 'last_message_at' => $lastMessage?->created_at,
                 'unread_count' => $unreadCount,
                 'message_count' => $messageCount,
             ]);
         }
+
         return $conversations->sortByDesc('last_message_at')->values();
     }
 
@@ -324,13 +330,14 @@ class InboxController extends Controller
                 'chat_id' => $chatId,
                 'name' => $displayName,
                 'customer_id' => $customer?->id,
-                'avatar' => $customer?->avatar ? asset('storage/' . $customer->avatar) : null,
+                'avatar' => $customer?->avatar ? asset('storage/'.$customer->avatar) : null,
                 'last_message' => $lastMessage?->message,
                 'last_message_at' => $lastMessage?->created_at,
                 'unread_count' => $unreadCount,
                 'message_count' => $messageCount,
             ]);
         }
+
         return $conversations->sortByDesc('last_message_at')->values();
     }
 
@@ -353,33 +360,40 @@ class InboxController extends Controller
                 'ig_user_id' => $igUserId,
                 'name' => $displayName,
                 'customer_id' => $customer?->id,
-                'avatar' => $customer?->avatar ? asset('storage/' . $customer->avatar) : null,
+                'avatar' => $customer?->avatar ? asset('storage/'.$customer->avatar) : null,
                 'last_message' => $lastMessage?->message,
                 'last_message_at' => $lastMessage?->created_at,
                 'unread_count' => $unreadCount,
                 'message_count' => $messageCount,
             ]);
         }
+
         return $conversations->sortByDesc('last_message_at')->values();
     }
 
     protected function findCustomerByTelegramChatId(string $chatId): ?Customer
     {
         $contact = CustomerContact::where('type', 'telegram')->where('value', $chatId)->first();
+
         return $contact?->customer;
     }
 
     protected function findCustomerByTelegramHandle(string $handle): ?Customer
     {
         $normalized = strtolower(ltrim($handle, '@'));
-        if ($normalized === '') return null;
+        if ($normalized === '') {
+            return null;
+        }
         $telegramTypeId = \App\Models\SocialMediaType::where('name', 'Telegram')->value('id');
-        if (!$telegramTypeId) return null;
+        if (! $telegramTypeId) {
+            return null;
+        }
         $sm = CustomerSocialMedia::where('social_media_type_id', $telegramTypeId)
             ->where(function ($q) use ($normalized) {
                 $q->whereRaw('LOWER(TRIM(LEADING ? FROM handle)) = ?', ['@', $normalized]);
             })
             ->first();
+
         return $sm?->customer;
     }
 
@@ -390,6 +404,7 @@ class InboxController extends Controller
             return $contact->customer;
         }
         $msg = InstagramMessage::where('ig_user_id', $igUserId)->whereNotNull('customer_id')->first();
+
         return $msg?->customer;
     }
 
@@ -433,7 +448,7 @@ class InboxController extends Controller
             }
 
             $message = $validated['message'] ?? '';
-            if (empty($message) && !$mediaUrl) {
+            if (empty($message) && ! $mediaUrl) {
                 return redirect()->back()
                     ->with('error', 'Please provide either a message or a file.');
             }
@@ -442,7 +457,7 @@ class InboxController extends Controller
             if ($channel === 'telegram') {
                 $toChatId = trim((string) $validated['to_chat_id']);
                 $conn = \App\Models\TelegramUserConnection::getActive();
-                $mediaPath = $storedPath ? storage_path('app/public/' . $storedPath) : $mediaUrl;
+                $mediaPath = $storedPath ? storage_path('app/public/'.$storedPath) : $mediaUrl;
 
                 if ($conn && $conn->isConnected()) {
                     $madelineService = new \App\Services\MadelineProtoService($conn);
@@ -477,8 +492,9 @@ class InboxController extends Controller
                     return redirect()->route('inbox.index', ['channel' => 'telegram', 'chat_id' => $storeChatId])
                         ->with('success', 'Message sent successfully.')->with('refresh', true);
                 }
+
                 return redirect()->route('inbox.index', ['channel' => 'telegram', 'chat_id' => $storeChatId])
-                    ->with('error', 'Message saved but failed to send: ' . ($result['error'] ?? 'Unknown error'));
+                    ->with('error', 'Message saved but failed to send: '.($result['error'] ?? 'Unknown error'));
             }
             if ($channel === 'instagram') {
                 $toIgUserId = $validated['to_ig_user_id'];
@@ -503,8 +519,9 @@ class InboxController extends Controller
                     return redirect()->route('inbox.index', ['channel' => 'instagram', 'ig_user_id' => $toIgUserId])
                         ->with('success', 'Message sent successfully.')->with('refresh', true);
                 }
+
                 return redirect()->route('inbox.index', ['channel' => 'instagram', 'ig_user_id' => $toIgUserId])
-                    ->with('error', 'Message saved but failed to send: ' . ($result['error'] ?? 'Unknown error'));
+                    ->with('error', 'Message saved but failed to send: '.($result['error'] ?? 'Unknown error'));
             }
 
             $whatsappService = app(\App\Services\WhatsAppService::class);
@@ -526,13 +543,14 @@ class InboxController extends Controller
                 return redirect()->route('inbox.index', ['phone' => $validated['to_phone']])
                     ->with('success', 'Message sent successfully.')->with('refresh', true);
             }
-            if (!str_contains($result['error'] ?? '', 'timed out')) {
-                Log::error('Failed to send WhatsApp message via API: ' . ($result['error'] ?? 'Unknown error'));
+            if (! str_contains($result['error'] ?? '', 'timed out')) {
+                Log::error('Failed to send WhatsApp message via API: '.($result['error'] ?? 'Unknown error'));
             }
+
             return redirect()->route('inbox.index', ['phone' => $validated['to_phone']])
-                ->with('error', 'Message saved but failed to send via WhatsApp: ' . ($result['error'] ?? 'Unknown error'));
+                ->with('error', 'Message saved but failed to send via WhatsApp: '.($result['error'] ?? 'Unknown error'));
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Error sending message: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error sending message: '.$e->getMessage());
         }
     }
 
@@ -570,7 +588,7 @@ class InboxController extends Controller
                 'value' => $igUserId,
                 'is_primary' => true,
             ]);
-            if (!empty($validated['email'])) {
+            if (! empty($validated['email'])) {
                 $customer->contacts()->create([
                     'type' => 'email',
                     'value' => $validated['email'],
@@ -578,6 +596,7 @@ class InboxController extends Controller
                 ]);
             }
             InstagramMessage::where('ig_user_id', $igUserId)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
+
             return redirect()->back()->with('success', 'Customer created successfully.');
         }
 
@@ -599,7 +618,7 @@ class InboxController extends Controller
                 'value' => $chatId,
                 'is_primary' => true,
             ]);
-            if (!empty($validated['email'])) {
+            if (! empty($validated['email'])) {
                 $customer->contacts()->create([
                     'type' => 'email',
                     'value' => $validated['email'],
@@ -607,6 +626,7 @@ class InboxController extends Controller
                 ]);
             }
             TelegramMessage::where('chat_id', $chatId)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
+
             return redirect()->back()->with('success', 'Customer created successfully.');
         }
 
@@ -627,7 +647,7 @@ class InboxController extends Controller
             'value' => $phone,
             'is_primary' => true,
         ]);
-        if (!empty($validated['email'])) {
+        if (! empty($validated['email'])) {
             $customer->contacts()->create([
                 'type' => 'email',
                 'value' => $validated['email'],
@@ -635,6 +655,7 @@ class InboxController extends Controller
             ]);
         }
         WhatsAppMessage::where('from_phone', $phone)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
+
         return redirect()->back()->with('success', 'Customer created successfully.');
     }
 
@@ -658,6 +679,7 @@ class InboxController extends Controller
             if ($existing->customer_id === $customer->id) {
                 return redirect()->back()->with('info', 'Already assigned to this customer.');
             }
+
             return redirect()->back()->with('error', 'This Instagram user is already linked to another customer.');
         }
         $customer->contacts()->create([
@@ -666,6 +688,7 @@ class InboxController extends Controller
             'is_primary' => false,
         ]);
         InstagramMessage::where('ig_user_id', $igUserId)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
+
         return redirect()->back()->with('success', 'Conversation assigned to customer.');
     }
 
@@ -676,10 +699,11 @@ class InboxController extends Controller
     {
         $q = trim((string) $request->get('q', ''));
         $customers = Customer::query()
-            ->when($q !== '', fn ($qb) => $qb->where('name', 'like', '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%'))
+            ->when($q !== '', fn ($qb) => $qb->where('name', 'like', '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q).'%'))
             ->orderBy('name')
             ->limit(30)
             ->get(['id', 'name']);
+
         return response()->json($customers);
     }
 
@@ -737,6 +761,7 @@ class InboxController extends Controller
         if (str_starts_with($phone, '00')) {
             $phone = substr($phone, 2);
         }
+
         return $phone;
     }
 
@@ -794,15 +819,15 @@ class InboxController extends Controller
     protected function getPublicFileUrl(string $path, Request $request): string
     {
         $appUrl = config('app.url');
-        
+
         // If APP_URL is set and is not localhost, use it
-        if (!empty($appUrl) && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
-            return rtrim($appUrl, '/') . '/storage/' . $path;
+        if (! empty($appUrl) && ! str_contains($appUrl, 'localhost') && ! str_contains($appUrl, '127.0.0.1')) {
+            return rtrim($appUrl, '/').'/storage/'.$path;
         }
-        
+
         // Otherwise, use request host (works with ngrok or if accessed via public URL)
         $baseUrl = $request->getSchemeAndHttpHost();
-        
+
         // If request host is also localhost, log a warning
         if (str_contains($baseUrl, 'localhost') || str_contains($baseUrl, '127.0.0.1')) {
             Log::warning('File URL is using localhost. API may not be able to access it. Please set APP_URL in .env or use ngrok.', [
@@ -811,7 +836,7 @@ class InboxController extends Controller
                 'app_url' => $appUrl,
             ]);
         }
-        
-        return $baseUrl . '/storage/' . $path;
+
+        return $baseUrl.'/storage/'.$path;
     }
 }

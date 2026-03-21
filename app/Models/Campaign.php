@@ -21,6 +21,7 @@ class Campaign extends Model
         'subject',
         'image',
         'attachments',
+        'whatsapp_settings',
     ];
 
     protected function casts(): array
@@ -32,6 +33,7 @@ class Campaign extends Model
             'status' => 'string',
             'type' => 'string',
             'attachments' => 'array',
+            'whatsapp_settings' => 'array',
         ];
     }
 

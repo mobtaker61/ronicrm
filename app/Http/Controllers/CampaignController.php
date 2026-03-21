@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\SendCampaignMessage;
 use App\Models\Campaign;
 use App\Models\CampaignLog;
 use App\Models\CampaignRecipient;
@@ -10,8 +9,10 @@ use App\Models\CampaignTemplate;
 use App\Models\Customer;
 use App\Models\Industry;
 use App\Models\Project;
+use App\Services\CampaignMessageComposer;
 use App\Services\EmailService;
 use App\Services\WhatsAppService;
+use App\Support\WhatsappTemplateSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -41,8 +42,9 @@ class CampaignController extends Controller
                     'name' => $template->name,
                     'content' => $template->content,
                     'subject' => $template->subject,
-                    'image' => $template->image ? asset('storage/' . $template->image) : null,
+                    'image' => $template->image ? asset('storage/'.$template->image) : null,
                     'type' => $template->type,
+                    'whatsapp_settings' => $template->whatsapp_settings,
                 ];
             }),
             'industries' => Industry::with('parent', 'children')
@@ -71,6 +73,7 @@ class CampaignController extends Controller
             'scheduled_at' => 'nullable|date',
             'recipient_entries' => 'required', // JSON string (frontend always stringifies) or array
             'filters' => 'nullable|array',
+            'whatsapp_settings' => 'nullable', // JSON string or array (فقط نوع whatsapp)
         ]);
 
         $recipientEntries = $validated['recipient_entries'];
@@ -100,8 +103,8 @@ class CampaignController extends Controller
             $sourcePath = $request->input('image_path');
             if (preg_match('/^media\/[\w\/\.\-]+$/', $sourcePath) && Storage::disk('public')->exists($sourcePath)) {
                 $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);
-                $fileName = 'campaign_' . time() . '_' . uniqid() . '.' . $extension;
-                $destinationPath = 'campaign-attachments/' . $fileName;
+                $fileName = 'campaign_'.time().'_'.uniqid().'.'.$extension;
+                $destinationPath = 'campaign-attachments/'.$fileName;
                 Storage::disk('public')->copy($sourcePath, $destinationPath);
                 $imagePath = $destinationPath;
             }
@@ -110,12 +113,12 @@ class CampaignController extends Controller
             $template = CampaignTemplate::find($validated['template_id']);
             if ($template && $template->image) {
                 // Copy template's file to campaign-attachments directory
-                $sourcePath = storage_path('app/public/' . $template->image);
+                $sourcePath = storage_path('app/public/'.$template->image);
                 if (file_exists($sourcePath)) {
                     $extension = pathinfo($template->image, PATHINFO_EXTENSION);
-                    $fileName = 'campaign_' . time() . '_' . uniqid() . '.' . $extension;
-                    $destinationPath = 'campaign-attachments/' . $fileName;
-                    
+                    $fileName = 'campaign_'.time().'_'.uniqid().'.'.$extension;
+                    $destinationPath = 'campaign-attachments/'.$fileName;
+
                     // Copy file
                     Storage::disk('public')->copy($template->image, $destinationPath);
                     $imagePath = $destinationPath;
@@ -132,6 +135,11 @@ class CampaignController extends Controller
             }
         }
 
+        $whatsappSettings = WhatsappTemplateSettings::normalizeFromRequest(
+            $validated['type'],
+            $request->input('whatsapp_settings')
+        );
+
         $campaign = Campaign::create([
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
@@ -142,6 +150,7 @@ class CampaignController extends Controller
             'content' => $validated['content'],
             'image' => $imagePath,
             'attachments' => $attachmentList ?: null,
+            'whatsapp_settings' => $whatsappSettings,
             'created_by' => Auth::id(),
         ]);
 
@@ -165,7 +174,7 @@ class CampaignController extends Controller
             'recipients.customer.industry',
             'recipients.customerContact',
             'creator',
-            'logs'
+            'logs',
         ]);
 
         return Inertia::render('Campaigns/Show', [
@@ -176,15 +185,15 @@ class CampaignController extends Controller
     public function start(Campaign $campaign)
     {
         // Only allow starting draft or scheduled campaigns
-        if (!in_array($campaign->status, ['draft', 'scheduled'])) {
+        if (! in_array($campaign->status, ['draft', 'scheduled'])) {
             return redirect()->back()
-                ->with('error', 'Campaign cannot be started. Current status: ' . $campaign->status);
+                ->with('error', 'Campaign cannot be started. Current status: '.$campaign->status);
         }
 
         // Check if scheduled time has passed
         if ($campaign->scheduled_at && $campaign->scheduled_at->isFuture()) {
             return redirect()->back()
-                ->with('error', 'Campaign is scheduled for a future time. Please wait until ' . $campaign->scheduled_at->format('Y-m-d H:i:s'));
+                ->with('error', 'Campaign is scheduled for a future time. Please wait until '.$campaign->scheduled_at->format('Y-m-d H:i:s'));
         }
 
         // Update campaign status
@@ -198,7 +207,7 @@ class CampaignController extends Controller
 
         // Start sending messages in background without queue
         $pendingRecipients = $campaign->recipients->where('status', 'pending');
-        
+
         // Prepare response
         $response = response()->json([
             'success' => true,
@@ -206,15 +215,15 @@ class CampaignController extends Controller
             'total' => $pendingRecipients->count(),
             'message' => 'Campaign started. Sending messages...',
         ]);
-        
+
         // If fastcgi_finish_request is available, send response immediately and process in background
         if (function_exists('fastcgi_finish_request')) {
             // Send response to client immediately
             $response->send();
-            
+
             // Finish request and continue processing in background
             fastcgi_finish_request();
-            
+
             // Now send messages one by one in background
             foreach ($pendingRecipients as $recipient) {
                 try {
@@ -232,7 +241,7 @@ class CampaignController extends Controller
                     }
                 }
             }
-            
+
             // Exit to prevent any further output
             exit;
         } else {
@@ -254,7 +263,7 @@ class CampaignController extends Controller
                     }
                 }
             }
-            
+
             // Return JSON response
             return $response;
         }
@@ -273,27 +282,33 @@ class CampaignController extends Controller
                     $contact = $recipient->customerContact;
                     $phone = $contact?->type === 'whatsapp' ? $contact->value : null;
                 }
-                if (!$phone) {
+                if (! $phone) {
                     $whatsappContact = $customer->contacts()->where('type', 'whatsapp')->first();
                     $phone = $whatsappContact?->value;
                 }
-                if (!$phone) {
+                if (! $phone) {
                     CampaignRecipient::where('id', $recipient->id)->update([
                         'status' => 'failed',
                         'error_message' => 'No WhatsApp contact found',
                     ]);
+
                     return;
                 }
 
-                // Replace variables in content
-                $message = $this->replaceVariables($campaign->content ?? '', $customer);
-                
+                $composer = app(CampaignMessageComposer::class);
+                $message = $composer->render(
+                    $campaign->content ?? '',
+                    $customer,
+                    $campaign->whatsapp_settings,
+                    true
+                );
+
                 // Build full URL for image if exists
                 $imageUrl = null;
                 if ($campaign->image) {
-                    $imageUrl = asset('storage/' . $campaign->image);
+                    $imageUrl = asset('storage/'.$campaign->image);
                 }
-                
+
                 $result = $whatsappService->sendMessage($phone, $message, $imageUrl);
             } elseif ($campaign->type === 'email') {
                 $emailService = app(EmailService::class);
@@ -302,21 +317,29 @@ class CampaignController extends Controller
                     $contact = $recipient->customerContact;
                     $email = $contact?->type === 'email' ? $contact->value : null;
                 }
-                if (!$email) {
+                if (! $email) {
                     $email = $customer->email ?? $customer->contacts()->where('type', 'email')->first()?->value;
                 }
-                if (!$email) {
+                if (! $email) {
                     CampaignRecipient::where('id', $recipient->id)->update([
                         'status' => 'failed',
                         'error_message' => 'No email address found',
                     ]);
+
                     return;
                 }
 
-                // Replace variables in content
-                $content = $this->replaceVariables($campaign->content ?? '', $customer);
-                $subject = $campaign->subject ? $this->replaceVariables($campaign->subject, $customer) : 'Campaign Message';
-                
+                $composer = app(CampaignMessageComposer::class);
+                $content = $composer->render(
+                    $campaign->content ?? '',
+                    $customer,
+                    $campaign->whatsapp_settings,
+                    false
+                );
+                $subject = $campaign->subject
+                    ? $composer->render($campaign->subject, $customer, $campaign->whatsapp_settings, false)
+                    : 'Campaign Message';
+
                 $result = $emailService->sendHtmlEmail($email, $subject, $content, null, $campaign->attachments);
                 if ($result && $result['success']) {
                     CampaignLog::create([
@@ -337,12 +360,12 @@ class CampaignController extends Controller
                     'status' => 'sent',
                     'sent_at' => now(),
                 ];
-                
+
                 // If there's a warning (like timeout but message sent), include it in error_message
                 if (isset($result['warning'])) {
                     $updateData['error_message'] = $result['warning'];
                 }
-                
+
                 // Update recipient status directly using query builder to bypass model cache
                 CampaignRecipient::where('id', $recipient->id)->update($updateData);
             } else {
@@ -354,8 +377,8 @@ class CampaignController extends Controller
             }
         } catch (\Exception $e) {
             // Only log critical errors (not timeouts)
-            if (!str_contains($e->getMessage(), 'timed out')) {
-                Log::error('Campaign message sending failed: ' . $e->getMessage());
+            if (! str_contains($e->getMessage(), 'timed out')) {
+                Log::error('Campaign message sending failed: '.$e->getMessage());
             }
             // Update recipient status directly using query builder
             CampaignRecipient::where('id', $recipient->id)->update([
@@ -365,25 +388,13 @@ class CampaignController extends Controller
         }
     }
 
-    protected function replaceVariables(string $content, $customer): string
-    {
-        $variables = [
-            '{name}' => $customer->name,
-            '{company}' => $customer->company_name ?? '',
-            '{email}' => $customer->email ?? '',
-            '{phone}' => $customer->phone ?? '',
-        ];
-
-        return str_replace(array_keys($variables), array_values($variables), $content);
-    }
-
     public function getStatus(Campaign $campaign)
     {
         // Get fresh recipients from database (bypass cache)
         $recipients = CampaignRecipient::where('campaign_id', $campaign->id)
             ->with('customer')
             ->get();
-        
+
         $recipientsData = $recipients->map(function ($recipient) {
             return [
                 'id' => $recipient->id,
@@ -399,10 +410,10 @@ class CampaignController extends Controller
         $delivered = $recipients->where('status', 'delivered')->count();
         $failed = $recipients->where('status', 'failed')->count();
         $pending = $recipients->where('status', 'pending')->count();
-        
+
         // Campaign is completed when there are no pending recipients
         $isCompleted = $pending === 0 && $total > 0;
-        
+
         // Update campaign status if completed
         if ($isCompleted) {
             $campaign->refresh();
@@ -413,7 +424,7 @@ class CampaignController extends Controller
                 ]);
             }
         }
-        
+
         // Refresh campaign to get latest status
         $campaign->refresh();
 

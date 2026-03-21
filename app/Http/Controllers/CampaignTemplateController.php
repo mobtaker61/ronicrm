@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CampaignTemplate;
+use App\Support\WhatsappTemplateSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -37,8 +38,8 @@ class CampaignTemplateController extends Controller
             $sourcePath = $request->input('image_path');
             if (preg_match('/^media\/[\w\/\.\-]+$/', $sourcePath) && Storage::disk('public')->exists($sourcePath)) {
                 $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);
-                $fileName = 'template_' . time() . '_' . uniqid() . '.' . $extension;
-                $destinationPath = 'campaign-attachments/' . $fileName;
+                $fileName = 'template_'.time().'_'.uniqid().'.'.$extension;
+                $destinationPath = 'campaign-attachments/'.$fileName;
                 Storage::disk('public')->copy($sourcePath, $destinationPath);
                 $validated['image'] = $destinationPath;
             }
@@ -46,6 +47,12 @@ class CampaignTemplateController extends Controller
         if (empty($validated['image'])) {
             unset($validated['image']);
         }
+
+        unset($validated['image_path']);
+        $validated['whatsapp_settings'] = WhatsappTemplateSettings::normalizeFromRequest(
+            $validated['type'],
+            $request->input('whatsapp_settings')
+        );
 
         CampaignTemplate::create($validated);
 
@@ -77,8 +84,8 @@ class CampaignTemplateController extends Controller
                     Storage::disk('public')->delete($campaignTemplate->image);
                 }
                 $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);
-                $fileName = 'template_' . time() . '_' . uniqid() . '.' . $extension;
-                $destinationPath = 'campaign-attachments/' . $fileName;
+                $fileName = 'template_'.time().'_'.uniqid().'.'.$extension;
+                $destinationPath = 'campaign-attachments/'.$fileName;
                 Storage::disk('public')->copy($sourcePath, $destinationPath);
                 $validated['image'] = $destinationPath;
             }
@@ -86,6 +93,12 @@ class CampaignTemplateController extends Controller
         if (empty($validated['image'])) {
             unset($validated['image']);
         }
+
+        unset($validated['image_path']);
+        $validated['whatsapp_settings'] = WhatsappTemplateSettings::normalizeFromRequest(
+            $validated['type'],
+            $request->input('whatsapp_settings')
+        );
 
         $campaignTemplate->update($validated);
 

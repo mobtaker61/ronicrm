@@ -307,19 +307,102 @@
                     </div>
 
                     <!-- Simple Textarea for WhatsApp -->
-                    <div v-else>
+                    <div v-else class="space-y-2">
+                        <div
+                            v-if="form.type === 'whatsapp'"
+                            class="flex flex-wrap gap-2 p-2 bg-gray-50 border border-gray-200 rounded-t-md border-b-0"
+                        >
+                            <span class="text-xs text-gray-500 self-center mr-1">درج:</span>
+                            <button
+                                v-for="v in waVariableNames"
+                                :key="v"
+                                type="button"
+                                @click="insertWaVariable(v)"
+                                class="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-100"
+                            >
+                                {{ '{' + v + '}' }}
+                            </button>
+                        </div>
                         <textarea
+                            ref="waCampaignBody"
                             v-model="form.content"
                             rows="8"
                             required
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            :class="[
+                                'w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                                form.type === 'whatsapp' ? 'rounded-b-md rounded-t-none border-t-0' : 'rounded-md',
+                            ]"
                             placeholder="WhatsApp message content..."
                         ></textarea>
                     </div>
 
                     <p class="mt-1 text-xs text-gray-500">
-                        You can use variables: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}
+                        <template v-if="form.type === 'whatsapp'">
+                            متغیرها: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}, {{ '{gender}' }}, {{ '{intro}' }}
+                        </template>
+                        <template v-else>
+                            You can use variables: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}
+                        </template>
                     </p>
+
+                    <!-- همان منطق تمپلیت: برای کمپین بدون تمپلیت یا ویرایش دستی -->
+                    <div
+                        v-if="form.type === 'whatsapp'"
+                        class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/60 p-5 space-y-4"
+                    >
+                        <h4 class="text-sm font-semibold text-emerald-900">تنظیمات پیام واتساپ</h4>
+                        <p class="text-xs text-emerald-900/80">
+                            اگر از تمپلیت استفاده کردید این فیلدها از تمپلیت پر می‌شوند؛ می‌توانید قبل از ساخت کمپین اصلاح کنید.
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">نمایش male برای {{ '{gender}' }}</label>
+                                <input
+                                    v-model="form.whatsapp_settings.gender_labels.male"
+                                    type="text"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                    placeholder="آقای"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">نمایش female</label>
+                                <input
+                                    v-model="form.whatsapp_settings.gender_labels.female"
+                                    type="text"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                    placeholder="خانم"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">نمایش other</label>
+                                <input
+                                    v-model="form.whatsapp_settings.gender_labels.other"
+                                    type="text"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                    placeholder="جناب"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">جملات {{ '{intro}' }} (با ویرگول جدا کنید)</label>
+                            <textarea
+                                v-model="form.whatsapp_settings.intro_phrases"
+                                rows="2"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                placeholder="سلام، درود، صبح بخیر"
+                            ></textarea>
+                        </div>
+                        <label class="flex items-start gap-3 cursor-pointer rounded-lg bg-white/80 border p-3">
+                            <input
+                                v-model="form.whatsapp_settings.append_random_token"
+                                type="checkbox"
+                                class="mt-1 rounded border-gray-300 text-emerald-600"
+                            />
+                            <span class="text-sm text-gray-800">
+                                <span class="font-medium">کد تصادفی ۸ رقمی در انتهای هر پیام</span>
+                            </span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Recipients Selection -->
@@ -546,7 +629,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick, watch } from 'vue';
 import { useForm, Link } from '@inertiajs/vue3';
 import MediaPickerModal from '@/Components/MediaPickerModal.vue';
 import IndustrySelect from '@/Components/IndustrySelect.vue';
@@ -570,6 +653,17 @@ function findIndustryById(items, id) {
     return null;
 }
 
+function defaultWhatsappSettings() {
+    return {
+        gender_labels: { male: '', female: '', other: '' },
+        intro_phrases: '',
+        append_random_token: false,
+    };
+}
+
+const waVariableNames = ['name', 'company', 'email', 'phone', 'gender', 'intro'];
+const waCampaignBody = ref(null);
+
 const form = useForm({
     name: '',
     description: '',
@@ -582,9 +676,19 @@ const form = useForm({
     attachments: [],
     scheduled_at: null,
     recipient_entries: [],
+    whatsapp_settings: null,
 });
 const emailAttachmentsInput = ref(null);
 const emailAttachmentFiles = ref([]);
+
+watch(
+    () => form.type,
+    (t) => {
+        if (t === 'whatsapp' && !form.whatsapp_settings) {
+            form.whatsapp_settings = defaultWhatsappSettings();
+        }
+    }
+);
 
 // برای پیش‌نمایش: اگر محتوا شبیه HTML نبود (بدون تگ)، خط‌شکنی را با <br> نشان بده تا به‌هم نریزد
 const previewContent = computed(() => {
@@ -742,10 +846,14 @@ const handleTypeChange = () => {
         form.attachments = [];
         emailAttachmentFiles.value = [];
         if (emailAttachmentsInput.value) emailAttachmentsInput.value.value = '';
+        if (!form.whatsapp_settings) {
+            form.whatsapp_settings = defaultWhatsappSettings();
+        }
     } else if (form.type === 'email') {
         form.image = null;
         imagePreview.value = null;
         selectedFile.value = null;
+        form.whatsapp_settings = null;
     }
     editorMode.value = 'html';
     // Clear selected recipients when campaign type changes
@@ -830,6 +938,12 @@ const loadTemplate = () => {
             form.subject = template.subject || '';
             form.image_path = null;
             selectedFile.value = null;
+            if (form.type === 'whatsapp') {
+                form.whatsapp_settings =
+                    template.whatsapp_settings && typeof template.whatsapp_settings === 'object'
+                        ? JSON.parse(JSON.stringify(template.whatsapp_settings))
+                        : defaultWhatsappSettings();
+            }
             // Only show template image if type matches and no new image is uploaded
             if (template.image && form.type === 'whatsapp' && !form.image) {
                 // Template image is already a full URL from backend
@@ -841,6 +955,9 @@ const loadTemplate = () => {
     } else {
         if (!form.image) {
             imagePreview.value = null;
+        }
+        if (form.type === 'whatsapp') {
+            form.whatsapp_settings = defaultWhatsappSettings();
         }
     }
 };
@@ -958,6 +1075,22 @@ const insertVariable = (varName) => {
     }, 0);
 };
 
+const insertWaVariable = (varName) => {
+    const el = waCampaignBody.value;
+    const replacement = `{${varName}}`;
+    if (el && typeof el.selectionStart === 'number') {
+        const start = el.selectionStart;
+        form.content = form.content.substring(0, start) + replacement + form.content.substring(start);
+        nextTick(() => {
+            el.focus();
+            const pos = start + replacement.length;
+            el.setSelectionRange(pos, pos);
+        });
+    } else {
+        form.content = (form.content || '') + replacement;
+    }
+};
+
 function handleEmailAttachmentsChange(event) {
     const files = event.target.files;
     if (files && files.length) {
@@ -976,6 +1109,11 @@ const submit = () => {
         const payload = { ...data };
         if (payload.recipient_entries && Array.isArray(payload.recipient_entries)) {
             payload.recipient_entries = JSON.stringify(payload.recipient_entries);
+        }
+        if (payload.type === 'whatsapp' && payload.whatsapp_settings && typeof payload.whatsapp_settings === 'object') {
+            payload.whatsapp_settings = JSON.stringify(payload.whatsapp_settings);
+        } else {
+            delete payload.whatsapp_settings;
         }
         return payload;
     }).post(route('campaigns.store'), {

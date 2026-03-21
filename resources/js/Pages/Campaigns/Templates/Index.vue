@@ -181,6 +181,77 @@
                             </div>
                         </div>
 
+                        <!-- تنظیمات پیشرفته واتساپ (جنسیت، مقدمه تصادفی، کد انتهایی) -->
+                        <div
+                            v-if="form.type === 'whatsapp'"
+                            class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-5 space-y-4"
+                        >
+                            <div class="flex items-start gap-3">
+                                <div class="flex-1">
+                                    <h4 class="text-sm font-semibold text-emerald-900">تنظیمات پیام واتساپ</h4>
+                                    <p class="text-xs text-emerald-800/80 mt-1 leading-relaxed">
+                                        برای کاهش تشابه پیام‌های انبوه: متغیر <code class="bg-white/80 px-1 rounded">{intro}</code> یکی از جملات مقدمه را
+                                        <strong>تصادفی</strong> جایگزین می‌کند. با <code class="bg-white/80 px-1 rounded">{gender}</code> برچسب مناسب جنسیت (فقط مخاطب person) را بگذارید.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">نمایش برای male</label>
+                                    <input
+                                        v-model="form.whatsapp_settings.gender_labels.male"
+                                        type="text"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
+                                        placeholder="مثال: آقای"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">نمایش برای female</label>
+                                    <input
+                                        v-model="form.whatsapp_settings.gender_labels.female"
+                                        type="text"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
+                                        placeholder="مثال: خانم"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">نمایش برای other</label>
+                                    <input
+                                        v-model="form.whatsapp_settings.gender_labels.other"
+                                        type="text"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
+                                        placeholder="مثال: جناب"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    جملات مقدمه برای <code class="text-xs bg-white px-1 rounded">{intro}</code>
+                                </label>
+                                <textarea
+                                    v-model="form.whatsapp_settings.intro_phrases"
+                                    rows="2"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="با ویرگول (انگلیسی یا فارسی) جدا کنید — مثال: سلام وقت بخیر، درود، صبح بخیر"
+                                ></textarea>
+                                <p class="text-xs text-gray-600 mt-1">در هر ارسال یکی به‌صورت تصادفی انتخاب می‌شود.</p>
+                            </div>
+
+                            <label class="flex items-start gap-3 cursor-pointer rounded-lg bg-white/80 border border-emerald-100 p-3">
+                                <input
+                                    v-model="form.whatsapp_settings.append_random_token"
+                                    type="checkbox"
+                                    class="mt-1 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                />
+                                <span class="text-sm text-gray-800">
+                                    <span class="font-medium">درج کد تصادفی ۸ رقمی در انتهای هر پیام</span>
+                                    <span class="block text-xs text-gray-600 mt-0.5">برای هر گیرنده یک کد جدا ساخته می‌شود (مثلاً جهت تمایز از پیام‌های کپی‌شده).</span>
+                                </span>
+                            </label>
+                        </div>
+
                         <!-- Content Editor -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Content *</label>
@@ -339,19 +410,46 @@
                                 </div>
                             </div>
 
-                            <!-- Simple Textarea for WhatsApp -->
-                            <div v-else>
+                            <!-- Simple Textarea for WhatsApp / Telegram -->
+                            <div v-else class="space-y-2">
+                                <div
+                                    v-if="form.type === 'whatsapp'"
+                                    class="flex flex-wrap gap-2 p-2 bg-gray-50 border border-gray-200 rounded-t-md border-b-0"
+                                >
+                                    <span class="text-xs text-gray-500 self-center mr-1">درج:</span>
+                                    <button
+                                        v-for="v in waVariableNames"
+                                        :key="v"
+                                        type="button"
+                                        @click="insertWaVariable(v)"
+                                        class="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-100"
+                                    >
+                                        {{ '{' + v + '}' }}
+                                    </button>
+                                </div>
                                 <textarea
+                                    ref="waTemplateBody"
                                     v-model="form.content"
                                     rows="8"
                                     required
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    :class="[
+                                        'w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500',
+                                        form.type === 'whatsapp' ? 'rounded-b-md rounded-t-none border-t-0' : 'rounded-md',
+                                    ]"
                                     placeholder="Enter message content..."
                                 ></textarea>
                             </div>
 
                             <p class="mt-1 text-xs text-gray-500">
-                                Available variables: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}
+                                <template v-if="form.type === 'whatsapp'">
+                                    متغیرها: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}, {{ '{gender}' }}, {{ '{intro}' }}
+                                </template>
+                                <template v-else-if="form.type === 'telegram'">
+                                    متغیرها: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}
+                                </template>
+                                <template v-else>
+                                    Available variables: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}
+                                </template>
                             </p>
                         </div>
 
@@ -385,7 +483,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, nextTick, watch } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import MediaPickerModal from '@/Components/MediaPickerModal.vue';
@@ -401,6 +499,17 @@ const imagePreview = ref(null);
 const selectedFile = ref(null);
 const showMediaPicker = ref(false);
 const htmlEditor = ref(null);
+const waTemplateBody = ref(null);
+
+const waVariableNames = ['name', 'company', 'email', 'phone', 'gender', 'intro'];
+
+function defaultWhatsappSettings() {
+    return {
+        gender_labels: { male: '', female: '', other: '' },
+        intro_phrases: '',
+        append_random_token: false,
+    };
+}
 
 const form = useForm({
     name: '',
@@ -409,14 +518,29 @@ const form = useForm({
     content: '',
     image: null,
     image_path: null,
+    whatsapp_settings: null,
 });
 
 const handleTypeChange = () => {
     if (form.type === 'whatsapp') {
         form.subject = '';
+        if (!form.whatsapp_settings) {
+            form.whatsapp_settings = defaultWhatsappSettings();
+        }
+    } else {
+        form.whatsapp_settings = null;
     }
     editorMode.value = 'html';
 };
+
+watch(
+    () => form.type,
+    (t) => {
+        if (t === 'whatsapp' && !form.whatsapp_settings) {
+            form.whatsapp_settings = defaultWhatsappSettings();
+        }
+    }
+);
 
 const handleImageChange = (event) => {
     const file = event.target.files[0];
@@ -485,6 +609,12 @@ const editTemplate = (template) => {
     form.content = template.content;
     form.image = null;
     form.image_path = null;
+    form.whatsapp_settings =
+        template.type === 'whatsapp'
+            ? template.whatsapp_settings && typeof template.whatsapp_settings === 'object'
+                ? JSON.parse(JSON.stringify(template.whatsapp_settings))
+                : defaultWhatsappSettings()
+            : null;
     imagePreview.value = null;
     selectedFile.value = null;
     editorMode.value = 'html';
@@ -500,7 +630,18 @@ const deleteTemplate = (template) => {
     }
 };
 
+function withTemplateFormPayload(data) {
+    const d = { ...data };
+    if (d.type === 'whatsapp' && d.whatsapp_settings && typeof d.whatsapp_settings === 'object') {
+        d.whatsapp_settings = JSON.stringify(d.whatsapp_settings);
+    } else {
+        delete d.whatsapp_settings;
+    }
+    return d;
+}
+
 const saveTemplate = () => {
+    form.transform(withTemplateFormPayload);
     if (editingTemplate.value) {
         form.post(route('campaign-templates.update', editingTemplate.value.id), {
             preserveState: true,
@@ -516,6 +657,22 @@ const saveTemplate = () => {
             forceFormData: true,
             onSuccess: () => closeModal(),
         });
+    }
+};
+
+const insertWaVariable = (varName) => {
+    const el = waTemplateBody.value;
+    const replacement = `{${varName}}`;
+    if (el && typeof el.selectionStart === 'number') {
+        const start = el.selectionStart;
+        form.content = form.content.substring(0, start) + replacement + form.content.substring(start);
+        nextTick(() => {
+            el.focus();
+            const pos = start + replacement.length;
+            el.setSelectionRange(pos, pos);
+        });
+    } else {
+        form.content = (form.content || '') + replacement;
     }
 };
 
@@ -608,6 +765,7 @@ const closeModal = () => {
     editingTemplate.value = null;
     form.reset();
     form.type = '';
+    form.whatsapp_settings = null;
     imagePreview.value = null;
     selectedFile.value = null;
     editorMode.value = 'html';
