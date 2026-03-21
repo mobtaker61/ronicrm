@@ -9,19 +9,9 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Artisan::command('telegram:fetch-incoming', function () {
-    $lock = Cache::lock('telegram_fetch_incoming_command_lock', 900);
-    if (! $lock->get()) {
-        $this->warn('telegram:fetch-incoming is already running. Skipping parallel run.');
-        return 0;
-    }
-
-    try {
-        $this->info('Running TelegramFetchIncomingJob...');
-        dispatch_sync(new \App\Jobs\TelegramFetchIncomingJob);
-        $this->info('Done.');
-    } finally {
-        $lock->release();
-    }
+    $this->info('Running TelegramFetchIncomingJob...');
+    dispatch_sync(new \App\Jobs\TelegramFetchIncomingJob);
+    $this->info('Done.');
 })->purpose('Fetch incoming Telegram DMs and sync to inbox (run manually)');
 
 Artisan::command('telegram:sync-contacts', function () {
@@ -178,3 +168,33 @@ Artisan::command('telegram:diag {--deep : Run a deeper Madeline connectivity che
     $this->comment('Tip: run `php artisan telegram:diag --deep` when an issue happens.');
     return 0;
 })->purpose('Diagnose Telegram Madeline session/locks/process state');
+
+Artisan::command('telegram:unlock-locks {--conn= : Connection ID, defaults to active}', function () {
+    $connId = (int) ($this->option('conn') ?: 0);
+    $conn = $connId > 0
+        ? \App\Models\TelegramUserConnection::find($connId)
+        : \App\Models\TelegramUserConnection::getActive();
+
+    if (! $conn) {
+        $this->error('No connection found to unlock.');
+        return 1;
+    }
+
+    $sessionLockKey = 'madeline_session_'.$conn->id;
+    Cache::lock($sessionLockKey)->forceRelease();
+    $this->info("Force released cache lock: {$sessionLockKey}");
+
+    Cache::lock('telegram_fetch_incoming_command_lock')->forceRelease();
+    $this->info('Force released legacy command lock: telegram_fetch_incoming_command_lock');
+
+    $fileLock = storage_path('framework/telegram_fetch_incoming.lock');
+    if (is_file($fileLock)) {
+        @unlink($fileLock);
+        $this->info("Removed file lock: {$fileLock}");
+    } else {
+        $this->line("File lock not found: {$fileLock}");
+    }
+
+    $this->comment('Done. If a live process still holds flock, it will recreate/relock while running.');
+    return 0;
+})->purpose('Force release Telegram fetch/session locks');
