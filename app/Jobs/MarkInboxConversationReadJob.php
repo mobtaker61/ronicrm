@@ -35,22 +35,35 @@ class MarkInboxConversationReadJob implements ShouldQueue
                 if ($this->specificIds !== []) {
                     $q->whereIn('id', $this->specificIds);
                 }
-                $q->update(['read_at' => now(), 'status' => 'read']);
+                $updated = $q->update(['read_at' => now(), 'status' => 'read']);
+                Log::info('MarkInboxConversationReadJob: telegram marked read', [
+                    'contact' => $this->contactKey,
+                    'updated' => $updated,
+                    'ids_count' => count($this->specificIds),
+                ]);
 
                 return;
             }
 
             if ($this->channel === 'instagram') {
-                InstagramMessage::forIgUser($this->contactKey)
+                $updated = InstagramMessage::forIgUser($this->contactKey)
                     ->whereNull('read_at')
                     ->update(['read_at' => now(), 'status' => 'read']);
+                Log::info('MarkInboxConversationReadJob: instagram marked read', [
+                    'contact' => $this->contactKey,
+                    'updated' => $updated,
+                ]);
 
                 return;
             }
 
-            WhatsAppMessage::where('from_phone', $this->contactKey)
+            $updated = WhatsAppMessage::where('from_phone', $this->contactKey)
                 ->whereNull('read_at')
                 ->update(['read_at' => now(), 'status' => 'read']);
+            Log::info('MarkInboxConversationReadJob: whatsapp marked read', [
+                'contact' => $this->contactKey,
+                'updated' => $updated,
+            ]);
         } catch (QueryException $e) {
             if (str_contains($e->getMessage(), '1205') && $this->attempts() < $this->tries) {
                 $this->release(2);

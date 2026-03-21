@@ -855,9 +855,41 @@ class InboxController extends Controller
         if ($contactKey === null || $contactKey === '') {
             return;
         }
+        // Prefer immediate update so unread state changes reliably.
+        // If DB is locked, retry a few times; then fallback to queued job.
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            try {
+                if ($channel === 'telegram') {
+                    $q = TelegramMessage::forChat($contactKey)
+                        ->where('direction', 'incoming')
+                        ->whereNull('read_at');
+                    if ($specificIds !== []) {
+                        $q->whereIn('id', $specificIds);
+                    }
+                    $q->update(['read_at' => now(), 'status' => 'read']);
+                } elseif ($channel === 'instagram') {
+                    InstagramMessage::forIgUser($contactKey)
+                        ->whereNull('read_at')
+                        ->update(['read_at' => now(), 'status' => 'read']);
+                } else {
+                    WhatsAppMessage::where('from_phone', $contactKey)
+                        ->whereNull('read_at')
+                        ->update(['read_at' => now(), 'status' => 'read']);
+                }
 
-        app()->terminating(function () use ($channel, $contactKey, $specificIds): void {
-            dispatch(new MarkInboxConversationReadJob($channel, $contactKey, $specificIds));
-        });
+                return;
+            } catch (\Throwable $e) {
+                if (! str_contains($e->getMessage(), '1205') || $attempt === 2) {
+                    Log::warning('Inbox mark-as-read immediate failed; queue fallback', [
+                        'channel' => $channel,
+                        'contact' => $contactKey,
+                        'error' => $e->getMessage(),
+                    ]);
+                    dispatch(new MarkInboxConversationReadJob($channel, $contactKey, $specificIds));
+                    return;
+                }
+                usleep(200000);
+            }
+        }
     }
 }
