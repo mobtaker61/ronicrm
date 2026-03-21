@@ -12,6 +12,15 @@
             <div v-if="$page.props.flash?.error" class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
                 {{ $page.props.flash.error }}
             </div>
+            <div
+                v-if="$page.props.flash?.google_sync_errors && $page.props.flash.google_sync_errors.length"
+                class="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-lg"
+            >
+                <p class="font-medium text-sm mb-2">جزئیات خطاهای همگام‌سازی Google:</p>
+                <ul class="list-disc list-inside text-sm space-y-1">
+                    <li v-for="(err, i) in $page.props.flash.google_sync_errors" :key="i">{{ err }}</li>
+                </ul>
+            </div>
 
             <!-- Tabs -->
             <div class="bg-white rounded-lg shadow">
@@ -71,6 +80,17 @@
                             ]"
                         >
                             Instagram (Inbox)
+                        </button>
+                        <button
+                            @click="activeTab = 'google-contacts'"
+                            :class="[
+                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
+                                activeTab === 'google-contacts'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ]"
+                        >
+                            Google Contacts
                         </button>
                         <button
                             v-if="isAdmin"
@@ -971,6 +991,60 @@
                         <div class="p-4 bg-gray-100 rounded-lg text-sm text-gray-800 whitespace-pre-line">{{ reviewerInstructions }}</div>
                     </div>
                 </div>
+
+                <!-- Google Contacts (CRM → Google, one-way) -->
+                <div v-if="activeTab === 'google-contacts'" class="p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">همگام‌سازی مخاطبین با Google Contacts</h2>
+                    <p class="text-sm text-gray-600 mb-6 max-w-3xl">
+                        اتصال یک‌طرفه از CRM به مخاطبین همان حساب Google که با آن OAuth می‌زنید.
+                        نام کامل هر مشتری به صورت <strong>First / Middle / Last</strong> (بر اساس فاصله بین کلمات) ارسال می‌شود؛ ایمیل و تلفن از فیلدهای مشتری و روش‌های تماس خوانده می‌شود.
+                    </p>
+
+                    <div class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 space-y-2">
+                        <p><span class="font-medium">Redirect URI در Google Cloud Console باید دقیقاً این باشد:</span></p>
+                        <code class="block bg-white border px-3 py-2 rounded text-xs break-all">{{ googleRedirectUriDisplay }}</code>
+                        <p class="text-xs text-gray-500">در .env می‌توانید با <code class="bg-gray-100 px-1">GOOGLE_REDIRECT_URI</code> همین URL را صریح تنظیم کنید.</p>
+                    </div>
+
+                    <div v-if="!googleContactsIntegration" class="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
+                        <p class="text-gray-700 mb-4">ابتدا حساب Google را وصل کنید (نیاز به scope مخاطبین). پس از اتصال می‌توانید همهٔ مشتریان CRM را به Google بفرستید.</p>
+                        <a
+                            :href="route('settings.google-contacts.connect')"
+                            class="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700"
+                        >
+                            اتصال به Google
+                        </a>
+                    </div>
+
+                    <div v-else class="mb-8 space-y-6">
+                        <div class="p-6 border border-gray-200 rounded-lg bg-white flex flex-wrap items-center justify-between gap-4">
+                            <div>
+                                <p class="font-semibold text-gray-900">{{ googleContactsIntegration.account_email || 'Google account' }}</p>
+                                <p v-if="googleContactsIntegration.connected_at" class="text-sm text-gray-500">متصل از: {{ formatDate(googleContactsIntegration.connected_at) }}</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <form @submit.prevent="syncGoogleContacts">
+                                    <button
+                                        type="submit"
+                                        :disabled="googleSyncForm.processing"
+                                        class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 text-sm font-medium"
+                                    >
+                                        {{ googleSyncForm.processing ? 'در حال همگام‌سازی…' : 'همگام‌سازی همه مشتریان' }}
+                                    </button>
+                                </form>
+                                <form @submit.prevent="disconnectGoogleContacts">
+                                    <button type="submit" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium">
+                                        قطع اتصال
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            شناسهٔ Google هر مشتری در دیتابیس ذخیره می‌شود؛ ارسال مجدد همان مخاطب را در Google به‌روز می‌کند.
+                            دستور کنسول: <code class="bg-gray-100 px-1">php artisan google:sync-contacts</code>
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1116,6 +1190,14 @@ const props = defineProps({
     instagramWebhookEvents: {
         type: Array,
         default: () => [],
+    },
+    googleContactsIntegration: {
+        type: Object,
+        default: null,
+    },
+    googleContactsRedirectUri: {
+        type: String,
+        default: '',
     },
 });
 
@@ -1563,6 +1645,28 @@ const saveInstagramSettings = () => {
 const disconnectInstagram = () => {
     if (!confirm('Disconnect this Instagram account? You can connect again later.')) return;
     router.post(route('settings.instagram.disconnect'), {}, { preserveScroll: true });
+};
+
+const googleSyncForm = useForm({});
+const googleRedirectUriDisplay = computed(() => {
+    if (props.googleContactsRedirectUri) {
+        return props.googleContactsRedirectUri;
+    }
+    if (typeof window !== 'undefined' && window.location?.origin) {
+        return `${window.location.origin}/settings/google-contacts/callback`;
+    }
+    return '';
+});
+
+const syncGoogleContacts = () => {
+    googleSyncForm.post(route('settings.google-contacts.sync'), { preserveScroll: true });
+};
+
+const disconnectGoogleContacts = () => {
+    if (!confirm('اتصال Google قطع شود؟')) {
+        return;
+    }
+    router.post(route('settings.google-contacts.disconnect'), {}, { preserveScroll: true });
 };
 
 const revalidateInstagram = () => {

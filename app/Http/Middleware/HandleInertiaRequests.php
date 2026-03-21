@@ -28,6 +28,7 @@ class HandleInertiaRequests extends Middleware
         if (file_exists($manifestPath)) {
             return md5_file($manifestPath);
         }
+
         return null;
     }
 
@@ -46,6 +47,7 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
                 'info' => fn () => $request->session()->get('info'),
+                'google_sync_errors' => fn () => $request->session()->get('google_sync_errors'),
             ],
             'auth' => [
                 'user' => $request->user() ? [

@@ -53,4 +53,10 @@ return [
         'api_hash' => env('TELEGRAM_API_HASH', ''),
     ],
 
+    'google_contacts' => [
+        'client_id' => env('GOOGLE_CLIENT_ID', ''),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET', ''),
+        'redirect_uri' => env('GOOGLE_REDIRECT_URI') ?: (rtrim((string) env('APP_URL', ''), '/').'/settings/google-contacts/callback'),
+    ],
+
 ];

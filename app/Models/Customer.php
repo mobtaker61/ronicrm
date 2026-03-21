@@ -37,6 +37,7 @@ class Customer extends Model
         'contact_person',
         'notes',
         'share_key',
+        'google_people_resource_name',
         'created_by',
         'updated_by',
     ];
@@ -111,7 +112,7 @@ class Customer extends Model
         parent::boot();
 
         static::creating(function ($customer) {
-            if (!$customer->share_key) {
+            if (! $customer->share_key) {
                 $customer->share_key = bin2hex(random_bytes(16));
             }
         });
