@@ -1,0 +1,72 @@
+<?php
+
+namespace App\Jobs;
+
+use App\Models\InstagramMessage;
+use App\Models\TelegramMessage;
+use App\Models\WhatsAppMessage;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\QueryException;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
+
+class MarkInboxConversationReadJob implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public int $tries = 5;
+
+    public function __construct(
+        public string $channel,
+        public string $contactKey,
+        public array $specificIds = []
+    ) {}
+
+    public function handle(): void
+    {
+        try {
+            if ($this->channel === 'telegram') {
+                $q = TelegramMessage::forChat($this->contactKey)
+                    ->where('direction', 'incoming')
+                    ->whereNull('read_at');
+                if ($this->specificIds !== []) {
+                    $q->whereIn('id', $this->specificIds);
+                }
+                $q->update(['read_at' => now(), 'status' => 'read']);
+
+                return;
+            }
+
+            if ($this->channel === 'instagram') {
+                InstagramMessage::forIgUser($this->contactKey)
+                    ->whereNull('read_at')
+                    ->update(['read_at' => now(), 'status' => 'read']);
+
+                return;
+            }
+
+            WhatsAppMessage::where('from_phone', $this->contactKey)
+                ->whereNull('read_at')
+                ->update(['read_at' => now(), 'status' => 'read']);
+        } catch (QueryException $e) {
+            if (str_contains($e->getMessage(), '1205') && $this->attempts() < $this->tries) {
+                $this->release(2);
+                return;
+            }
+
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::warning('MarkInboxConversationReadJob failed', [
+                'channel' => $this->channel,
+                'contact' => $this->contactKey,
+                'error' => $e->getMessage(),
+                'attempt' => $this->attempts(),
+            ]);
+            throw $e;
+        }
+    }
+}
+

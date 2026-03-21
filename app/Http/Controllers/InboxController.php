@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\MarkInboxConversationReadJob;
 use App\Models\CampaignTemplate;
 use App\Models\Customer;
 use App\Models\CustomerContact;
@@ -12,7 +13,6 @@ use App\Models\TelegramMessage;
 use App\Models\WhatsAppMessage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -857,43 +857,7 @@ class InboxController extends Controller
         }
 
         app()->terminating(function () use ($channel, $contactKey, $specificIds): void {
-            try {
-                DB::reconnect();
-            } catch (\Throwable) {
-                // ignore
-            }
-
-            for ($attempt = 0; $attempt < 3; $attempt++) {
-                try {
-                    if ($channel === 'telegram') {
-                        $q = TelegramMessage::forChat($contactKey)
-                            ->where('direction', 'incoming')
-                            ->whereNull('read_at');
-                        if ($specificIds !== []) {
-                            $q->whereIn('id', $specificIds);
-                        }
-                        $q->update(['read_at' => now(), 'status' => 'read']);
-                    } elseif ($channel === 'instagram') {
-                        InstagramMessage::forIgUser($contactKey)->whereNull('read_at')
-                            ->update(['read_at' => now(), 'status' => 'read']);
-                    } else {
-                        WhatsAppMessage::where('from_phone', $contactKey)->whereNull('read_at')
-                            ->update(['read_at' => now(), 'status' => 'read']);
-                    }
-
-                    return;
-                } catch (\Throwable $e) {
-                    if (! str_contains($e->getMessage(), '1205') || $attempt === 2) {
-                        Log::warning('Inbox: mark-as-read after response failed (non-fatal)', [
-                            'channel' => $channel,
-                            'contact' => $contactKey,
-                            'error' => $e->getMessage(),
-                        ]);
-                        return;
-                    }
-                    usleep(250000);
-                }
-            }
+            dispatch(new MarkInboxConversationReadJob($channel, $contactKey, $specificIds));
         });
     }
 }
