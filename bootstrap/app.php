@@ -34,8 +34,9 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withSchedule(function ($schedule) {
         $schedule->command('campaigns:process')->everyMinute();
-        // Fallback when telegram:listen-incoming is not running (they share the same session - don't run both)
-        $schedule->command('telegram:fetch-incoming')->hourly()->withoutOverlapping(30);
+        // وقتی telegram:listen-incoming (daemon) اجرا نمی‌شود، با polling پیام‌های DM را می‌گیرد.
+        // هر دو از یک session MadelineProto استفاده می‌کنند — همزمان اجرا نکنید.
+        $schedule->command('telegram:fetch-incoming')->everyThreeMinutes()->withoutOverlapping(25);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

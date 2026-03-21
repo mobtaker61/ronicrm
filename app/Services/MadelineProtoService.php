@@ -565,8 +565,23 @@ class MadelineProtoService
             if (str_contains($msg, 'PrivateMessage') && str_contains($msg, 'as array')) {
                 Log::info('MadelineProto sendMessage: message sent but lib threw as-array (treating as success)');
                 $this->connection?->update(['last_used_at' => now()]);
+                $resolvedId = $peer;
+                try {
+                    $resolvedId = $this->run(function () use ($apiPeer) {
+                        $api = $this->getApi();
+                        $api->start();
 
-                return ['success' => true, 'message_id' => null];
+                        return (string) $api->getId($apiPeer);
+                    });
+                } catch (\Throwable $ex) {
+                    Log::debug('MadelineProto: resolve peer after as-array send failed', ['error' => $ex->getMessage()]);
+                }
+
+                return [
+                    'success' => true,
+                    'message_id' => null,
+                    'resolved_chat_id' => $resolvedId,
+                ];
             }
             Log::warning('MadelineProto sendMessage failed: '.$msg);
 

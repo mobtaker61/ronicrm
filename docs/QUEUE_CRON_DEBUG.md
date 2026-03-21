@@ -30,7 +30,7 @@
 
 | Cron | زمان | کار |
 |------|------|-----|
-| `schedule:run` | هر دقیقه | اجرای دستورات زمان‌بندی‌شده (campaigns:process هر دقیقه، telegram:fetch-incoming هر ساعت) |
+| `schedule:run` | هر دقیقه | اجرای دستورات زمان‌بندی‌شده (campaigns:process هر دقیقه، telegram:fetch-incoming هر ۳ دقیقه) |
 | `queue:work --stop-when-empty` | هر دقیقه | پردازش Jobهای صف و خروج بعد از اتمام |
 
 ### ۲. صف‌ها (Queues)
@@ -41,7 +41,7 @@
 ### ۳. دستورات زمان‌بندی‌شده (Schedule)
 
 - `campaigns:process` → هر دقیقه
-- `telegram:fetch-incoming` → هر ساعت (برای دریافت پیام‌های تلگرام در Inbox)
+- `telegram:fetch-incoming` → هر ۳ دقیقه (دریافت DM تلگرام وقتی daemon `telegram:listen-incoming` اجرا نمی‌شود)
 
 ---
 

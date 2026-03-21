@@ -53,8 +53,22 @@ class TelegramFetchIncomingJob implements ShouldQueue
                 $userPeerIds[] = (string) $id;
             }
         }
+        $userPeerIds = array_values(array_unique($userPeerIds));
 
-        // Prioritize users we've contacted (more likely to have replies)
+        // چت‌هایی که اخیراً از اینباکس پیام خروجی داشته‌اند (اولویت برای گرفتن پاسخ)
+        $recentOutgoingNumericIds = TelegramMessage::query()
+            ->where('direction', 'outgoing')
+            ->where('created_at', '>=', now()->subDays(30))
+            ->whereNotNull('chat_id')
+            ->distinct()
+            ->pluck('chat_id')
+            ->map(fn ($id) => trim((string) $id))
+            ->filter(fn ($id) => $id !== '' && ctype_digit($id))
+            ->unique()
+            ->values()
+            ->all();
+
+        // Prioritize users we've contacted (CRM contact telegram value)
         $contactedIds = CustomerContact::where('type', 'telegram')->pluck('value')->flip()->toArray();
         usort($userPeerIds, function ($a, $b) use ($contactedIds) {
             $aHas = isset($contactedIds[$a]) ? 1 : 0;
@@ -62,19 +76,27 @@ class TelegramFetchIncomingJob implements ShouldQueue
             return $bHas - $aHas;
         });
 
-        Log::info('TelegramFetchIncomingJob', ['total_dialogs' => count($dialogs), 'user_peers' => count($userPeerIds)]);
+        // ترتیب نهایی: اول گفتگوهای فعال (خروجی اخیر)، بعد بقیهٔ دیالوگ‌ها
+        $orderedPeerIds = array_values(array_unique(array_merge($recentOutgoingNumericIds, $userPeerIds)));
 
-        if (empty($userPeerIds)) {
-            Log::info('TelegramFetchIncomingJob: No user dialogs found (only groups/channels?)');
+        Log::info('TelegramFetchIncomingJob', [
+            'total_dialogs' => count($dialogs),
+            'user_peers' => count($userPeerIds),
+            'recent_outgoing_chats' => count($recentOutgoingNumericIds),
+            'ordered_peers' => count($orderedPeerIds),
+        ]);
+
+        if (empty($orderedPeerIds)) {
+            Log::info('TelegramFetchIncomingJob: No user peers to fetch (no dialogs and no recent outgoing numeric chat_id)');
             return;
         }
 
-        // Limit & rotate: process max 10 users per run to avoid Telegram flood limits
-        $maxPerRun = 10;
+        // محدودیت هر اجرا برای جلوگیری از Flood؛ با everyThreeMinutes هنوز پوشش بهتری نسبت به ۱۰ کاربر/ساعت داریم
+        $maxPerRun = 20;
         $offsetKey = 'telegram_fetch_offset_' . ($conn->id ?? 0);
         $offset = (int) Cache::get($offsetKey, 0);
-        $slice = array_slice($userPeerIds, $offset, $maxPerRun);
-        $nextOffset = ($offset + count($slice)) % max(1, count($userPeerIds));
+        $slice = array_slice($orderedPeerIds, $offset, $maxPerRun);
+        $nextOffset = ($offset + count($slice)) % max(1, count($orderedPeerIds));
         Cache::put($offsetKey, $nextOffset, now()->addDays(1));
 
         $fetched = 0;
