@@ -112,13 +112,25 @@ class TelegramFetchIncomingJob implements ShouldQueue
             return;
         }
 
-        // Keep each run short; long runs increase chance of session contention with web send.
+        // Keep each run short, but ALWAYS include recent outgoing chats
+        // so replies appear quickly even with many dialogs.
         $maxPerRun = 6;
+        $always = array_values(array_unique($recentOutgoingNumericIds));
+        $always = array_slice($always, 0, min(3, $maxPerRun));
+
+        $rest = array_values(array_filter(
+            $orderedPeerIds,
+            fn ($id) => ! in_array($id, $always, true)
+        ));
+
+        $restBudget = max(0, $maxPerRun - count($always));
         $offsetKey = 'telegram_fetch_offset_' . ($conn->id ?? 0);
         $offset = (int) Cache::get($offsetKey, 0);
-        $slice = array_slice($orderedPeerIds, $offset, $maxPerRun);
-        $nextOffset = ($offset + count($slice)) % max(1, count($orderedPeerIds));
+        $rotatingSlice = $restBudget > 0 ? array_slice($rest, $offset, $restBudget) : [];
+        $nextOffset = ($offset + count($rotatingSlice)) % max(1, count($rest));
         Cache::put($offsetKey, $nextOffset, now()->addDays(1));
+
+        $slice = array_values(array_unique(array_merge($always, $rotatingSlice)));
 
         $fetched = 0;
         foreach ($slice as $userId) {

@@ -137,8 +137,23 @@ Artisan::command('telegram:diag {--deep : Run a deeper Madeline connectivity che
     if (trim($processOutput) === '') {
         $this->line(' - no matching processes found (or shell_exec disabled)');
     } else {
+        $fetchCount = 0;
+        $queueCount = 0;
         foreach (preg_split('/\r\n|\r|\n/', trim($processOutput)) as $line) {
             $this->line(' - '.$line);
+            if (str_contains($line, 'artisan telegram:fetch-incoming')) {
+                $fetchCount++;
+            }
+            if (str_contains($line, 'artisan queue:work')) {
+                $queueCount++;
+            }
+        }
+
+        if ($fetchCount > 1) {
+            $this->warn("⚠ Detected {$fetchCount} telegram:fetch-incoming processes in parallel. This usually breaks incoming sync.");
+        }
+        if ($queueCount > 1) {
+            $this->warn("⚠ Detected {$queueCount} queue:work processes. Ensure this is intentional and not duplicated by cron.");
         }
     }
 
