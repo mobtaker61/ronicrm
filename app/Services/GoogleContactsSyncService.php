@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Support\FullNameParser;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class GoogleContactsSyncService
 {
@@ -14,36 +15,55 @@ class GoogleContactsSyncService
     ) {}
 
     /**
-     * @return array{success: int, failed: int, errors: array<int, string>}
+     * @param  callable|null  $afterEach  function (int $processed, int $total, int $success, int $failed, ?string $lastError): void
+     * @return array{success: int, failed: int, errors: array<int, string>, total: int}
      */
-    public function syncAllCustomers(): array
+    public function syncAllCustomers(?callable $afterEach = null): array
     {
         $token = $this->oauth->getValidAccessToken();
         if (! $token) {
-            return ['success' => 0, 'failed' => 0, 'errors' => ['Google Contacts is not connected or token refresh failed.']];
+            return [
+                'success' => 0,
+                'failed' => 0,
+                'errors' => ['Google Contacts is not connected or token refresh failed.'],
+                'total' => 0,
+            ];
         }
 
+        $total = (int) Customer::query()->count();
         $success = 0;
         $failed = 0;
         $errors = [];
+        $processed = 0;
 
-        Customer::query()->with('contacts')->orderBy('id')->chunkById(100, function ($customers) use ($token, &$success, &$failed, &$errors) {
+        Customer::query()->with('contacts')->orderBy('id')->chunkById(100, function ($customers) use ($token, $afterEach, $total, &$success, &$failed, &$errors, &$processed) {
             foreach ($customers as $customer) {
+                $lastError = null;
                 try {
                     $this->pushCustomer($customer, $token);
                     $success++;
                 } catch (\Throwable $e) {
                     $failed++;
-                    $errors[] = "Customer #{$customer->id} ({$customer->name}): ".$e->getMessage();
+                    $lastError = "Customer #{$customer->id} ({$customer->name}): ".$e->getMessage();
+                    $errors[] = $lastError;
                     Log::warning('Google Contacts sync row failed', [
                         'customer_id' => $customer->id,
                         'error' => $e->getMessage(),
                     ]);
                 }
+                $processed++;
+                if ($afterEach !== null) {
+                    $afterEach($processed, $total, $success, $failed, $lastError);
+                }
             }
         });
 
-        return ['success' => $success, 'failed' => $failed, 'errors' => $errors];
+        return [
+            'success' => $success,
+            'failed' => $failed,
+            'errors' => $errors,
+            'total' => $total,
+        ];
     }
 
     /**
@@ -66,6 +86,59 @@ class GoogleContactsSyncService
             $this->updateContact($token, $resourceName, $person, $customer);
         } else {
             $this->createContact($token, $person, $customer);
+        }
+
+        $customer->refresh();
+        $rn = $customer->google_people_resource_name;
+        if (is_string($rn) && $rn !== '') {
+            $this->syncContactPhoto($token, $rn, $customer);
+        }
+    }
+
+    protected function syncContactPhoto(string $token, string $resourceName, Customer $customer): void
+    {
+        if (empty($customer->avatar)) {
+            return;
+        }
+
+        $path = $customer->avatar;
+        if (! Storage::disk('public')->exists($path)) {
+            Log::debug('Google contact photo skip: file missing', ['path' => $path]);
+
+            return;
+        }
+
+        $bytes = Storage::disk('public')->get($path);
+        if ($bytes === false || $bytes === '') {
+            return;
+        }
+
+        $ext = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+        if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
+            return;
+        }
+
+        $b64 = base64_encode($bytes);
+        if (strlen($b64) > 6_000_000) {
+            Log::warning('Google contact photo skip: too large', ['customer_id' => $customer->id]);
+
+            return;
+        }
+
+        $url = 'https://people.googleapis.com/v1/'.$resourceName.':updateContactPhoto';
+
+        $response = Http::withToken($token)
+            ->asJson()
+            ->patch($url, [
+                'photoBytes' => $b64,
+            ]);
+
+        if (! $response->successful()) {
+            Log::warning('Google updateContactPhoto failed', [
+                'customer_id' => $customer->id,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
         }
     }
 
@@ -103,7 +176,7 @@ class GoogleContactsSyncService
             if (in_array($c->type, ['phone', 'whatsapp'], true) && ! empty($c->value)) {
                 $phones[] = [
                     'value' => $c->value,
-                    'type' => $c->type === 'whatsapp' ? 'mobile' : 'mobile',
+                    'type' => 'mobile',
                 ];
             }
         }

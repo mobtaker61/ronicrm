@@ -998,6 +998,8 @@
                     <p class="text-sm text-gray-600 mb-6 max-w-3xl">
                         اتصال یک‌طرفه از CRM به مخاطبین همان حساب Google که با آن OAuth می‌زنید.
                         نام کامل هر مشتری به صورت <strong>First / Middle / Last</strong> (بر اساس فاصله بین کلمات) ارسال می‌شود؛ ایمیل و تلفن از فیلدهای مشتری و روش‌های تماس خوانده می‌شود.
+                        در صورت وجود <strong>آواتار</strong> در CRM، تصویر با API گوگل (<code class="bg-gray-100 px-1 text-xs">updateContactPhoto</code>) روی همان مخاطب در Google قرار می‌گیرد.
+                        پس از ایجاد یا ویرایش مشتری در CRM نیز همگام‌سازی خودکار با Google (در پس‌زمینه) انجام می‌شود.
                     </p>
 
                     <div class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 space-y-2">
@@ -1023,15 +1025,14 @@
                                 <p v-if="googleContactsIntegration.connected_at" class="text-sm text-gray-500">متصل از: {{ formatDate(googleContactsIntegration.connected_at) }}</p>
                             </div>
                             <div class="flex flex-wrap gap-2">
-                                <form @submit.prevent="syncGoogleContacts">
-                                    <button
-                                        type="submit"
-                                        :disabled="googleSyncForm.processing"
-                                        class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 text-sm font-medium"
-                                    >
-                                        {{ googleSyncForm.processing ? 'در حال همگام‌سازی…' : 'همگام‌سازی همه مشتریان' }}
-                                    </button>
-                                </form>
+                                <button
+                                    type="button"
+                                    :disabled="googleBulkSyncBusy"
+                                    @click="startGoogleBulkSync"
+                                    class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 text-sm font-medium"
+                                >
+                                    {{ googleBulkSyncBusy ? 'در حال همگام‌سازی…' : 'همگام‌سازی همه مشتریان' }}
+                                </button>
                                 <form @submit.prevent="disconnectGoogleContacts">
                                     <button type="submit" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium">
                                         قطع اتصال
@@ -1039,9 +1040,39 @@
                                 </form>
                             </div>
                         </div>
+
+                        <div
+                            v-if="googleBulkProgress && googleBulkProgress.status && googleBulkProgress.status !== 'idle'"
+                            class="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-2"
+                        >
+                            <div class="flex justify-between text-sm text-gray-700">
+                                <span>
+                                    وضعیت:
+                                    <strong>{{ googleBulkStatusLabel }}</strong>
+                                </span>
+                                <span v-if="googleBulkProgress.total != null">
+                                    {{ googleBulkProgress.processed ?? 0 }} / {{ googleBulkProgress.total }}
+                                    <span class="text-gray-500 mr-2">موفق: {{ googleBulkProgress.success ?? 0 }} · ناموفق: {{ googleBulkProgress.failed ?? 0 }}</span>
+                                </span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                                <div
+                                    class="bg-emerald-600 h-2.5 rounded-full transition-all duration-300"
+                                    :style="{ width: googleBulkProgressPercent + '%' }"
+                                ></div>
+                            </div>
+                            <p v-if="googleBulkProgress.message" class="text-sm text-red-700">{{ googleBulkProgress.message }}</p>
+                            <ul v-if="googleBulkProgress.errors && googleBulkProgress.errors.length" class="text-xs text-amber-900 list-disc list-inside max-h-32 overflow-y-auto">
+                                <li v-for="(ge, gi) in googleBulkProgress.errors" :key="gi">{{ ge }}</li>
+                            </ul>
+                            <p class="text-xs text-gray-500">
+                                اگر از صف <code class="bg-gray-100 px-1">database</code>/<code class="bg-gray-100 px-1">redis</code> استفاده می‌کنید، worker باید اجرا شود (<code class="bg-gray-100 px-1">php artisan queue:work</code>). با درایور <code class="bg-gray-100 px-1">sync</code> بلافاصله بعد از پاسخ سرور اجرا می‌شود.
+                            </p>
+                        </div>
+
                         <p class="text-xs text-gray-500">
                             شناسهٔ Google هر مشتری در دیتابیس ذخیره می‌شود؛ ارسال مجدد همان مخاطب را در Google به‌روز می‌کند.
-                            دستور کنسول: <code class="bg-gray-100 px-1">php artisan google:sync-contacts</code>
+                            دستور کنسول (با نوار پیشرفت): <code class="bg-gray-100 px-1">php artisan google:sync-contacts</code>
                         </p>
                     </div>
                 </div>
@@ -1138,7 +1169,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -1647,7 +1678,6 @@ const disconnectInstagram = () => {
     router.post(route('settings.instagram.disconnect'), {}, { preserveScroll: true });
 };
 
-const googleSyncForm = useForm({});
 const googleRedirectUriDisplay = computed(() => {
     if (props.googleContactsRedirectUri) {
         return props.googleContactsRedirectUri;
@@ -1658,9 +1688,105 @@ const googleRedirectUriDisplay = computed(() => {
     return '';
 });
 
-const syncGoogleContacts = () => {
-    googleSyncForm.post(route('settings.google-contacts.sync'), { preserveScroll: true });
-};
+const googleBulkProgress = ref(null);
+const googleBulkPolling = ref(null);
+const googleBulkSyncBusy = ref(false);
+
+const googleBulkProgressPercent = computed(() => {
+    const p = googleBulkProgress.value;
+    if (!p || !p.total || p.total <= 0) {
+        return 0;
+    }
+    const done = Math.min(p.processed ?? 0, p.total);
+    return Math.round((done / p.total) * 100);
+});
+
+const googleBulkStatusLabel = computed(() => {
+    const s = googleBulkProgress.value?.status;
+    if (s === 'queued') {
+        return 'در صف…';
+    }
+    if (s === 'running') {
+        return 'در حال پردازش…';
+    }
+    if (s === 'done') {
+        return 'تمام شد';
+    }
+    if (s === 'failed') {
+        return 'خطا';
+    }
+    return s || '—';
+});
+
+function stopGoogleBulkPolling() {
+    if (googleBulkPolling.value) {
+        clearInterval(googleBulkPolling.value);
+        googleBulkPolling.value = null;
+    }
+}
+
+async function pollGoogleBulkOnce() {
+    try {
+        const { data } = await window.axios.get(route('settings.google-contacts.sync-progress'));
+        googleBulkProgress.value = data;
+        if (data.status === 'done' || data.status === 'failed') {
+            googleBulkSyncBusy.value = false;
+            stopGoogleBulkPolling();
+        }
+    } catch {
+        /* ignore */
+    }
+}
+
+async function startGoogleBulkSync() {
+    googleBulkSyncBusy.value = true;
+    try {
+        const { data } = await window.axios.post(route('settings.google-contacts.sync-start'));
+        if (!data.ok) {
+            throw new Error(data.message || 'شروع همگام‌سازی ناموفق');
+        }
+        await pollGoogleBulkOnce();
+        stopGoogleBulkPolling();
+        googleBulkPolling.value = setInterval(pollGoogleBulkOnce, 700);
+    } catch (e) {
+        googleBulkSyncBusy.value = false;
+        const msg = e.response?.data?.message || e.message || 'خطا';
+        alert(msg);
+    }
+}
+
+watch(
+    () => activeTab.value,
+    async (t) => {
+        if (t !== 'google-contacts') {
+            stopGoogleBulkPolling();
+            return;
+        }
+        await pollGoogleBulkOnce();
+        const st = googleBulkProgress.value?.status;
+        if (st === 'running' || st === 'queued') {
+            googleBulkSyncBusy.value = true;
+            stopGoogleBulkPolling();
+            googleBulkPolling.value = setInterval(pollGoogleBulkOnce, 700);
+        }
+    }
+);
+
+onMounted(async () => {
+    if (activeTab.value === 'google-contacts') {
+        await pollGoogleBulkOnce();
+        const st = googleBulkProgress.value?.status;
+        if (st === 'running' || st === 'queued') {
+            googleBulkSyncBusy.value = true;
+            stopGoogleBulkPolling();
+            googleBulkPolling.value = setInterval(pollGoogleBulkOnce, 700);
+        }
+    }
+});
+
+onUnmounted(() => {
+    stopGoogleBulkPolling();
+});
 
 const disconnectGoogleContacts = () => {
     if (!confirm('اتصال Google قطع شود؟')) {

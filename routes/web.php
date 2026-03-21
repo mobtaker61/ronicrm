@@ -124,7 +124,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings/google-contacts/connect', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'connect'])->name('settings.google-contacts.connect');
     Route::get('/settings/google-contacts/callback', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'callback'])->name('settings.google-contacts.callback');
     Route::post('/settings/google-contacts/disconnect', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'disconnect'])->name('settings.google-contacts.disconnect');
-    Route::post('/settings/google-contacts/sync', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'sync'])->name('settings.google-contacts.sync');
+    Route::post('/settings/google-contacts/sync-start', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'startBulkSync'])->name('settings.google-contacts.sync-start');
+    Route::get('/settings/google-contacts/sync-progress', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'syncProgress'])->name('settings.google-contacts.sync-progress');
     Route::get('/settings/telegram/qr-code', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'qrCode'])->name('settings.telegram.qr-code');
     Route::get('/settings/telegram/status', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'status'])->name('settings.telegram.status');
     Route::post('/settings/telegram/start-phone-login', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'startPhoneLogin'])->name('settings.telegram.start-phone-login');

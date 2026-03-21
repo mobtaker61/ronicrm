@@ -13,9 +13,27 @@ class SyncGoogleContactsCommand extends Command
 
     public function handle(GoogleContactsSyncService $sync): int
     {
-        $result = $sync->syncAllCustomers();
+        $total = (int) \App\Models\Customer::query()->count();
 
-        $this->info("Synced: {$result['success']}, Failed: {$result['failed']}");
+        if ($total === 0) {
+            $this->warn('No customers in database.');
+
+            return self::SUCCESS;
+        }
+
+        $this->info("Syncing {$total} customers to Google Contacts…");
+
+        $bar = $this->output->createProgressBar($total);
+        $bar->start();
+
+        $result = $sync->syncAllCustomers(function () use ($bar) {
+            $bar->advance();
+        });
+
+        $bar->finish();
+        $this->newLine(2);
+
+        $this->info("Done. Success: {$result['success']}, Failed: {$result['failed']}.");
 
         if ($result['success'] === 0 && $result['failed'] === 0 && $result['errors'] !== []) {
             $this->error($result['errors'][0] ?? 'Nothing synced.');

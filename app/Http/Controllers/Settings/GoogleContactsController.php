@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SyncGoogleContactsBulkJob;
+use App\Models\Customer;
 use App\Models\GoogleContactsIntegration;
 use App\Services\GoogleContactsOAuthService;
-use App\Services\GoogleContactsSyncService;
+use App\Support\GoogleContactsBulkSyncState;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -85,25 +88,37 @@ class GoogleContactsController extends Controller
             ->with('success', 'Google Contacts connection removed. Existing CRM links (google_people_resource_name) are kept to avoid duplicates on reconnect.');
     }
 
-    public function sync(Request $request): RedirectResponse
+    /**
+     * شروع همگام‌سازی انبوه در پس‌زمینه (بعد از پاسخ HTTP). وضعیت را با syncProgress بخوانید.
+     */
+    public function startBulkSync(Request $request): JsonResponse
     {
-        $result = app(GoogleContactsSyncService::class)->syncAllCustomers();
-
-        $msg = "Google Contacts: {$result['success']} synced";
-        if ($result['failed'] > 0) {
-            $msg .= ", {$result['failed']} failed";
-        }
-        $msg .= '.';
-
-        if ($result['success'] === 0 && $result['failed'] === 0 && $result['errors'] !== []) {
-            return redirect()->back()->with('error', $result['errors'][0] ?? 'Sync failed.');
+        if (! GoogleContactsIntegration::getSingleton()) {
+            return response()->json(['ok' => false, 'message' => 'Google Contacts is not connected.'], 422);
         }
 
-        $level = $result['success'] > 0 ? 'success' : 'error';
+        $total = (int) Customer::query()->count();
 
-        return redirect()->back()->with($level, $msg)->with(
-            'google_sync_errors',
-            array_slice($result['errors'], 0, 25)
+        GoogleContactsBulkSyncState::put([
+            'status' => 'queued',
+            'total' => $total,
+            'processed' => 0,
+            'success' => 0,
+            'failed' => 0,
+            'started_at' => now()->toIso8601String(),
+            'finished_at' => null,
+            'errors' => [],
+        ]);
+
+        SyncGoogleContactsBulkJob::dispatch()->afterResponse();
+
+        return response()->json(['ok' => true, 'total' => $total]);
+    }
+
+    public function syncProgress(Request $request): JsonResponse
+    {
+        return response()->json(
+            GoogleContactsBulkSyncState::get() ?? ['status' => 'idle', 'total' => 0, 'processed' => 0, 'success' => 0, 'failed' => 0]
         );
     }
 }

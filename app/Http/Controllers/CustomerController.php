@@ -2,19 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\PushCustomerToGoogleContactsJob;
 use App\Models\Customer;
-use App\Models\CustomerContact;
-use App\Models\CustomerSocialMedia;
 use App\Models\Industry;
 use App\Models\Project;
 use App\Models\SocialMediaType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -129,6 +128,8 @@ class CustomerController extends Controller
             $customer->socialMedia()->create($sm);
         }
 
+        PushCustomerToGoogleContactsJob::dispatch($customer->id)->afterResponse();
+
         return redirect()->route('customers.index')
             ->with('success', 'Customer created successfully.');
     }
@@ -153,13 +154,13 @@ class CustomerController extends Controller
 
         // Get last 5 WhatsApp messages (incoming or outgoing)
         $recentMessages = collect();
-        if (!empty($phoneNumbers)) {
+        if (! empty($phoneNumbers)) {
             $recentMessages = \App\Models\WhatsAppMessage::where(function ($q) use ($phoneNumbers, $customer) {
                 $q->where(function ($q) use ($phoneNumbers) {
                     $q->whereIn('from_phone', $phoneNumbers)
                         ->orWhereIn('to_phone', $phoneNumbers);
                 })
-                ->orWhere('customer_id', $customer->id);
+                    ->orWhere('customer_id', $customer->id);
             })
                 ->orderBy('created_at', 'desc')
                 ->limit(5)
@@ -167,10 +168,10 @@ class CustomerController extends Controller
                 ->map(function ($msg) {
                     // Ensure media_url is a full URL if it exists
                     $mediaUrl = $msg->media_url;
-                    if ($mediaUrl && !str_starts_with($mediaUrl, 'http')) {
-                        $mediaUrl = asset('storage/' . ltrim($mediaUrl, '/'));
+                    if ($mediaUrl && ! str_starts_with($mediaUrl, 'http')) {
+                        $mediaUrl = asset('storage/'.ltrim($mediaUrl, '/'));
                     }
-                    
+
                     return [
                         'id' => $msg->id,
                         'message' => $msg->message,
@@ -315,6 +316,8 @@ class CustomerController extends Controller
             }
         }
 
+        PushCustomerToGoogleContactsJob::dispatch($customer->id)->afterResponse();
+
         return redirect()->route('customers.show', $customer)
             ->with('success', 'Customer updated successfully.');
     }
@@ -347,7 +350,7 @@ class CustomerController extends Controller
             'phone' => ['required', 'string'],
         ]);
 
-        if (!$customer->share_key) {
+        if (! $customer->share_key) {
             return response()->json([
                 'success' => false,
                 'error' => 'Customer does not have a share key.',
@@ -383,7 +386,7 @@ class CustomerController extends Controller
                 'import_result' => [
                     'success' => 0,
                     'failed' => 0,
-                    'errors' => ['خطا در validation: ' . implode(', ', $e->validator->errors()->all())],
+                    'errors' => ['خطا در validation: '.implode(', ', $e->validator->errors()->all())],
                 ],
             ]);
         }
@@ -438,7 +441,8 @@ class CustomerController extends Controller
                     // Validate required fields
                     if (empty($rowData['name']) || empty($rowData['type'])) {
                         $failedCount++;
-                        $errors[] = "Row " . ($rowIndex + 2) . ": Missing required fields (name or type)";
+                        $errors[] = 'Row '.($rowIndex + 2).': Missing required fields (name or type)';
+
                         continue;
                     }
 
@@ -459,13 +463,13 @@ class CustomerController extends Controller
                     ];
 
                     // Handle industry
-                    if (!empty($rowData['industry_name'])) {
+                    if (! empty($rowData['industry_name'])) {
                         $industry = Industry::firstOrCreate(
                             ['name' => trim($rowData['industry_name'])],
                             ['created_by' => Auth::id(), 'updated_by' => Auth::id()]
                         );
                         $customerData['industry_id'] = $industry->id;
-                    } elseif (!empty($rowData['industry_id'])) {
+                    } elseif (! empty($rowData['industry_id'])) {
                         $customerData['industry_id'] = $rowData['industry_id'];
                     }
 
@@ -484,7 +488,7 @@ class CustomerController extends Controller
                     $successCount++;
                 } catch (\Exception $e) {
                     $failedCount++;
-                    $errorMessage = "Row " . ($rowIndex + 2) . ": " . $e->getMessage();
+                    $errorMessage = 'Row '.($rowIndex + 2).': '.$e->getMessage();
                     $errors[] = $errorMessage;
                     Log::warning('Import row failed', [
                         'row' => $rowIndex + 2,
@@ -512,14 +516,15 @@ class CustomerController extends Controller
             if (DB::transactionLevel() > 0) {
                 DB::rollBack();
             }
-            Log::error('Import failed: ' . $e->getMessage(), [
+            Log::error('Import failed: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
+
             return back()->with([
                 'import_result' => [
                     'success' => 0,
                     'failed' => 0,
-                    'errors' => ['خطا در import: ' . $e->getMessage()],
+                    'errors' => ['خطا در import: '.$e->getMessage()],
                 ],
             ]);
         }
@@ -552,7 +557,7 @@ class CustomerController extends Controller
 
             // Get header row
             $headers = array_map('strtolower', array_map('trim', array_shift($data)));
-            
+
             // Limit to first 10 rows for preview
             $previewRows = array_slice($data, 0, 10);
 
@@ -574,10 +579,11 @@ class CustomerController extends Controller
                 'preview_rows' => count($previewRows),
             ]);
         } catch (\Exception $e) {
-            Log::error('Preview failed: ' . $e->getMessage());
+            Log::error('Preview failed: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'خطا در خواندن فایل: ' . $e->getMessage(),
+                'message' => 'خطا در خواندن فایل: '.$e->getMessage(),
                 'headers' => [],
                 'rows' => [],
             ]);
@@ -588,7 +594,7 @@ class CustomerController extends Controller
     {
         $data = [];
         $handle = fopen($file->getRealPath(), 'r');
-        
+
         if ($handle !== false) {
             // Check for BOM (UTF-8 BOM: EF BB BF)
             $firstBytes = fread($handle, 3);
@@ -612,7 +618,7 @@ class CustomerController extends Controller
         // For Excel files, we'll use a simple approach
         // If PhpSpreadsheet is not available, convert to CSV first
         $data = [];
-        
+
         // Try to read as CSV first (some Excel files can be read as CSV)
         $handle = fopen($file->getRealPath(), 'r');
         if ($handle !== false) {
@@ -630,18 +636,18 @@ class CustomerController extends Controller
     protected function importContacts($customer, $rowData): void
     {
         $contactTypes = ['phone', 'email', 'whatsapp', 'telegram', 'instagram'];
-        
+
         // Handle individual contact fields (phone, email, whatsapp, telegram)
         foreach ($contactTypes as $type) {
             $value = trim($rowData[$type] ?? '');
-            if (!empty($value) && $value !== '-') {
+            if (! empty($value) && $value !== '-') {
                 // Handle format like "phone:09123456789" or just "09123456789"
                 if (str_contains($value, ':')) {
                     $parts = explode(':', $value, 2);
                     $value = trim($parts[1]);
                 }
-                
-                if (!empty($value)) {
+
+                if (! empty($value)) {
                     $customer->contacts()->create([
                         'type' => $type,
                         'value' => $value,
@@ -650,11 +656,11 @@ class CustomerController extends Controller
                 }
             }
         }
-        
+
         // Handle combined contacts field (e.g., "whatsapp:+971502354865")
-        if (!empty($rowData['contacts'])) {
+        if (! empty($rowData['contacts'])) {
             $contactsStr = trim($rowData['contacts']);
-            if ($contactsStr !== '-' && !empty($contactsStr)) {
+            if ($contactsStr !== '-' && ! empty($contactsStr)) {
                 // Split by comma if multiple contacts
                 $contacts = explode(',', $contactsStr);
                 foreach ($contacts as $contact) {
@@ -662,15 +668,15 @@ class CustomerController extends Controller
                     if (empty($contact) || $contact === '-') {
                         continue;
                     }
-                    
+
                     // Parse format like "whatsapp:+971502354865" or "phone:09123456789"
                     if (str_contains($contact, ':')) {
                         $parts = explode(':', $contact, 2);
                         $contactType = strtolower(trim($parts[0]));
                         $contactValue = trim($parts[1]);
-                        
+
                         // Validate contact type
-                        if (in_array($contactType, $contactTypes) && !empty($contactValue)) {
+                        if (in_array($contactType, $contactTypes) && ! empty($contactValue)) {
                             $customer->contacts()->create([
                                 'type' => $contactType,
                                 'value' => $contactValue,
@@ -686,18 +692,18 @@ class CustomerController extends Controller
     protected function importSocialMedia($customer, $rowData): void
     {
         $socialMediaTypes = ['instagram', 'telegram', 'linkedin', 'facebook', 'twitter', 'website'];
-        
+
         // Handle individual social media fields
         foreach ($socialMediaTypes as $type) {
             $handle = trim($rowData[$type] ?? '');
-            if (!empty($handle) && $handle !== '-') {
+            if (! empty($handle) && $handle !== '-') {
                 // Handle format like "instagram:username" or just "username"
                 if (str_contains($handle, ':')) {
                     $parts = explode(':', $handle, 2);
                     $handle = trim($parts[1]);
                 }
-                
-                if (!empty($handle)) {
+
+                if (! empty($handle)) {
                     // Find or create social media type
                     $socialMediaType = SocialMediaType::where('name', $type)->first();
                     if ($socialMediaType) {
@@ -710,11 +716,11 @@ class CustomerController extends Controller
                 }
             }
         }
-        
+
         // Handle combined social_media field (e.g., "Website:abrahclinics.com")
-        if (!empty($rowData['social_media'])) {
+        if (! empty($rowData['social_media'])) {
             $socialMediaStr = trim($rowData['social_media']);
-            if ($socialMediaStr !== '-' && !empty($socialMediaStr)) {
+            if ($socialMediaStr !== '-' && ! empty($socialMediaStr)) {
                 // Split by comma if multiple social media
                 $socialMedias = explode(',', $socialMediaStr);
                 foreach ($socialMedias as $sm) {
@@ -722,19 +728,19 @@ class CustomerController extends Controller
                     if (empty($sm) || $sm === '-') {
                         continue;
                     }
-                    
+
                     // Parse format like "Website:abrahclinics.com" or "instagram:username"
                     if (str_contains($sm, ':')) {
                         $parts = explode(':', $sm, 2);
                         $smType = strtolower(trim($parts[0]));
                         $smHandle = trim($parts[1]);
-                        
+
                         // Normalize type names
                         if ($smType === 'website' || $smType === 'web' || $smType === 'site') {
                             $smType = 'website';
                         }
-                        
-                        if (!empty($smHandle)) {
+
+                        if (! empty($smHandle)) {
                             $socialMediaType = SocialMediaType::where('name', $smType)->first();
                             if ($socialMediaType) {
                                 $customer->socialMedia()->create([
@@ -748,16 +754,16 @@ class CustomerController extends Controller
                 }
             }
         }
-        
+
         // Handle domain field (add as website social media)
-        if (!empty($rowData['domain'])) {
+        if (! empty($rowData['domain'])) {
             $domain = trim($rowData['domain']);
-            if ($domain !== '-' && !empty($domain)) {
+            if ($domain !== '-' && ! empty($domain)) {
                 // Remove http:// or https:// if present
                 $domain = preg_replace('#^https?://#', '', $domain);
                 $domain = trim($domain, '/');
-                
-                if (!empty($domain)) {
+
+                if (! empty($domain)) {
                     $socialMediaType = SocialMediaType::where('name', 'website')->first();
                     if ($socialMediaType) {
                         // Check if already exists
@@ -765,8 +771,8 @@ class CustomerController extends Controller
                             ->where('social_media_type_id', $socialMediaType->id)
                             ->where('handle', $domain)
                             ->exists();
-                        
-                        if (!$exists) {
+
+                        if (! $exists) {
                             $customer->socialMedia()->create([
                                 'social_media_type_id' => $socialMediaType->id,
                                 'handle' => $domain,
@@ -952,7 +958,7 @@ class CustomerController extends Controller
             'customer' => 'customer',
             'inactive' => 'inactive',
         ];
-        
+
         return $statusMap[strtolower($status)] ?? 'lead';
     }
 
@@ -981,7 +987,7 @@ class CustomerController extends Controller
         if (empty($gender)) {
             return null;
         }
-        
+
         $genderMap = [
             'male' => 'male',
             'm' => 'male',
@@ -989,7 +995,7 @@ class CustomerController extends Controller
             'f' => 'female',
             'other' => 'other',
         ];
-        
+
         return $genderMap[strtolower($gender)] ?? null;
     }
 
