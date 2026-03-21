@@ -8,11 +8,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Customer extends Model
 {
+    /** زبان‌های قابل انتخاب (نام نمایشی یکسان با فرم‌ها) */
+    public const LANGUAGE_OPTIONS = [
+        'Persian',
+        'English',
+        'Kurdish',
+        'Turkish',
+        'Arabic',
+        'Hindi',
+        'Urdu',
+        'Other',
+    ];
+
     protected $fillable = [
         'name',
         'type',
         'gender',
-        'language',
+        'languages',
         'avatar',
         'company_name',
         'email',
@@ -35,6 +47,7 @@ class Customer extends Model
             'status' => 'string',
             'source' => 'string',
             'gender' => 'string',
+            'languages' => 'array',
         ];
     }
 

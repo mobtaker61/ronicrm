@@ -335,7 +335,7 @@
                         <ul class="text-sm text-blue-800 space-y-1 list-disc list-inside">
                             <li>فایل باید فرمت CSV باشد (با encoding UTF-8)</li>
                             <li>ستون‌های اجباری: name, type (person/company)</li>
-                            <li>ستون‌های اختیاری: company_name, email, phone, address, industry_name, status, source, gender, language, contact_person, notes</li>
+                            <li>ستون‌های اختیاری: company_name, email, phone, address, industry_name, status, source, gender, language (چند زبان با ویرگول/؛ مثلاً English,Persian), contact_person, notes، avatar_url (یا profile_picture_url / photo_url / picture_url — فقط لینک http(s) تصویر؛ دانلود و ذخیره در سرور)</li>
                             <li>برای contacts: phone, email, whatsapp, telegram (مثال: phone:09123456789)</li>
                             <li>برای social_media: instagram, telegram, linkedin (مثال: instagram:username)</li>
                         </ul>

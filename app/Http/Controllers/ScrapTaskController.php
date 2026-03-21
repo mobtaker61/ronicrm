@@ -9,7 +9,6 @@ use App\Services\WebScraperService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ScrapTaskController extends Controller
@@ -81,15 +80,6 @@ class ScrapTaskController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
-        // Debug: verify the task really exists right after creation.
-        // This helps track cases where redirect happens but record isn't found.
-        Log::debug('ScrapTask store: created', [
-            'task_id' => $task->id,
-            'type' => $task->type,
-            'user_id' => $request->user()?->id,
-            'exists_after_create' => ScrapTask::find($task->id) !== null,
-        ]);
-
         if ($type === 'list') {
             $task->urls()->create([
                 'url' => trim($validated['url']),
@@ -128,13 +118,7 @@ class ScrapTaskController extends Controller
             }
         }
 
-        $showUrl = route('scrap-tasks.show', $task);
-        Log::debug('ScrapTask store: redirecting', [
-            'task_id' => $task->id,
-            'show_url' => $showUrl,
-        ]);
-
-        return redirect()->to($showUrl)
+        return redirect()->route('scrap-tasks.show', $task)
             ->with('success', 'Scraping task created successfully.');
     }
 
@@ -261,11 +245,6 @@ class ScrapTaskController extends Controller
 
     public function show(ScrapTask $scrapTask): Response
     {
-        Log::debug('ScrapTask show', [
-            'task_id' => $scrapTask->id,
-            'type' => $scrapTask->type,
-        ]);
-
         $scrapTask->load([
             'urls' => fn ($q) => $q->orderBy('id'),
             'extractParams' => fn ($q) => $q->orderBy('sort_order'),

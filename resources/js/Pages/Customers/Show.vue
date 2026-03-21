@@ -103,9 +103,9 @@
                                 <label class="block text-sm font-medium text-gray-500 mb-1">Gender</label>
                                 <p class="text-gray-900 capitalize">{{ customer.gender }}</p>
                             </div>
-                            <div v-if="customer.language">
-                                <label class="block text-sm font-medium text-gray-500 mb-1">Language</label>
-                                <p class="text-gray-900">{{ customer.language }}</p>
+                            <div v-if="customer.languages && customer.languages.length">
+                                <label class="block text-sm font-medium text-gray-500 mb-1">Languages</label>
+                                <p class="text-gray-900">{{ customer.languages.join(', ') }}</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-500 mb-1">Industry</label>

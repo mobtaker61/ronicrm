@@ -17,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
+            // بعد از کنترلر: commit تراکنش یتیم PDO تا CRUD در دیتابیس پایدار شود
+            \App\Http\Middleware\CommitOrphanPdoTransaction::class,
         ]);
         $middleware->redirectGuestsTo('/login');
 

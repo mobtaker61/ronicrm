@@ -10,7 +10,9 @@ use App\Models\Project;
 use App\Models\SocialMediaType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -79,7 +81,8 @@ class CustomerController extends Controller
             'name' => 'required|string|max:255',
             'type' => 'required|in:person,company',
             'gender' => 'nullable|in:male,female,other',
-            'language' => 'nullable|string|max:10',
+            'languages' => 'nullable|array',
+            'languages.*' => ['string', Rule::in(Customer::LANGUAGE_OPTIONS)],
             'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'company_name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
@@ -113,29 +116,18 @@ class CustomerController extends Controller
         $socialMedia = $validated['social_media'] ?? [];
         unset($validated['contacts'], $validated['social_media']);
 
+        $validated = $this->mergeNormalizedLanguages($validated);
+
+        // از DB::transaction() استفاده نمی‌کنیم — در PHP 8.4 / PDO گاهی تراکنش یتیم باز است و begin دوم خطا می‌دهد.
         $customer = Customer::create($validated);
 
-        Log::debug('Customer store: created', [
-            'customer_id' => $customer->id,
-            'customer_name' => $customer->name,
-            'exists_after_create' => Customer::find($customer->id) !== null,
-            'db_default' => config('database.default'),
-            'connection' => $customer->getConnectionName(),
-        ]);
-
-        // Create contacts
         foreach ($contacts as $contact) {
             $customer->contacts()->create($contact);
         }
 
-        // Create social media
         foreach ($socialMedia as $sm) {
             $customer->socialMedia()->create($sm);
         }
-
-        Log::debug('Customer store: redirecting', [
-            'customer_id' => $customer->id,
-        ]);
 
         return redirect()->route('customers.index')
             ->with('success', 'Customer created successfully.');
@@ -235,7 +227,8 @@ class CustomerController extends Controller
             'name' => 'required|string|max:255',
             'type' => 'required|in:person,company',
             'gender' => 'nullable|in:male,female,other',
-            'language' => 'nullable|string|max:10',
+            'languages' => 'nullable|array',
+            'languages.*' => ['string', Rule::in(Customer::LANGUAGE_OPTIONS)],
             'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'company_name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
@@ -277,6 +270,8 @@ class CustomerController extends Controller
         $contacts = $validated['contacts'] ?? [];
         $socialMedia = $validated['social_media'] ?? [];
         unset($validated['contacts'], $validated['social_media']);
+
+        $validated = $this->mergeNormalizedLanguages($validated);
 
         $customer->update($validated);
 
@@ -429,7 +424,8 @@ class CustomerController extends Controller
             // Get header row
             $headers = array_map('strtolower', array_map('trim', array_shift($data)));
 
-            DB::beginTransaction();
+            // بدون DB::beginTransaction — با PHP 8.4/PDO گاهی تراکنش یتیم باز است و begin دوم خطا می‌دهد.
+            // هر ردیف با commit خودکار ذخیره می‌شود؛ middleware پایان درخواست تراکنش یتیم را commit می‌کند.
 
             foreach ($data as $rowIndex => $row) {
                 try {
@@ -455,7 +451,7 @@ class CustomerController extends Controller
                         'status' => $this->mapStatus(trim($rowData['status'] ?? 'lead')),
                         'source' => $this->mapSource(trim($rowData['source'] ?? 'other')),
                         'gender' => $this->mapGender(trim($rowData['gender'] ?? '')),
-                        'language' => trim($rowData['language'] ?? ''),
+                        'languages' => $this->parseLanguagesFromImport($rowData['language'] ?? ''),
                         'contact_person' => trim($rowData['contact_person'] ?? ''),
                         'notes' => trim($rowData['notes'] ?? ''),
                         'created_by' => Auth::id(),
@@ -476,6 +472,9 @@ class CustomerController extends Controller
                     // Create customer
                     $customer = Customer::create($customerData);
 
+                    // Optional: download avatar from URL (avatar_url, profile_picture_url, …)
+                    $this->importAvatarFromUrl($customer, $rowData);
+
                     // Handle contacts
                     $this->importContacts($customer, $rowData);
 
@@ -495,8 +494,6 @@ class CustomerController extends Controller
                 }
             }
 
-            DB::commit();
-
             Log::info('Import completed', [
                 'success' => $successCount,
                 'failed' => $failedCount,
@@ -512,7 +509,9 @@ class CustomerController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
-            DB::rollBack();
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             Log::error('Import failed: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -780,6 +779,171 @@ class CustomerController extends Controller
         }
     }
 
+    /**
+     * اگر در سطر import لینک تصویر پروفایل (http/https) باشد، دانلود و در دیسک public ذخیره می‌شود.
+     * در صورت خطا، مشتری همچنان ایجاد شده می‌ماند؛ فقط در لاگ هشدار ثبت می‌شود.
+     */
+    protected function importAvatarFromUrl(Customer $customer, array $rowData): void
+    {
+        $url = $this->resolveAvatarUrlFromRow($rowData);
+        if ($url === null) {
+            return;
+        }
+
+        if (! $this->isSafeAvatarDownloadUrl($url)) {
+            Log::warning('Import avatar skipped: URL not allowed (SSRF / invalid)', [
+                'customer_id' => $customer->id,
+                'url' => $url,
+            ]);
+
+            return;
+        }
+
+        try {
+            $response = Http::timeout(25)
+                ->withOptions([
+                    'allow_redirects' => [
+                        'max' => 5,
+                        'protocols' => ['http', 'https'],
+                        'strict' => false,
+                    ],
+                ])
+                ->withHeaders([
+                    'User-Agent' => 'RoniCRM-CustomerImport/1.0',
+                    'Accept' => 'image/*,*/*;q=0.8',
+                ])
+                ->get($url);
+
+            if (! $response->successful()) {
+                Log::warning('Import avatar HTTP error', [
+                    'customer_id' => $customer->id,
+                    'status' => $response->status(),
+                    'url' => $url,
+                ]);
+
+                return;
+            }
+
+            $body = $response->body();
+            $maxBytes = 2 * 1024 * 1024;
+            if (strlen($body) > $maxBytes) {
+                Log::warning('Import avatar too large', ['customer_id' => $customer->id, 'url' => $url]);
+
+                return;
+            }
+
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->buffer($body) ?: '';
+            $ext = $this->avatarMimeToExtension($mime);
+            if ($ext === null) {
+                Log::warning('Import avatar not an allowed image type', [
+                    'customer_id' => $customer->id,
+                    'mime' => $mime,
+                    'url' => $url,
+                ]);
+
+                return;
+            }
+
+            $relativePath = 'avatars/'.uniqid('import_', true).'.'.$ext;
+            Storage::disk('public')->put($relativePath, $body);
+            $customer->update(['avatar' => $relativePath, 'updated_by' => Auth::id()]);
+        } catch (\Throwable $e) {
+            Log::warning('Import avatar exception', [
+                'customer_id' => $customer->id,
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * اولین مقدار معتبر از ستون‌های رایج برای لینک آواتار.
+     *
+     * @return non-empty-string|null
+     */
+    protected function resolveAvatarUrlFromRow(array $rowData): ?string
+    {
+        $keys = ['avatar_url', 'profile_picture_url', 'photo_url', 'picture_url', 'avatar'];
+        foreach ($keys as $key) {
+            $val = trim((string) ($rowData[$key] ?? ''));
+            if ($val === '' || $val === '-') {
+                continue;
+            }
+            if (filter_var($val, FILTER_VALIDATE_URL) !== false && preg_match('#^https?://#i', $val)) {
+                return $val;
+            }
+        }
+
+        return null;
+    }
+
+    protected function isSafeAvatarDownloadUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+        if (! isset($parts['scheme'], $parts['host']) || $parts['host'] === '') {
+            return false;
+        }
+        if (! in_array(strtolower($parts['scheme']), ['http', 'https'], true)) {
+            return false;
+        }
+
+        $host = $parts['host'];
+        if (str_starts_with($host, '[') && str_ends_with($host, ']')) {
+            $host = substr($host, 1, -1);
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            return ! $this->isPrivateOrReservedIp($host);
+        }
+
+        $ips = @gethostbynamel($host);
+        if (is_array($ips) && $ips !== []) {
+            foreach ($ips as $ip) {
+                if ($this->isPrivateOrReservedIp($ip)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        $aaaa = @dns_get_record($host, DNS_AAAA);
+        if (! is_array($aaaa) || $aaaa === []) {
+            return false;
+        }
+        foreach ($aaaa as $rec) {
+            if (! empty($rec['ipv6']) && $this->isPrivateOrReservedIp($rec['ipv6'])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected function isPrivateOrReservedIp(string $ip): bool
+    {
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+        }
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+        }
+
+        return true;
+    }
+
+    protected function avatarMimeToExtension(string $mime): ?string
+    {
+        return match (strtolower($mime)) {
+            'image/jpeg', 'image/jpg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            default => null,
+        };
+    }
+
     protected function mapStatus(string $status): string
     {
         $statusMap = [
@@ -827,5 +991,45 @@ class CustomerController extends Controller
         ];
         
         return $genderMap[strtolower($gender)] ?? null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    protected function mergeNormalizedLanguages(array $validated): array
+    {
+        $raw = $validated['languages'] ?? [];
+        if (! is_array($raw)) {
+            $raw = [];
+        }
+        $allowed = Customer::LANGUAGE_OPTIONS;
+        $langs = collect($raw)
+            ->filter(fn ($v) => is_string($v) && in_array($v, $allowed, true))
+            ->unique()
+            ->values()
+            ->all();
+        $validated['languages'] = $langs === [] ? null : $langs;
+
+        return $validated;
+    }
+
+    protected function parseLanguagesFromImport(?string $raw): ?array
+    {
+        $raw = trim((string) $raw);
+        if ($raw === '') {
+            return null;
+        }
+        $parts = preg_split('/[,;|\/]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $allowed = Customer::LANGUAGE_OPTIONS;
+        $out = [];
+        foreach ($parts as $p) {
+            $p = trim($p);
+            if ($p !== '' && in_array($p, $allowed, true)) {
+                $out[] = $p;
+            }
+        }
+
+        return $out === [] ? null : array_values(array_unique($out));
     }
 }

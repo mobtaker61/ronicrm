@@ -35,8 +35,9 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <!-- Row 1: Contact Type 1/4 + Company Name 3/4 -->
+                    <div class="md:col-span-1">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Contact Type *</label>
                         <select
                             v-model="form.type"
@@ -52,20 +53,17 @@
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+                    <div class="md:col-span-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
                         <input
-                            v-model="form.name"
+                            v-model="form.company_name"
                             type="text"
-                            required
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <div v-if="form.errors.name" class="mt-1 text-sm text-red-600">
-                            {{ form.errors.name }}
-                        </div>
                     </div>
 
-                    <div v-if="form.type === 'person'">
+                    <!-- Row 2: Gender 1/4 (person only) + Name 3/4 (or Name full width for company) -->
+                    <div v-if="form.type === 'person'" class="md:col-span-1">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Gender</label>
                         <select
                             v-model="form.gender"
@@ -78,34 +76,46 @@
                         </select>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Language</label>
-                        <select
-                            v-model="form.language"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option :value="null">Select Language</option>
-                            <option value="Persian">Persian</option>
-                            <option value="English">English</option>
-                            <option value="Kurdish">Kurdish</option>
-                            <option value="Turkish">Turkish</option>
-                            <option value="Arabic">Arabic</option>
-                            <option value="Hindi">Hindi</option>
-                            <option value="Urdu">Urdu</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                    <div
+                        class="md:col-span-3"
+                        :class="{ 'md:col-span-4': form.type === 'company' }"
+                    >
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Name *</label>
                         <input
-                            v-model="form.company_name"
+                            v-model="form.name"
                             type="text"
+                            required
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
+                        <div v-if="form.errors.name" class="mt-1 text-sm text-red-600">
+                            {{ form.errors.name }}
+                        </div>
                     </div>
 
-                    <div class="md:col-span-2">
+                    <div class="md:col-span-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Languages</label>
+                        <p class="text-xs text-gray-500 mb-3">Select all that apply (multilingual customers)</p>
+                        <div class="flex flex-wrap gap-x-6 gap-y-2">
+                            <label
+                                v-for="lang in languageOptions"
+                                :key="lang"
+                                class="inline-flex items-center gap-2 cursor-pointer text-sm text-gray-700"
+                            >
+                                <input
+                                    v-model="form.languages"
+                                    type="checkbox"
+                                    :value="lang"
+                                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>{{ lang }}</span>
+                            </label>
+                        </div>
+                        <div v-if="form.errors.languages" class="mt-1 text-sm text-red-600">
+                            {{ form.errors.languages }}
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Address</label>
                         <textarea
                             v-model="form.address"
@@ -114,7 +124,7 @@
                         ></textarea>
                     </div>
 
-                    <div>
+                    <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Industry</label>
                         <IndustrySelect
                             v-model="form.industry_id"
@@ -123,7 +133,7 @@
                         />
                     </div>
 
-                    <div>
+                    <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Project</label>
                         <select
                             v-model="form.project_id"
@@ -136,7 +146,7 @@
                         </select>
                     </div>
 
-                    <div>
+                    <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Status *</label>
                         <select
                             v-model="form.status"
@@ -153,7 +163,7 @@
                         </div>
                     </div>
 
-                    <div>
+                    <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Source *</label>
                         <select
                             v-model="form.source"
@@ -178,7 +188,7 @@
                         </div>
                     </div>
 
-                    <div>
+                    <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Contact Person</label>
                         <input
                             v-model="form.contact_person"
@@ -187,7 +197,7 @@
                         />
                     </div>
 
-                    <div class="md:col-span-2">
+                    <div class="md:col-span-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
                         <textarea
                             v-model="form.notes"
@@ -354,6 +364,7 @@ import { ref } from 'vue';
 import { useForm, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import IndustrySelect from '@/Components/IndustrySelect.vue';
+import { CUSTOMER_LANGUAGE_OPTIONS } from '@/constants/customerLanguages.js';
 
 const props = defineProps({
     industries: Array,
@@ -361,11 +372,13 @@ const props = defineProps({
     socialMediaTypes: Array,
 });
 
+const languageOptions = CUSTOMER_LANGUAGE_OPTIONS;
+
 const form = useForm({
     name: '',
     type: 'person',
     gender: null,
-    language: null,
+    languages: [],
     avatar: null,
     company_name: '',
     address: '',

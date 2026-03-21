@@ -248,9 +248,9 @@
                                     <p class="text-sm text-gray-500 mb-1">Gender</p>
                                     <p class="text-gray-900 capitalize font-medium">{{ customer.gender }}</p>
                                 </div>
-                                <div v-if="customer.language">
-                                    <p class="text-sm text-gray-500 mb-1">Language</p>
-                                    <p class="text-gray-900 uppercase font-medium">{{ customer.language }}</p>
+                                <div v-if="customer.languages && customer.languages.length">
+                                    <p class="text-sm text-gray-500 mb-1">Languages</p>
+                                    <p class="text-gray-900 font-medium">{{ customer.languages.join(', ') }}</p>
                                 </div>
                                 <div v-if="customer.contact_person">
                                     <p class="text-sm text-gray-500 mb-1">Contact Person</p>
