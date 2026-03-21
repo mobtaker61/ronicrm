@@ -2,15 +2,26 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
 Artisan::command('telegram:fetch-incoming', function () {
-    $this->info('Running TelegramFetchIncomingJob...');
-    dispatch_sync(new \App\Jobs\TelegramFetchIncomingJob);
-    $this->info('Done.');
+    $lock = Cache::lock('telegram_fetch_incoming_command_lock', 900);
+    if (! $lock->get()) {
+        $this->warn('telegram:fetch-incoming is already running. Skipping parallel run.');
+        return 0;
+    }
+
+    try {
+        $this->info('Running TelegramFetchIncomingJob...');
+        dispatch_sync(new \App\Jobs\TelegramFetchIncomingJob);
+        $this->info('Done.');
+    } finally {
+        $lock->release();
+    }
 })->purpose('Fetch incoming Telegram DMs and sync to inbox (run manually)');
 
 Artisan::command('telegram:sync-contacts', function () {
@@ -53,3 +64,102 @@ Artisan::command('telegram:sync-contacts', function () {
     }
     return 0;
 })->purpose('Sync contact info from Telegram (run manually when queue does not work)');
+
+Artisan::command('telegram:diag {--deep : Run a deeper Madeline connectivity check}', function () {
+    $this->info('Telegram Diagnostics');
+    $this->line(str_repeat('-', 72));
+
+    $conn = \App\Models\TelegramUserConnection::getActive();
+    if (! $conn) {
+        $this->error('Active connection: NOT FOUND');
+        $this->line('Hint: connect Telegram account first in Settings.');
+        return 1;
+    }
+
+    $this->info('Active connection');
+    $this->line(' - id: '.$conn->id);
+    $this->line(' - status: '.($conn->status ?? 'unknown'));
+    $this->line(' - user_id: '.($conn->user_id ?? 'null'));
+    $this->line(' - phone: '.($conn->phone ?? 'null'));
+    $this->line(' - username: '.($conn->telegram_username ?? 'null'));
+    $this->line(' - last_used_at: '.($conn->last_used_at?->toDateTimeString() ?? 'null'));
+
+    $sessionPath = $conn->getSessionPath();
+    $sessionExists = is_dir($sessionPath) || file_exists($sessionPath);
+    $this->line(' - session_path: '.$sessionPath);
+    $this->line(' - session_exists: '.($sessionExists ? 'yes' : 'no'));
+
+    $marker = \App\Services\MadelineProtoService::daemonListenMarkerPath($conn);
+    $markerExists = is_file($marker);
+    $markerPid = $markerExists ? (int) trim((string) @file_get_contents($marker)) : 0;
+    $markerRunning = false;
+    if ($markerPid > 0) {
+        if (function_exists('posix_kill') && extension_loaded('posix')) {
+            $markerRunning = @posix_kill($markerPid, 0);
+        } elseif (PHP_OS_FAMILY === 'Linux' && is_dir('/proc/'.$markerPid)) {
+            $markerRunning = true;
+        }
+    }
+
+    $this->info('Listener marker');
+    $this->line(' - marker_file: '.$marker);
+    $this->line(' - marker_exists: '.($markerExists ? 'yes' : 'no'));
+    $this->line(' - marker_pid: '.($markerPid ?: 'n/a'));
+    $this->line(' - marker_pid_running: '.($markerRunning ? 'yes' : 'no'));
+    $this->line(' - is_listen_daemon_active(): '.(\App\Services\MadelineProtoService::isListenDaemonActive($conn) ? 'yes' : 'no'));
+
+    $lockKey = 'madeline_session_'.$conn->id;
+    $lock = Cache::lock($lockKey, 15);
+    $lockAcquired = $lock->get();
+    if ($lockAcquired) {
+        $lock->release();
+    }
+    $this->info('Cache lock');
+    $this->line(' - key: '.$lockKey);
+    $this->line(' - immediate_acquire: '.($lockAcquired ? 'yes' : 'no (held by another operation)'));
+
+    $this->info('Environment');
+    $this->line(' - app_env: '.config('app.env'));
+    $this->line(' - app_debug: '.(config('app.debug') ? 'true' : 'false'));
+    $this->line(' - php_sapi: '.PHP_SAPI);
+    $this->line(' - running_in_console: '.(app()->runningInConsole() ? 'yes' : 'no'));
+    $this->line(' - MADELINE_PROTO_FORCE_FULL: '.(config('services.telegram.madeline_force_full_instance') ? 'true' : 'false'));
+    $this->line(' - MADELINE_PROTO_RUN_TIMEOUT: '.config('services.telegram.madeline_run_timeout'));
+    $this->line(' - MADELINE_PROTO_CACHE_LOCK_BLOCK: '.config('services.telegram.madeline_cache_lock_block'));
+
+    $this->info('User processes (telegram/queue/schedule)');
+    $currentUser = get_current_user();
+    $processOutput = '';
+    if (function_exists('shell_exec')) {
+        $cmd = 'ps -fu '.escapeshellarg($currentUser).' | grep -E "artisan|php-fpm|telegram|queue:work|schedule:run" | grep -v grep';
+        $processOutput = (string) shell_exec($cmd);
+    }
+    if (trim($processOutput) === '') {
+        $this->line(' - no matching processes found (or shell_exec disabled)');
+    } else {
+        foreach (preg_split('/\r\n|\r|\n/', trim($processOutput)) as $line) {
+            $this->line(' - '.$line);
+        }
+    }
+
+    if ($this->option('deep')) {
+        $this->line(str_repeat('-', 72));
+        $this->info('Deep check');
+        $started = microtime(true);
+        try {
+            $service = new \App\Services\MadelineProtoService($conn);
+            $dialogs = $service->getDialogs();
+            $elapsed = round((microtime(true) - $started) * 1000);
+            $this->line(' - getDialogs: OK (count='.count($dialogs).", {$elapsed}ms)");
+        } catch (\Throwable $e) {
+            $elapsed = round((microtime(true) - $started) * 1000);
+            $this->error(' - getDialogs: FAILED after '.$elapsed.'ms');
+            $this->line('   class: '.get_class($e));
+            $this->line('   msg: '.($e->getMessage() ?: '(empty)'));
+        }
+    }
+
+    $this->line(str_repeat('-', 72));
+    $this->comment('Tip: run `php artisan telegram:diag --deep` when an issue happens.');
+    return 0;
+})->purpose('Diagnose Telegram Madeline session/locks/process state');
