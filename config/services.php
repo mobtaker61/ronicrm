@@ -57,6 +57,11 @@ return [
         'madeline_cache_lock_ttl' => max(120, (int) env('MADELINE_PROTO_CACHE_LOCK_TTL', 600)),
         /** حداکثر انتظار برای گرفتن قفل Cache قبل از خطا (ثانیه) — ارسال Madeline ممکن است دقیقه‌ها طول بکشد */
         'madeline_cache_lock_block' => max(30, (int) env('MADELINE_PROTO_CACHE_LOCK_BLOCK', 420)),
+        /**
+         * true = هنگام ساخت API از حالت «نمونه کامل» استفاده شود نه کلاینت IPC (جلوگیری از Channel closed / hang).
+         * فقط وقتی telegram:listen-incoming خاموش است باید از وب/cron Madeline زده شود.
+         */
+        'madeline_force_full_instance' => filter_var(env('MADELINE_PROTO_FORCE_FULL', true), FILTER_VALIDATE_BOOL),
     ],
 
     'google_contacts' => [

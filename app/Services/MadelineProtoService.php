@@ -49,7 +49,7 @@ class MadelineProtoService
             $apiHash = config('services.telegram.api_hash');
         }
         $settings = $this->makeMadelineSettings($apiId, $apiHash);
-        $this->api = new \danog\MadelineProto\API($sessionPath, $settings);
+        $this->api = self::withForcedFullMadelineInstance(fn () => new \danog\MadelineProto\API($sessionPath, $settings));
         if ($this->api->getAuthorization() !== \danog\MadelineProto\API::LOGGED_IN) {
             $this->api = null;
             throw new \RuntimeException('Telegram session is not authenticated. Please reconnect via Settings → Telegram.');
@@ -85,6 +85,57 @@ class MadelineProtoService
         $pid = (int) trim((string) @file_get_contents($marker));
 
         return self::processProbablyRunning($pid);
+    }
+
+    /**
+     * MadelineProto 8 به‌صورت پیش‌فرض سعی می‌کند کلاینت IPC به سوکت session وصل شود؛ اگر سرور نیمه‌مرده باشد
+     * خطای «channel was already closed» و تایم‌اوت ۳۰۰ثانیه‌ای می‌گیرید. این هک رسمی کتابخانه است (مثل MadelineSelfRestart).
+     *
+     * @template T
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public static function withForcedFullMadelineInstance(callable $callback)
+    {
+        if (! config('services.telegram.madeline_force_full_instance', true)) {
+            return $callback();
+        }
+
+        $had = array_key_exists('MadelineSelfRestart', $_GET);
+        $prev = $had ? $_GET['MadelineSelfRestart'] : null;
+        $_GET['MadelineSelfRestart'] = '1';
+        try {
+            return $callback();
+        } finally {
+            if ($had) {
+                $_GET['MadelineSelfRestart'] = $prev;
+            } else {
+                unset($_GET['MadelineSelfRestart']);
+            }
+        }
+    }
+
+    /**
+     * یک session = یک فرآیند مالک. دامون listen و وب/cron نمی‌توانند همزمان همان session را باز کنند.
+     *
+     * @throws \RuntimeException
+     */
+    protected function assertSessionNotHeldByListenDaemon(): void
+    {
+        if (! $this->connection) {
+            return;
+        }
+        if (! self::isListenDaemonActive($this->connection)) {
+            return;
+        }
+        $marker = self::daemonListenMarkerPath($this->connection);
+        $pid = (int) trim((string) @file_get_contents($marker));
+
+        throw new \RuntimeException(
+            'فرآیند «telegram:listen-incoming» هنوز session را باز نگه داشته (PID '.$pid.'). '.
+            'برای ارسال از اینباکس، کراول گروه، یا telegram:fetch-incoming آن را در Supervisor متوقف کنید. '.
+            'دریافت لحظه‌ای فقط با همان daemon است؛ ارسال از وب فقط وقتی دامون خاموش است.'
+        );
     }
 
     /**
@@ -134,11 +185,12 @@ class MadelineProtoService
             throw new \RuntimeException('MadelineProto is not installed. Run: composer require danog/madelineproto');
         }
         $this->runTimeout = max(60, (int) config('services.telegram.madeline_run_timeout', 300));
+        $this->assertSessionNotHeldByListenDaemon();
 
         $connId = $this->connection?->id ?? 0;
         $lockKey = 'madeline_session_'.$connId;
         $lockTtl = max(120, (int) config('services.telegram.madeline_cache_lock_ttl', 600));
-        $blockSeconds = max(30, (int) config('services.telegram.madeline_cache_lock_block', 180));
+        $blockSeconds = max(30, (int) config('services.telegram.madeline_cache_lock_block', 420));
         $lock = Cache::lock($lockKey, $lockTtl);
         try {
             // در Laravel block() یا true برمی‌گرداند یا LockTimeoutException می‌اندازد (هرگز false نیست).
@@ -779,7 +831,7 @@ class MadelineProtoService
 
             $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $wait) {
                 $settings = $this->makeMadelineSettings($apiId, $apiHash);
-                $api = new \danog\MadelineProto\API($sessionPath, $settings);
+                $api = self::withForcedFullMadelineInstance(fn () => new \danog\MadelineProto\API($sessionPath, $settings));
 
                 if ($api->getAuthorization() === \danog\MadelineProto\API::LOGGED_IN) {
                     $this->markConnected($conn, $api);
@@ -852,11 +904,12 @@ class MadelineProtoService
 
             $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash) {
                 $settings = $this->makeMadelineSettings($apiId, $apiHash);
-                $api = new \danog\MadelineProto\API($sessionPath, $settings);
+                $api = self::withForcedFullMadelineInstance(fn () => new \danog\MadelineProto\API($sessionPath, $settings));
                 $auth = $api->getAuthorization();
 
                 if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
                     $this->markConnected($conn, $api);
+
                     return ['logged_in' => true, 'conn_id' => $conn->id];
                 }
 
@@ -905,7 +958,7 @@ class MadelineProtoService
 
             $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $phone) {
                 $settings = $this->makeMadelineSettings($apiId, $apiHash);
-                $api = new \danog\MadelineProto\API($sessionPath, $settings);
+                $api = self::withForcedFullMadelineInstance(fn () => new \danog\MadelineProto\API($sessionPath, $settings));
                 $api->phoneLogin($phone);
                 $auth = $api->getAuthorization();
 
@@ -965,7 +1018,7 @@ class MadelineProtoService
 
             $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $code) {
                 $settings = $this->makeMadelineSettings($apiId, $apiHash);
-                $api = new \danog\MadelineProto\API($sessionPath, $settings);
+                $api = self::withForcedFullMadelineInstance(fn () => new \danog\MadelineProto\API($sessionPath, $settings));
                 $api->completePhoneLogin($code);
                 $auth = $api->getAuthorization();
 
@@ -1020,7 +1073,7 @@ class MadelineProtoService
 
             $result = $this->run(function () use ($conn, $sessionPath, $apiId, $apiHash, $password) {
                 $settings = $this->makeMadelineSettings($apiId, $apiHash);
-                $api = new \danog\MadelineProto\API($sessionPath, $settings);
+                $api = self::withForcedFullMadelineInstance(fn () => new \danog\MadelineProto\API($sessionPath, $settings));
                 if ($api->getAuthorization() === \danog\MadelineProto\API::WAITING_PASSWORD) {
                     $api->complete2faLogin($password);
                 }

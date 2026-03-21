@@ -63,14 +63,20 @@
 | می‌خواهید آنی باشد | Supervisor برای `telegram:listen-incoming`؛ polling دیگر لازم نیست. |
 | `chat_id` خروجی `@username` و ورودی عددی | `resolved_chat_id` عددی ذخیره شود؛ رکوردهای قدیمی ممکن است دو نخ گفتگو بسازند. |
 
-### مهم: polling با daemon همزمان نکنید
+### مهم: یک session = یک مالک (وب **یا** daemon)
 
-دو **نمونهٔ کامل** Madeline روی یک session باعث خطای «session is busy» و IPC شکسته می‌شود. بنابراین:
+MadelineProto 8 با **کلاینت IPC کوتاه‌عمر** در PHP-FPM (بستن ناگهانی حلقهٔ رویداد) باعث خطاهایی مثل **`Channel was already closed`** و **تایم‌اوت ۳۰۰ ثانیه** روی `getAuthorization` می‌شود.
+
+الگوی پایدار:
+
+| حالت | Supervisor `telegram:listen-incoming` | ارسال اینباکس / کراول گروه / `fetch-incoming` |
+|------|----------------------------------------|------------------------------------------------|
+| **A — دریافت آنی** | روشن | خاموش (اپ عمداً خطا می‌دهد تا session نشکند) |
+| **B — ارسال + polling** | خاموش | روشن (`schedule:run` + fetch هر ۳ دقیقه) |
 
 - با **daemon**: scheduler دیگر `telegram:fetch-incoming` را اجرا نمی‌کند.
-- **ارسال از وب** با MadelineProto 8 معمولاً به‌صورت کلاینت IPC به session وصل می‌شود؛ با این حال از **چند درخواست همزمان سنگین** (چند تب + cron دیگر) پرهیز کنید تا `LockTimeoutException` و قفل MySQL کم شود.
-
-فایل `.madeline_listen_daemon_{id}` فقط برای تشخیص «daemon فعال است» است؛ دیگر ارسال وب را مسدود نمی‌کند.
+- اگر daemon روشن باشد، **`MadelineProtoService` قبل از هر عملیات خطا می‌دهد** — ابتدا Supervisor را متوقف کنید.
+- برای بارگذاری کامل session (بدون IPC شکسته)، پیش‌فرض **`MADELINE_PROTO_FORCE_FULL=true`** در config است؛ با دامون همزمان نکنید.
 
 ### قفل MySQL (1205) هنگام باز کردن اینباکس
 
