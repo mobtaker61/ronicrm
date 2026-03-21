@@ -55,6 +55,7 @@ class GoogleContactsSyncService
                 if ($afterEach !== null) {
                     $afterEach($processed, $total, $success, $failed, $lastError);
                 }
+                $this->throttleBulkSyncAfterCustomer($processed, $total);
             }
         });
 
@@ -275,41 +276,111 @@ class GoogleContactsSyncService
 
     protected function updateContact(string $token, string $resourceName, array $person, Customer $customer): void
     {
-        $get = Http::withToken($token)->get('https://people.googleapis.com/v1/'.$resourceName, [
+        $max = (int) config('services.google_contacts.quota_max_retries', 5);
+
+        for ($attempt = 0; $attempt < $max; $attempt++) {
+            $get = $this->peopleGetContact($token, $resourceName);
+
+            if ($get->status() === 404) {
+                $customer->update(['google_people_resource_name' => null]);
+                $this->createContact($token, $person, $customer->fresh());
+
+                return;
+            }
+
+            if (! $get->successful()) {
+                throw new \RuntimeException('getContact: '.$get->body());
+            }
+
+            $etag = $get->json('etag');
+            if (! is_string($etag) || $etag === '') {
+                throw new \RuntimeException('getContact: missing etag.');
+            }
+
+            $person['etag'] = $etag;
+
+            $fieldList = ['names', 'emailAddresses', 'phoneNumbers', 'biographies'];
+            if (! empty($person['organizations'])) {
+                $fieldList[] = 'organizations';
+            }
+            $fields = implode(',', $fieldList);
+            $url = 'https://people.googleapis.com/v1/'.$resourceName.':updateContact?updatePersonFields='.$fields;
+
+            $patch = Http::withToken($token)
+                ->timeout(90)
+                ->asJson()
+                ->patch($url, $person);
+
+            if ($patch->successful()) {
+                return;
+            }
+
+            if ($patch->status() === 429 && $attempt < $max - 1) {
+                $this->sleepForGoogleQuotaExceeded($patch);
+
+                continue;
+            }
+
+            throw new \RuntimeException('updateContact: '.$patch->body());
+        }
+    }
+
+    /**
+     * GET مخاطب با تلاش مجدد روی ۴۲۹ (Critical read quota).
+     */
+    protected function peopleGetContact(string $token, string $resourceName): \Illuminate\Http\Client\Response
+    {
+        $max = (int) config('services.google_contacts.quota_max_retries', 5);
+        $url = 'https://people.googleapis.com/v1/'.$resourceName;
+        $query = [
             'personFields' => 'metadata,names,emailAddresses,phoneNumbers,biographies,organizations',
+        ];
+
+        $last = null;
+        for ($i = 0; $i < $max; $i++) {
+            $last = Http::withToken($token)->timeout(90)->get($url, $query);
+
+            if ($last->successful() || $last->status() === 404) {
+                return $last;
+            }
+
+            if ($last->status() === 429 && $i < $max - 1) {
+                $this->sleepForGoogleQuotaExceeded($last);
+
+                continue;
+            }
+
+            return $last;
+        }
+
+        return $last ?? Http::response('', 500);
+    }
+
+    protected function sleepForGoogleQuotaExceeded(\Illuminate\Http\Client\Response $response): void
+    {
+        $retryAfter = $response->header('Retry-After');
+        $base = (int) config('services.google_contacts.quota_retry_base_seconds', 65);
+        $seconds = is_numeric($retryAfter) ? (int) $retryAfter : $base;
+        $seconds = max(5, min($seconds, 180));
+
+        Log::info('Google People API rate/quota limit; waiting before retry', [
+            'seconds' => $seconds,
+            'status' => $response->status(),
         ]);
 
-        if ($get->status() === 404) {
-            $customer->update(['google_people_resource_name' => null]);
-            $this->createContact($token, $person, $customer->fresh());
+        sleep($seconds);
+    }
 
+    /**
+     * بین هر مشتری در همگام‌سازی انبوه صبر می‌کند تا از سقف Critical read/minute عبور نکنیم.
+     */
+    protected function throttleBulkSyncAfterCustomer(int $processed, int $total): void
+    {
+        $ms = (int) config('services.google_contacts.bulk_sync_delay_ms', 700);
+        if ($ms <= 0 || $processed >= $total) {
             return;
         }
 
-        if (! $get->successful()) {
-            throw new \RuntimeException('getContact: '.$get->body());
-        }
-
-        $etag = $get->json('etag');
-        if (! is_string($etag) || $etag === '') {
-            throw new \RuntimeException('getContact: missing etag.');
-        }
-
-        $person['etag'] = $etag;
-
-        $fieldList = ['names', 'emailAddresses', 'phoneNumbers', 'biographies'];
-        if (! empty($person['organizations'])) {
-            $fieldList[] = 'organizations';
-        }
-        $fields = implode(',', $fieldList);
-        $url = 'https://people.googleapis.com/v1/'.$resourceName.':updateContact?updatePersonFields='.$fields;
-
-        $patch = Http::withToken($token)
-            ->asJson()
-            ->patch($url, $person);
-
-        if (! $patch->successful()) {
-            throw new \RuntimeException('updateContact: '.$patch->body());
-        }
+        usleep($ms * 1000);
     }
 }

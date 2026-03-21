@@ -57,6 +57,12 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID', ''),
         'client_secret' => env('GOOGLE_CLIENT_SECRET', ''),
         'redirect_uri' => env('GOOGLE_REDIRECT_URI') ?: (rtrim((string) env('APP_URL', ''), '/').'/settings/google-contacts/callback'),
+        /** میلی‌ثانیه بین هر مشتری در همگام‌سازی انبوه؛ سقف People API حدود ۹۰ Critical read/دقیقه است (پیش‌فرض ~۸۵/دقیقه) */
+        'bulk_sync_delay_ms' => (int) env('GOOGLE_CONTACTS_BULK_SYNC_DELAY_MS', 700),
+        /** تعداد تلاش مجدد بعد از ۴۲۹ */
+        'quota_max_retries' => max(1, (int) env('GOOGLE_CONTACTS_QUOTA_MAX_RETRIES', 5)),
+        /** اگر هدر Retry-After نباشد، چند ثانیه صبر کنیم */
+        'quota_retry_base_seconds' => max(5, min(180, (int) env('GOOGLE_CONTACTS_QUOTA_RETRY_BASE_SECONDS', 65))),
     ],
 
 ];
