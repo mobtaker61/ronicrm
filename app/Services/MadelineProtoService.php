@@ -302,29 +302,39 @@ class MadelineProtoService
      */
     public function getDialogs(): array
     {
-        return $this->run(function () {
-            $api = $this->getApi();
-            $api->start();
-            $dialogs = $api->getFullDialogs();
-            $result = [];
-            foreach ($dialogs as $dialog) {
-                $peer = $dialog['peer'] ?? null;
-                if (! $peer) {
-                    continue;
+        try {
+            $result = $this->run(function () {
+                $api = $this->getApi();
+                $api->start();
+                $dialogs = $api->getFullDialogs();
+                $out = [];
+                foreach ($dialogs as $dialog) {
+                    $peer = $dialog['peer'] ?? null;
+                    if (! $peer) {
+                        continue;
+                    }
+                    $id = $api->getId($peer);
+                    $title = $this->extractDialogTitle($dialog, $api);
+                    $type = $this->getPeerType($peer, $api);
+                    $out[] = [
+                        'id' => (string) $id,
+                        'title' => $title,
+                        'type' => $type,
+                    ];
                 }
-                $chat = $dialog['peer'] ?? $dialog;
-                $id = $api->getId($peer);
-                $title = $this->extractDialogTitle($dialog, $api);
-                $type = $this->getPeerType($peer, $api);
-                $result[] = [
-                    'id' => (string) $id,
-                    'title' => $title,
-                    'type' => $type,
-                ];
-            }
 
-            return $result;
-        });
+                return $out;
+            });
+
+            return \is_array($result) ? $result : [];
+        } catch (\Throwable $e) {
+            Log::warning('MadelineProto getDialogs failed', [
+                'detail' => self::exceptionSummary($e),
+                'class' => get_class($e),
+            ]);
+
+            return [];
+        }
     }
 
     protected function extractDialogTitle(array $dialog, $api): string
@@ -462,24 +472,43 @@ class MadelineProtoService
      */
     public function getPrivateChatHistory(string $userId, int $limit = 50, ?int $minId = null): array
     {
-        return $this->run(function () use ($userId, $limit, $minId) {
-            $api = $this->getApi();
-            $api->start();
-            $messages = $api->messages->getHistory(
-                peer: (int) $userId,
-                limit: min($limit, 100),
-                offset_id: 0,
-                offset_date: 0,
-                add_offset: 0,
-                max_id: 0,
-                min_id: $minId ?? 0,
-                hash: [0],
-            );
-            $raw = $messages['messages'] ?? [];
-            $users = $messages['users'] ?? [];
+        try {
+            $result = $this->run(function () use ($userId, $limit, $minId) {
+                $api = $this->getApi();
+                $api->start();
+                $messages = $api->messages->getHistory(
+                    peer: (int) $userId,
+                    limit: min($limit, 100),
+                    offset_id: 0,
+                    offset_date: 0,
+                    add_offset: 0,
+                    max_id: 0,
+                    min_id: $minId ?? 0,
+                    hash: [0],
+                );
+                $raw = $messages['messages'] ?? [];
+                $users = $messages['users'] ?? [];
 
-            return ['messages' => $raw, 'users' => $users];
-        });
+                return ['messages' => $raw, 'users' => $users];
+            });
+
+            if (! \is_array($result)) {
+                return ['messages' => [], 'users' => []];
+            }
+
+            return [
+                'messages' => \is_array($result['messages'] ?? null) ? $result['messages'] : [],
+                'users' => \is_array($result['users'] ?? null) ? $result['users'] : [],
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('MadelineProto getPrivateChatHistory failed', [
+                'user_id' => $userId,
+                'detail' => self::exceptionSummary($e),
+                'class' => get_class($e),
+            ]);
+
+            return ['messages' => [], 'users' => []];
+        }
     }
 
     /**
