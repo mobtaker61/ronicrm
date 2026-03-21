@@ -36,7 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('campaigns:process')->everyMinute();
         // وقتی telegram:listen-incoming روشن است، polling خاموش می‌شود (دریافت از EventHandler).
         $schedule->command('telegram:fetch-incoming')
-            ->everyThreeMinutes()
+            ->everyMinute()
             ->withoutOverlapping(25)
             ->when(function (): bool {
                 $conn = \App\Models\TelegramUserConnection::getActive();

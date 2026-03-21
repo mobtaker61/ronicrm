@@ -89,15 +89,8 @@ class TelegramFetchIncomingJob implements ShouldQueue
             ->values()
             ->all();
 
-        // Prioritize users we've contacted (CRM contact telegram value)
-        $contactedIds = CustomerContact::where('type', 'telegram')->pluck('value')->flip()->toArray();
-        usort($userPeerIds, function ($a, $b) use ($contactedIds) {
-            $aHas = isset($contactedIds[$a]) ? 1 : 0;
-            $bHas = isset($contactedIds[$b]) ? 1 : 0;
-            return $bHas - $aHas;
-        });
-
-        // ترتیب نهایی: اول گفتگوهای فعال (خروجی اخیر)، بعد بقیهٔ دیالوگ‌ها
+        // ترتیب نهایی: اول گفتگوهای فعال (خروجی اخیر)، سپس ترتیب طبیعی getDialogs
+        // (معمولا جدیدترین فعالیت‌ها) تا پیام جدید سریع‌تر دیده شود.
         $orderedPeerIds = array_values(array_unique(array_merge($recentOutgoingNumericIds, $userPeerIds)));
 
         Log::info('TelegramFetchIncomingJob', [
