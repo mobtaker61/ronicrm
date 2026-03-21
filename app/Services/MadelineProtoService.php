@@ -97,6 +97,11 @@ class MadelineProtoService
      */
     public static function withForcedFullMadelineInstance(callable $callback)
     {
+        // In web/FPM, forcing full instance needs proc_open/open_basedir freedom and can fail hard.
+        // Keep force-full only for CLI contexts.
+        if (! app()->runningInConsole()) {
+            return $callback();
+        }
         if (! config('services.telegram.madeline_force_full_instance', true)) {
             return $callback();
         }

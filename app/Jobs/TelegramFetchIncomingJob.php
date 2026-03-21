@@ -95,8 +95,8 @@ class TelegramFetchIncomingJob implements ShouldQueue
             return;
         }
 
-        // محدودیت هر اجرا برای جلوگیری از Flood؛ با everyThreeMinutes هنوز پوشش بهتری نسبت به ۱۰ کاربر/ساعت داریم
-        $maxPerRun = 20;
+        // Keep each run short; long runs increase chance of session contention with web send.
+        $maxPerRun = 6;
         $offsetKey = 'telegram_fetch_offset_' . ($conn->id ?? 0);
         $offset = (int) Cache::get($offsetKey, 0);
         $slice = array_slice($orderedPeerIds, $offset, $maxPerRun);
@@ -111,8 +111,8 @@ class TelegramFetchIncomingJob implements ShouldQueue
                 if (!empty($result['user_data']) && \is_array($result['user_data'])) {
                     $this->updateCustomerFromUserData($userId, $result['user_data']);
                 }
-                // 5–7 sec delay to avoid Telegram flood (messages.getHistory is rate-limited)
-                sleep(rand(5, 7));
+                // Small delay to avoid flood while keeping queue responsive for web send.
+                sleep(rand(2, 3));
             } catch (\Throwable $e) {
                 $detail = $e->getMessage() !== '' ? $e->getMessage() : MadelineProtoService::exceptionSummary($e);
                 Log::warning("TelegramFetchIncomingJob: fetch for $userId failed", [
