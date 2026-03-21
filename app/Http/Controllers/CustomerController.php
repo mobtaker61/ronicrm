@@ -115,6 +115,14 @@ class CustomerController extends Controller
 
         $customer = Customer::create($validated);
 
+        Log::debug('Customer store: created', [
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'exists_after_create' => Customer::find($customer->id) !== null,
+            'db_default' => config('database.default'),
+            'connection' => $customer->getConnectionName(),
+        ]);
+
         // Create contacts
         foreach ($contacts as $contact) {
             $customer->contacts()->create($contact);
@@ -124,6 +132,10 @@ class CustomerController extends Controller
         foreach ($socialMedia as $sm) {
             $customer->socialMedia()->create($sm);
         }
+
+        Log::debug('Customer store: redirecting', [
+            'customer_id' => $customer->id,
+        ]);
 
         return redirect()->route('customers.index')
             ->with('success', 'Customer created successfully.');
