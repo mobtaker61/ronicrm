@@ -21,32 +21,49 @@ class TelegramFetchIncomingJob implements ShouldQueue
 
     public int $timeout = 600;
 
+    protected function fetchLockPath(): string
+    {
+        return storage_path('framework/telegram_fetch_incoming.lock');
+    }
+
     public function handle(): void
     {
-        $conn = TelegramUserConnection::getActive();
-        if (!$conn || !$conn->isConnected()) {
-            Log::warning('TelegramFetchIncomingJob: No active connection, skipping');
+        $lockHandle = @fopen($this->fetchLockPath(), 'c+');
+        if (! $lockHandle) {
+            Log::warning('TelegramFetchIncomingJob: cannot open lock file, skipping');
             return;
         }
-        if (MadelineProtoService::isListenDaemonActive($conn)) {
-            Log::info('TelegramFetchIncomingJob: skipped — telegram:listen-incoming is running (incoming DMs via Madeline EventHandler only)');
+        if (! @flock($lockHandle, LOCK_EX | LOCK_NB)) {
+            Log::info('TelegramFetchIncomingJob: skipped (another fetch process is already running)');
+            @fclose($lockHandle);
             return;
         }
-        $service = new MadelineProtoService($conn);
+
         try {
-            $service->start();
-            Log::info('TelegramFetchIncomingJob: MadelineProto started');
-        } catch (\Throwable $e) {
-            $msg = $e->getMessage();
-            Log::warning('TelegramFetchIncomingJob: start failed', [
-                'message' => $msg ?: '(empty)',
-                'exception' => get_class($e),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            return;
-        }
+            $conn = TelegramUserConnection::getActive();
+            if (!$conn || !$conn->isConnected()) {
+                Log::warning('TelegramFetchIncomingJob: No active connection, skipping');
+                return;
+            }
+            if (MadelineProtoService::isListenDaemonActive($conn)) {
+                Log::info('TelegramFetchIncomingJob: skipped — telegram:listen-incoming is running (incoming DMs via Madeline EventHandler only)');
+                return;
+            }
+            $service = new MadelineProtoService($conn);
+            try {
+                $service->start();
+                Log::info('TelegramFetchIncomingJob: MadelineProto started');
+            } catch (\Throwable $e) {
+                $msg = $e->getMessage();
+                Log::warning('TelegramFetchIncomingJob: start failed', [
+                    'message' => $msg ?: '(empty)',
+                    'exception' => get_class($e),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                return;
+            }
 
         $dialogs = $service->getDialogs();
         $userPeerIds = [];
@@ -126,8 +143,12 @@ class TelegramFetchIncomingJob implements ShouldQueue
             }
         }
 
-        if ($fetched > 0) {
-            Log::info("TelegramFetchIncomingJob: fetched $fetched new incoming messages");
+            if ($fetched > 0) {
+                Log::info("TelegramFetchIncomingJob: fetched $fetched new incoming messages");
+            }
+        } finally {
+            @flock($lockHandle, LOCK_UN);
+            @fclose($lockHandle);
         }
     }
 
