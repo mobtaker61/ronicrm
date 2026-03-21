@@ -24,8 +24,9 @@ class TelegramSaveIncomingMessageJob implements ShouldQueue
 
     public function handle(): void
     {
+        $connection = DB::connection();
         try {
-            DB::connection()->reconnect();
+            $connection->reconnect();
         } catch (\Throwable) {
             // ignore
         }
@@ -39,6 +40,10 @@ class TelegramSaveIncomingMessageJob implements ShouldQueue
         }
 
         if (TelegramMessage::where('chat_id', $chatId)->where('telegram_message_id', $msgId)->exists()) {
+            Log::debug('TelegramSaveIncomingMessageJob: duplicate incoming ignored', [
+                'chat_id' => $chatId,
+                'telegram_message_id' => $msgId,
+            ]);
             return;
         }
 
@@ -48,7 +53,7 @@ class TelegramSaveIncomingMessageJob implements ShouldQueue
             $p['from_phone'] ?? null
         );
 
-        TelegramMessage::create([
+        $row = TelegramMessage::create([
             'telegram_message_id' => $msgId,
             'chat_id' => $chatId,
             'from_username' => $p['from_username'] ?? null,
@@ -62,7 +67,50 @@ class TelegramSaveIncomingMessageJob implements ShouldQueue
             'metadata' => null,
         ]);
 
-        Log::info('TelegramSaveIncomingMessageJob: stored incoming', ['chat_id' => $chatId, 'telegram_message_id' => $msgId]);
+        // Defensive commit for rare orphan PDO transactions in long-lived CLI workers.
+        $this->commitOrphanPdoTransactionIfNeeded($connection);
+
+        $persisted = TelegramMessage::whereKey($row->id)->exists();
+        Log::info('TelegramSaveIncomingMessageJob: stored incoming', [
+            'id' => $row->id,
+            'chat_id' => $chatId,
+            'telegram_message_id' => $msgId,
+            'persisted' => $persisted,
+            'tx_level' => $connection->transactionLevel(),
+            'in_pdo_tx' => $this->isPdoInTransaction($connection),
+        ]);
+    }
+
+    protected function isPdoInTransaction(\Illuminate\Database\Connection $connection): bool
+    {
+        try {
+            return $connection->getPdo()->inTransaction();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    protected function commitOrphanPdoTransactionIfNeeded(\Illuminate\Database\Connection $connection): void
+    {
+        try {
+            $pdo = $connection->getPdo();
+        } catch (\Throwable) {
+            return;
+        }
+
+        if (! $pdo->inTransaction()) {
+            return;
+        }
+        if ($connection->transactionLevel() > 0) {
+            return;
+        }
+
+        try {
+            $pdo->commit();
+            Log::warning('TelegramSaveIncomingMessageJob: committed orphan PDO transaction');
+        } catch (\Throwable) {
+            // ignore
+        }
     }
 
     protected function findOrCreateCustomer(string $chatId, ?string $username, ?string $phone = null): ?Customer
