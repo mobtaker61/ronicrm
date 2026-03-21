@@ -62,7 +62,7 @@ class MadelineProtoService
     protected int $runTimeout = 180;
 
     /**
-     * مسیر فایل نشانگر وقتی `telegram:listen-incoming` در حال اجراست — همان session را وب نباید باز کند.
+     * مسیر فایل نشانگر وقتی `telegram:listen-incoming` در حال اجراست (برای غیرفعال کردن polling).
      */
     public static function daemonListenMarkerPath(TelegramUserConnection $connection): string
     {
@@ -70,10 +70,31 @@ class MadelineProtoService
     }
 
     /**
+     * آیا daemon دریافت لحظه‌ای برای این اتصال فعال است؟ در این حورت telegram:fetch-incoming نباید اجرا شود.
+     */
+    public static function isListenDaemonActive(?TelegramUserConnection $connection = null): bool
+    {
+        $conn = $connection ?? TelegramUserConnection::getActive();
+        if (! $conn) {
+            return false;
+        }
+        $marker = self::daemonListenMarkerPath($conn);
+        if (! is_file($marker)) {
+            return false;
+        }
+        $pid = (int) trim((string) @file_get_contents($marker));
+
+        return self::processProbablyRunning($pid);
+    }
+
+    /**
      * خلاصهٔ زنجیرهٔ exception برای لاگ وقتی getMessage() خالی است.
      */
     public static function exceptionSummary(\Throwable $e): string
     {
+        if ($e instanceof \Illuminate\Contracts\Cache\LockTimeoutException) {
+            return 'LockTimeoutException: قفل Cache (کلید madeline_session_*) پس از انتظار آزاد نشد — چند عملیات همزمان Madeline یا MADELINE_PROTO_CACHE_LOCK_BLOCK را افزایش دهید.';
+        }
         $parts = [];
         $cur = $e;
         $depth = 0;
@@ -103,31 +124,6 @@ class MadelineProtoService
     }
 
     /**
-     * اگر daemon گوش‌دادن به پیام‌ها همان session را باز کرده باشد، همزمان باز کردن API در وب باعث قفل/خرابی می‌شود.
-     *
-     * @throws \RuntimeException
-     */
-    protected function assertSessionNotHeldByListenDaemon(): void
-    {
-        if (! $this->connection) {
-            return;
-        }
-        $marker = self::daemonListenMarkerPath($this->connection);
-        if (! is_file($marker)) {
-            return;
-        }
-        $pid = (int) trim((string) @file_get_contents($marker));
-        if (self::processProbablyRunning($pid)) {
-            throw new \RuntimeException(
-                'جلسهٔ تلگرام توسط فرآیند «telegram:listen-incoming» در حال استفاده است (PID '.$pid.'). '.
-                'آن را متوقف کنید، سپس از اینباکس ارسال کنید یا «telegram:fetch-incoming» را اجرا کنید. '.
-                'همزمان daemon و وب روی یک session پشتیبانی نمی‌شود — نگاه کنید docs/TELEGRAM_INBOX_DMS.md'
-            );
-        }
-        @unlink($marker);
-    }
-
-    /**
      * Run async closure and return result (blocking).
      * Uses explicit EventLoop::run() so the event loop processes async I/O correctly in web context.
      * Includes a safety timeout to prevent indefinite blocking.
@@ -138,7 +134,6 @@ class MadelineProtoService
             throw new \RuntimeException('MadelineProto is not installed. Run: composer require danog/madelineproto');
         }
         $this->runTimeout = max(60, (int) config('services.telegram.madeline_run_timeout', 300));
-        $this->assertSessionNotHeldByListenDaemon();
 
         $connId = $this->connection?->id ?? 0;
         $lockKey = 'madeline_session_'.$connId;

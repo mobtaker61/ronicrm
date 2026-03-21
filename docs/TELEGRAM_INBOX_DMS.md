@@ -1,10 +1,10 @@
 # دریافت پیام‌های DM تلگرام در Inbox
 
 ## وضعیت فعلی
-- **پیمایش گروه**: با MadelineProto (User API) انجام می‌شود
-- **ارسال به نویسندگان**: با MadelineProto (User API)
-- **ارسال از Inbox**: با TelegramService (Bot API)
-- **نویسندگان ثبت‌شده**: در مخاطبین با `type=telegram` و `value=user_id`
+- **پیمایش گروه / اتصال کاربر**: MadelineProto (User API)
+- **ارسال از Inbox** (وقتی `TelegramUserConnection` فعال است): MadelineProto
+- **دریافت DM**: یا **Polling** (`telegram:fetch-incoming`) یا **Daemon** (`telegram:listen-incoming` + `IncomingMessageHandler`)
+- **مخاطب تلگرام**: `customer_contacts` با `type=telegram` و `value=user_id`
 
 وقتی به نویسنده‌ای از طریق پیمایش پیام می‌دهیم، پیام از **حساب کاربری** ما (User API) ارسال می‌شود. وقتی آن‌ها جواب می‌دهند، جواب به **حساب کاربری** ما می‌رسد، نه به ربات. بنابراین برای دریافت پاسخ آن‌ها باید از MadelineProto استفاده کنیم.
 
@@ -51,42 +51,29 @@
    - اطلاعات کاربر (نام، فامیلی، تلفن، یوزرنیم) را از پاسخ API گرفته و در جدول `customers` و `customer_contacts` به‌روزرسانی می‌کند
 3. زمان‌بندی در `bootstrap/app.php`: `telegram:fetch-incoming` با **`everyThreeMinutes`** (نیاز به `* * * * * php artisan schedule:run` در crontab سرور)
 
-**مرحله ۲ (اختیاری — دریافت لحظه‌ای)**: دستور `php artisan telegram:listen-incoming` با Supervisor/systemd همیشه روشن نگه دارید. **همزمان** با job polling اجرا نکنید (یک session MadelineProto).
+**مرحله ۲ (دریافت لحظه‌ای)**: `php artisan telegram:listen-incoming` با Supervisor. وقتی این daemon روشن است، **`telegram:fetch-incoming` به‌صورت خودکار از scheduler حذف می‌شود** (فایل `.madeline_listen_daemon_{id}` + PID زنده). دریافت فقط از `IncomingMessageHandler` → `TelegramSaveIncomingMessageJob`.
 
 ### چرا پیام ورودی نمی‌بینم؟
 
 | علت | کار لازم |
 |-----|----------|
-| Cron اجرا نمی‌شود | روی سرور حتماً هر دقیقه `schedule:run` را اجرا کنید. |
-| فقط polling دارید | تا ۳ دقیقه تأخیر طبیعی است؛ قبلاً با `hourly` ممکن بود ساعت‌ها طول بکشد. |
-| می‌خواهید آنی باشد | `telegram:listen-incoming` را به‌صورت daemon اجرا کنید و **زمان‌بندی `telegram:fetch-incoming` را در `bootstrap/app.php` کامنت کنید**. |
-| `chat_id` خروجی `@username` بوده و ورودی عددی است | با اصلاح اخیر، بعد از ارسال باید `resolved_chat_id` عددی ذخیره شود؛ برای رکوردهای قدیمی ممکن است دو رشتهٔ جدا در اینباکس ببینید. |
+| Cron اجرا نمی‌شود | هر دقیقه `php artisan schedule:run` (فقط در حالت **polling** لازم است). |
+| فقط polling | تا ~۳ دقیقه تأخیر طبیعی است. |
+| daemon روشن است اما هنوز چیزی نیست | در `laravel.log` دنبال `IncomingMessageHandler` و `TelegramSaveIncomingMessageJob: stored incoming` بگردید؛ اگر نیست، هندلر اصلاً رویداد را نمی‌گیرد (نسخه Madeline / نوع پیام). |
+| می‌خواهید آنی باشد | Supervisor برای `telegram:listen-incoming`؛ polling دیگر لازم نیست. |
+| `chat_id` خروجی `@username` و ورودی عددی | `resolved_chat_id` عددی ذخیره شود؛ رکوردهای قدیمی ممکن است دو نخ گفتگو بسازند. |
 
-### مهم: daemon و وب هرگز همزمان نباشند
+### مهم: polling با daemon همزمان نکنید
 
-یک session فایل MadelineProto (`session_XXX.madeline`) را **نمی‌توان** همزمان توسط:
+دو **نمونهٔ کامل** Madeline روی یک session باعث خطای «session is busy» و IPC شکسته می‌شود. بنابراین:
 
-- `php artisan telegram:listen-incoming` (Supervisor / screen)
-- و درخواست وب (ارسال از اینباز)
-- و `php artisan telegram:fetch-incoming` / scheduler
+- با **daemon**: scheduler دیگر `telegram:fetch-incoming` را اجرا نمی‌کند.
+- **ارسال از وب** با MadelineProto 8 معمولاً به‌صورت کلاینت IPC به session وصل می‌شود؛ با این حال از **چند درخواست همزمان سنگین** (چند تب + cron دیگر) پرهیز کنید تا `LockTimeoutException` و قفل MySQL کم شود.
 
-باز کرد. در لاگ مادلاین می‌بینید: `Waiting for exclusive lock of ... safe.php.lock` و `FeedLoop`.
-
-**الگوی پیشنهادی:**
-
-1. **فقط اینباکس + polling:** daemon را **خاموش** کنید؛ فقط `schedule:run` و `telegram:fetch-incoming` هر ۳ دقیقه.
-2. **فقط daemon (دریافت آنی):** در Supervisor فقط `telegram:listen-incoming`؛ **ارسال از اینباکس در این حالت توسط اپ غیرفعال می‌شود** مگر daemon را ببندید (یا معماری جدا پیاده شود).
-
-از نسخهٔ فعلی، هنگام اجرای `telegram:listen-incoming` فایل نشانگر `.madeline_listen_daemon_{id}` ساخته می‌شود؛ اگر همان PID زنده باشد، ارسال/فچ از وب با پیام خطای فارسی واضح متوقف می‌شود تا session خراب نشود.
+فایل `.madeline_listen_daemon_{id}` فقط برای تشخیص «daemon فعال است» است؛ دیگر ارسال وب را مسدود نمی‌کند.
 
 ---
 
 ## نکته درباره ارسال از Inbox
 
-الان ارسال از Inbox با **Bot API** انجام می‌شود. کاربرانی که فقط از پیمایش مخاطب شده‌اند ممکن است ربات را استارت نکرده باشند و Bot نتواند به آن‌ها پیام بفرستد.
-
-برای این مخاطبین باید:
-- اگر `TelegramUserConnection` فعال است، برای ارسال از **MadelineProto** استفاده شود (مثل ارسال در پیمایش)
-- در غیر این صورت همان Bot API باقی بماند
-
-این باعث می‌شود ارسال به نویسندگان پیمایش‌شده همیشه با User API انجام شود و با دریافت از همان اکانت، جریان پیام درست باشد.
+اگر **TelegramUserConnection** (Madeline) متصل باشد، ارسال از اینباکس با **User API** انجام می‌شود؛ در غیر این صورت ممکن است به Bot API برگردد (بسته به UI/تنظیمات).

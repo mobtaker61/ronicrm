@@ -11,6 +11,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TelegramSaveIncomingMessageJob implements ShouldQueue
 {
@@ -22,6 +24,12 @@ class TelegramSaveIncomingMessageJob implements ShouldQueue
 
     public function handle(): void
     {
+        try {
+            DB::connection()->reconnect();
+        } catch (\Throwable) {
+            // ignore
+        }
+
         $p = $this->payload;
         $chatId = $p['chat_id'] ?? null;
         $msgId = $p['telegram_message_id'] ?? null;
@@ -53,6 +61,8 @@ class TelegramSaveIncomingMessageJob implements ShouldQueue
             'status' => 'received',
             'metadata' => null,
         ]);
+
+        Log::info('TelegramSaveIncomingMessageJob: stored incoming', ['chat_id' => $chatId, 'telegram_message_id' => $msgId]);
     }
 
     protected function findOrCreateCustomer(string $chatId, ?string $username, ?string $phone = null): ?Customer

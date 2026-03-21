@@ -10,6 +10,7 @@ use App\Models\InstagramMessage;
 use App\Models\SocialMediaType;
 use App\Models\TelegramMessage;
 use App\Models\WhatsAppMessage;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -164,8 +165,18 @@ class InboxController extends Controller
                             'read_at' => $msg->read_at,
                         ];
                     });
-                TelegramMessage::forChat($selectedContact)->whereNull('read_at')
-                    ->update(['read_at' => now(), 'status' => 'read']);
+                try {
+                    TelegramMessage::forChat($selectedContact)->whereNull('read_at')
+                        ->update(['read_at' => now(), 'status' => 'read']);
+                } catch (QueryException $e) {
+                    if (str_contains($e->getMessage(), '1205')) {
+                        Log::warning('Inbox: mark telegram messages read skipped (DB lock wait)', [
+                            'chat_id' => $selectedContact,
+                        ]);
+                    } else {
+                        throw $e;
+                    }
+                }
                 $selectedCustomer = $this->findCustomerByTelegramChatId($selectedContact);
                 if ($selectedCustomer) {
                     $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);

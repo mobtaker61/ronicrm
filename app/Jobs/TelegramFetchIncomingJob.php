@@ -28,6 +28,10 @@ class TelegramFetchIncomingJob implements ShouldQueue
             Log::warning('TelegramFetchIncomingJob: No active connection, skipping');
             return;
         }
+        if (MadelineProtoService::isListenDaemonActive($conn)) {
+            Log::info('TelegramFetchIncomingJob: skipped — telegram:listen-incoming is running (incoming DMs via Madeline EventHandler only)');
+            return;
+        }
         $service = new MadelineProtoService($conn);
         try {
             $service->start();

@@ -33,9 +33,9 @@ class ListenTelegramIncoming extends Command
             ->setExtra(storage_path('logs/madelineproto.log'));
 
         $this->warn('══════════════════════════════════════════════════════════════');
-        $this->warn('این فرآیند session MadelineProto را به‌صورت انحصاری نگه می‌دارد.');
-        $this->warn('تا وقتی این دستور روشن است: ارسال از اینباکس و telegram:fetch-incoming کار نمی‌کنند.');
-        $this->warn('برای ارسال/همگام‌سازی از وب، این daemon را متوقف کنید (Supervisor را off کنید).');
+        $this->warn('حالت دریافت لحظه‌ای: پیام‌های ورودی در DB توسط EventHandler ذخیره می‌شوند.');
+        $this->warn('زمان‌بندی telegram:fetch-incoming به‌طور خودکار غیرفعال می‌شود (نیازی به polling نیست).');
+        $this->warn('ارسال از اینباکس با همان session از طریق IPC MadelineProto 8 امکان‌پذیر است؛ از چند درخواست همزمان سنگین پرهیز کنید.');
         $this->warn('══════════════════════════════════════════════════════════════');
 
         $marker = \App\Services\MadelineProtoService::daemonListenMarkerPath($conn);

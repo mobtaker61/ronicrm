@@ -31,6 +31,11 @@ class IncomingMessageHandler extends SimpleEventHandler
             return;
         }
 
+        Log::info('Telegram IncomingMessageHandler: private incoming', [
+            'sender_id' => $message->senderId ?? null,
+            'msg_id' => $message->id ?? null,
+        ]);
+
         $chatId = (string) $message->senderId;
         $msgId = (string) $message->id;
         $text = $message->message ?? '';
