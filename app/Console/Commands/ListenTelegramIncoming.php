@@ -32,6 +32,18 @@ class ListenTelegramIncoming extends Command
             ->setType(\danog\MadelineProto\Logger::LOGGER_FILE)
             ->setExtra(storage_path('logs/madelineproto.log'));
 
+        $this->warn('══════════════════════════════════════════════════════════════');
+        $this->warn('این فرآیند session MadelineProto را به‌صورت انحصاری نگه می‌دارد.');
+        $this->warn('تا وقتی این دستور روشن است: ارسال از اینباکس و telegram:fetch-incoming کار نمی‌کنند.');
+        $this->warn('برای ارسال/همگام‌سازی از وب، این daemon را متوقف کنید (Supervisor را off کنید).');
+        $this->warn('══════════════════════════════════════════════════════════════');
+
+        $marker = \App\Services\MadelineProtoService::daemonListenMarkerPath($conn);
+        file_put_contents($marker, (string) getmypid());
+        register_shutdown_function(static function () use ($marker): void {
+            @unlink($marker);
+        });
+
         $this->info('Starting Telegram DM listener (Ctrl+C to stop)...');
         $this->info('Session: ' . $sessionPath);
 

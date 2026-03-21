@@ -110,7 +110,11 @@ class TelegramFetchIncomingJob implements ShouldQueue
                 // 5–7 sec delay to avoid Telegram flood (messages.getHistory is rate-limited)
                 sleep(rand(5, 7));
             } catch (\Throwable $e) {
-                Log::warning("TelegramFetchIncomingJob: fetch for $userId failed - " . $e->getMessage());
+                $detail = $e->getMessage() !== '' ? $e->getMessage() : MadelineProtoService::exceptionSummary($e);
+                Log::warning("TelegramFetchIncomingJob: fetch for $userId failed", [
+                    'detail' => $detail,
+                    'class' => get_class($e),
+                ]);
                 // On flood or salt errors, wait longer before next attempt
                 if (str_contains($e->getMessage(), 'Flood') || str_contains($e->getMessage(), 'salt')) {
                     sleep(15);

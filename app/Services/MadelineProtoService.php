@@ -62,6 +62,72 @@ class MadelineProtoService
     protected int $runTimeout = 180;
 
     /**
+     * مسیر فایل نشانگر وقتی `telegram:listen-incoming` در حال اجراست — همان session را وب نباید باز کند.
+     */
+    public static function daemonListenMarkerPath(TelegramUserConnection $connection): string
+    {
+        return dirname($connection->getSessionPath()).'/.madeline_listen_daemon_'.$connection->id;
+    }
+
+    /**
+     * خلاصهٔ زنجیرهٔ exception برای لاگ وقتی getMessage() خالی است.
+     */
+    public static function exceptionSummary(\Throwable $e): string
+    {
+        $parts = [];
+        $cur = $e;
+        $depth = 0;
+        while ($cur !== null && $depth < 8) {
+            $m = $cur->getMessage();
+            $parts[] = get_class($cur).': '.($m !== '' ? $m : '(empty message)');
+            $cur = $cur->getPrevious();
+            $depth++;
+        }
+
+        return implode(' ← ', $parts);
+    }
+
+    protected static function processProbablyRunning(int $pid): bool
+    {
+        if ($pid <= 0) {
+            return false;
+        }
+        if (function_exists('posix_kill') && extension_loaded('posix')) {
+            return @posix_kill($pid, 0);
+        }
+        if (PHP_OS_FAMILY === 'Linux' && is_dir("/proc/$pid")) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * اگر daemon گوش‌دادن به پیام‌ها همان session را باز کرده باشد، همزمان باز کردن API در وب باعث قفل/خرابی می‌شود.
+     *
+     * @throws \RuntimeException
+     */
+    protected function assertSessionNotHeldByListenDaemon(): void
+    {
+        if (! $this->connection) {
+            return;
+        }
+        $marker = self::daemonListenMarkerPath($this->connection);
+        if (! is_file($marker)) {
+            return;
+        }
+        $pid = (int) trim((string) @file_get_contents($marker));
+        if (self::processProbablyRunning($pid)) {
+            throw new \RuntimeException(
+                'جلسهٔ تلگرام توسط فرآیند «telegram:listen-incoming» در حال استفاده است (PID '.$pid.'). '.
+                'آن را متوقف کنید، سپس از اینباکس ارسال کنید یا «telegram:fetch-incoming» را اجرا کنید. '.
+                'همزمان daemon و وب روی یک session پشتیبانی نمی‌شود — نگاه کنید docs/TELEGRAM_INBOX_DMS.md'
+            );
+        }
+        @unlink($marker);
+    }
+
+    /**
      * Run async closure and return result (blocking).
      * Uses explicit EventLoop::run() so the event loop processes async I/O correctly in web context.
      * Includes a safety timeout to prevent indefinite blocking.
@@ -71,11 +137,18 @@ class MadelineProtoService
         if (! class_exists(\danog\MadelineProto\API::class)) {
             throw new \RuntimeException('MadelineProto is not installed. Run: composer require danog/madelineproto');
         }
+        $this->runTimeout = max(60, (int) config('services.telegram.madeline_run_timeout', 300));
+        $this->assertSessionNotHeldByListenDaemon();
+
         $connId = $this->connection?->id ?? 0;
         $lockKey = 'madeline_session_'.$connId;
-        $lock = Cache::lock($lockKey, 600);
-        if (! $lock->block(120)) {
-            throw new \RuntimeException('Could not acquire Telegram session lock (another operation in progress). Try again later.');
+        $lockTtl = max(120, (int) config('services.telegram.madeline_cache_lock_ttl', 600));
+        $blockSeconds = max(30, (int) config('services.telegram.madeline_cache_lock_block', 180));
+        $lock = Cache::lock($lockKey, $lockTtl);
+        if (! $lock->block($blockSeconds)) {
+            throw new \RuntimeException(
+                'قفل session تلگرام گرفته نشد (احتمالاً درخواست دیگری در حال اجراست یا queue worker مشغول MadelineProto است). چند دقیقه بعد دوباره تلاش کنید.'
+            );
         }
         try {
             return $this->runWithLock($callback);
@@ -119,7 +192,10 @@ class MadelineProtoService
             );
         }
         if ($error !== null) {
-            $msg = $error->getMessage() ?: '(no message)';
+            $msg = $error->getMessage();
+            if ($msg === '') {
+                $msg = self::exceptionSummary($error);
+            }
             $cls = get_class($error);
             Log::error('MadelineProto run() error', [
                 'class' => $cls,
@@ -560,6 +636,7 @@ class MadelineProtoService
             ];
         } catch (\Throwable $e) {
             $msg = $e->getMessage();
+            $detail = $msg !== '' ? $msg : self::exceptionSummary($e);
             // MadelineProto sometimes returns PrivateMessage object; internal code may throw "as array"
             // while the message was actually sent. Treat as success so UI shows correct sent count.
             if (str_contains($msg, 'PrivateMessage') && str_contains($msg, 'as array')) {
@@ -583,9 +660,12 @@ class MadelineProtoService
                     'resolved_chat_id' => $resolvedId,
                 ];
             }
-            Log::warning('MadelineProto sendMessage failed: '.$msg);
+            Log::warning('MadelineProto sendMessage failed', [
+                'detail' => $detail,
+                'class' => get_class($e),
+            ]);
 
-            return ['success' => false, 'error' => $msg];
+            return ['success' => false, 'error' => $detail];
         }
     }
 

@@ -51,6 +51,12 @@ return [
     'telegram' => [
         'api_id' => env('TELEGRAM_API_ID', ''),
         'api_hash' => env('TELEGRAM_API_HASH', ''),
+        /** حداکثر زمان یک عملیات MadelineProto در حلقهٔ رویداد (ثانیه) */
+        'madeline_run_timeout' => max(60, (int) env('MADELINE_PROTO_RUN_TIMEOUT', 300)),
+        /** مدت نگه‌داشتن قفل Cache برای session (ثانیه) */
+        'madeline_cache_lock_ttl' => max(120, (int) env('MADELINE_PROTO_CACHE_LOCK_TTL', 600)),
+        /** حداکثر انتظار برای گرفتن قفل Cache قبل از خطا (ثانیه) */
+        'madeline_cache_lock_block' => max(30, (int) env('MADELINE_PROTO_CACHE_LOCK_BLOCK', 180)),
     ],
 
     'google_contacts' => [

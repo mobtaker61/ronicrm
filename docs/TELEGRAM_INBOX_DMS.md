@@ -59,8 +59,25 @@
 |-----|----------|
 | Cron اجرا نمی‌شود | روی سرور حتماً هر دقیقه `schedule:run` را اجرا کنید. |
 | فقط polling دارید | تا ۳ دقیقه تأخیر طبیعی است؛ قبلاً با `hourly` ممکن بود ساعت‌ها طول بکشد. |
-| می‌خواهید آنی باشد | `telegram:listen-incoming` را به‌صورت daemon اجرا کنید و polling را غیرفعال کنید. |
+| می‌خواهید آنی باشد | `telegram:listen-incoming` را به‌صورت daemon اجرا کنید و **زمان‌بندی `telegram:fetch-incoming` را در `bootstrap/app.php` کامنت کنید**. |
 | `chat_id` خروجی `@username` بوده و ورودی عددی است | با اصلاح اخیر، بعد از ارسال باید `resolved_chat_id` عددی ذخیره شود؛ برای رکوردهای قدیمی ممکن است دو رشتهٔ جدا در اینباکس ببینید. |
+
+### مهم: daemon و وب هرگز همزمان نباشند
+
+یک session فایل MadelineProto (`session_XXX.madeline`) را **نمی‌توان** همزمان توسط:
+
+- `php artisan telegram:listen-incoming` (Supervisor / screen)
+- و درخواست وب (ارسال از اینباز)
+- و `php artisan telegram:fetch-incoming` / scheduler
+
+باز کرد. در لاگ مادلاین می‌بینید: `Waiting for exclusive lock of ... safe.php.lock` و `FeedLoop`.
+
+**الگوی پیشنهادی:**
+
+1. **فقط اینباکس + polling:** daemon را **خاموش** کنید؛ فقط `schedule:run` و `telegram:fetch-incoming` هر ۳ دقیقه.
+2. **فقط daemon (دریافت آنی):** در Supervisor فقط `telegram:listen-incoming`؛ **ارسال از اینباکس در این حالت توسط اپ غیرفعال می‌شود** مگر daemon را ببندید (یا معماری جدا پیاده شود).
+
+از نسخهٔ فعلی، هنگام اجرای `telegram:listen-incoming` فایل نشانگر `.madeline_listen_daemon_{id}` ساخته می‌شود؛ اگر همان PID زنده باشد، ارسال/فچ از وب با پیام خطای فارسی واضح متوقف می‌شود تا session خراب نشود.
 
 ---
 
