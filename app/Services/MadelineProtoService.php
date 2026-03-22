@@ -407,8 +407,15 @@ class MadelineProtoService
         return array_values($allChats);
     }
 
-    protected function getPeerIdFromDialogPeer(array $peer): ?string
+    protected function getPeerIdFromDialogPeer(mixed $peer): ?string
     {
+        if (is_int($peer) || is_string($peer)) {
+            $id = trim((string) $peer);
+            return $id !== '' ? $id : null;
+        }
+        if (! is_array($peer)) {
+            return null;
+        }
         $t = $peer['_'] ?? '';
         if (str_contains($t, 'Channel')) {
             return '-100'.(string) ($peer['channel_id'] ?? '');
