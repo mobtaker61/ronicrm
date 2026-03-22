@@ -62,6 +62,8 @@ return [
          * فقط وقتی telegram:listen-incoming خاموش است باید از وب/cron Madeline زده شود.
          */
         'madeline_force_full_instance' => filter_var(env('MADELINE_PROTO_FORCE_FULL', true), FILTER_VALIDATE_BOOL),
+        /** دور زدن باگ Undefined array key در getFullDialogs — true = از getDialogIds استفاده کن */
+        'madeline_use_get_dialog_ids' => filter_var(env('MADELINE_USE_GET_DIALOG_IDS', true), FILTER_VALIDATE_BOOL),
     ],
 
     'google_contacts' => [

@@ -302,38 +302,86 @@ class MadelineProtoService
      */
     public function getDialogs(): array
     {
-        try {
-            $result = $this->run(function () {
-                $api = $this->getApi();
-                $api->start();
-                $dialogs = $api->getFullDialogs();
-                $out = [];
-                foreach ($dialogs as $dialog) {
-                    $peer = $dialog['peer'] ?? null;
-                    if (! $peer) {
-                        continue;
-                    }
-                    $id = $api->getId($peer);
-                    $title = $this->extractDialogTitle($dialog, $api);
-                    $type = $this->getPeerType($peer, $api);
-                    $out[] = [
-                        'id' => (string) $id,
-                        'title' => $title,
-                        'type' => $type,
-                    ];
+        $useDialogIds = config('services.telegram.madeline_use_get_dialog_ids', false);
+        $result = $this->run(function () use ($useDialogIds) {
+            $api = $this->getApi();
+            $api->start();
+
+            if ($useDialogIds) {
+                return $this->getDialogsFromDialogIds($api);
+            }
+            try {
+                return $this->getDialogsFromFullDialogs($api);
+            } catch (\Throwable $e) {
+                $msg = $e->getMessage();
+                if (str_contains($msg, 'Undefined array key') || str_contains($msg, 'Undefined index')) {
+                    Log::info('MadelineProto getFullDialogs entity key bug, falling back to getDialogIds');
+                    return $this->getDialogsFromDialogIds($api);
                 }
+                throw $e;
+            }
+        });
 
-                return $out;
-            });
+        return \is_array($result) ? $result : [];
+    }
 
-            return \is_array($result) ? $result : [];
-        } catch (\Throwable $e) {
-            Log::warning('MadelineProto getDialogs failed', [
-                'detail' => self::exceptionSummary($e),
-                'class' => get_class($e),
-            ]);
-            throw $e;
+    /**
+     * Fetch dialogs using getFullDialogs (preferred, more info).
+     */
+    protected function getDialogsFromFullDialogs($api): array
+    {
+        $dialogs = $api->getFullDialogs();
+        $out = [];
+        foreach ($dialogs as $dialog) {
+            $peer = $dialog['peer'] ?? null;
+            if (! $peer) {
+                continue;
+            }
+            $id = $api->getId($peer);
+            if (! str_starts_with((string) $id, '-')) {
+                continue;
+            }
+            $title = $this->extractDialogTitle($dialog, $api);
+            $type = $this->getPeerType($peer, $api);
+            $out[] = [
+                'id' => (string) $id,
+                'title' => $title,
+                'type' => $type,
+            ];
         }
+        return $out;
+    }
+
+    /**
+     * Fallback: fetch dialogs using getDialogIds + getInfo (when getFullDialogs has entity key bug).
+     */
+    protected function getDialogsFromDialogIds($api): array
+    {
+        $peerIds = $api->getDialogIds();
+        $out = [];
+        foreach ($peerIds as $peer) {
+            try {
+                $id = $api->getId($peer);
+                $idStr = (string) $id;
+                if (! str_starts_with($idStr, '-')) {
+                    continue;
+                }
+                $info = $api->getInfo($peer);
+                $type = $info['type'] ?? 'user';
+                if (! in_array($type, ['chat', 'group', 'supergroup', 'channel'], true)) {
+                    continue;
+                }
+                $title = $info['Chat']['title'] ?? $info['User']['first_name'] ?? 'Unknown';
+                $out[] = [
+                    'id' => $idStr,
+                    'title' => $title,
+                    'type' => $type === 'chat' ? 'group' : $type,
+                ];
+            } catch (\Throwable $e) {
+                Log::debug('MadelineProto skip dialog', ['error' => $e->getMessage()]);
+            }
+        }
+        return $out;
     }
 
     protected function extractDialogTitle(array $dialog, $api): string

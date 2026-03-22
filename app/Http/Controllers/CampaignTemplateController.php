@@ -57,6 +57,8 @@ class CampaignTemplateController extends Controller
             $request->input('whatsapp_settings')
         );
 
+        $validated['content_translations'] = $this->sanitizeContentTranslations($validated['content_translations'] ?? null);
+
         CampaignTemplate::create($validated);
 
         return redirect()->route('campaign-templates.index')
@@ -106,6 +108,8 @@ class CampaignTemplateController extends Controller
             $request->input('whatsapp_settings')
         );
 
+        $validated['content_translations'] = $this->sanitizeContentTranslations($validated['content_translations'] ?? null);
+
         $campaignTemplate->update($validated);
 
         return redirect()->route('campaign-templates.index')
@@ -119,6 +123,31 @@ class CampaignTemplateController extends Controller
             $decoded = json_decode($val, true);
             $request->merge(['content_translations' => is_array($decoded) ? $decoded : []]);
         }
+    }
+
+    /**
+     * Ensure content_translations is valid JSON-compatible data (MySQL CHECK constraint).
+     * Empty string or invalid data causes CONSTRAINT failed.
+     */
+    protected function sanitizeContentTranslations(mixed $value): ?array
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            $value = is_array($decoded) ? $decoded : null;
+        }
+        if (! is_array($value)) {
+            return null;
+        }
+        $out = [];
+        foreach ($value as $k => $v) {
+            if (is_string($k) && ($v === null || is_string($v))) {
+                $out[$k] = $v === null ? '' : $v;
+            }
+        }
+        return empty($out) ? null : $out;
     }
 
     public function destroy(CampaignTemplate $campaignTemplate)
