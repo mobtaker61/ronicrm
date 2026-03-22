@@ -241,7 +241,11 @@ class MadelineProtoService
                 \Revolt\EventLoop::getDriver()->stop();
             }
         });
-        \Revolt\EventLoop::run();
+        try {
+            \Revolt\EventLoop::run();
+        } catch (\Throwable $e) {
+            $error = $e;
+        }
         if ($timedOut && $error === null) {
             $error = new \RuntimeException(
                 "MadelineProto operation timed out after {$timeoutSeconds}s. ".
@@ -306,12 +310,10 @@ class MadelineProtoService
             $api = $this->getApi();
             $api->start();
 
-            foreach (['getDialogsFromMessagesApi', 'getDialogsFromDialogIds', 'getDialogsFromFullDialogs'] as $method) {
+            foreach (['getDialogsFromDialogIds', 'getDialogsFromMessagesApi', 'getDialogsFromFullDialogs'] as $method) {
                 try {
                     $out = $this->{$method}($api);
-                    if ($method !== 'getDialogsFromFullDialogs') {
-                        Log::info("MadelineProto getDialogs: used {$method}");
-                    }
+                    Log::info("MadelineProto getDialogs: used {$method}");
                     return $out;
                 } catch (\Throwable $e) {
                     $msg = $e->getMessage();
@@ -486,35 +488,42 @@ class MadelineProtoService
     }
 
     /**
-     * Fallback: fetch dialogs using getDialogIds + getInfo (when getFullDialogs has entity key bug).
+     * Most stable mode: fetch dialog IDs only (no getInfo/getId/getFullDialogs).
+     * This avoids known MadelineProto entity-cache "Undefined array key" failures.
      */
     protected function getDialogsFromDialogIds($api): array
     {
         $peerIds = $api->getDialogIds();
         $out = [];
         foreach ($peerIds as $peer) {
-            try {
-                $id = $api->getId($peer);
-                $idStr = (string) $id;
-                if (! str_starts_with($idStr, '-')) {
-                    continue;
-                }
-                $info = $api->getInfo($peer);
-                $type = $info['type'] ?? 'user';
-                if (! in_array($type, ['chat', 'group', 'supergroup', 'channel'], true)) {
-                    continue;
-                }
-                $title = $info['Chat']['title'] ?? $info['User']['first_name'] ?? 'Unknown';
-                $out[] = [
-                    'id' => $idStr,
-                    'title' => $title,
-                    'type' => $type === 'chat' ? 'group' : $type,
-                ];
-            } catch (\Throwable $e) {
-                Log::debug('MadelineProto skip dialog', ['error' => $e->getMessage()]);
+            $idStr = $this->normalizeDialogIdFromDialogIdsItem($peer);
+            if ($idStr === null || ! str_starts_with($idStr, '-')) {
+                continue;
             }
+            $out[$idStr] = [
+                'id' => $idStr,
+                // On first sync title may be unknown; DB value is preserved and shown after merge.
+                'title' => 'ID '.$idStr,
+                'type' => str_starts_with($idStr, '-100') ? 'channel' : 'group',
+            ];
         }
-        return $out;
+
+        usort($out, fn ($a, $b) => strcasecmp($a['title'], $b['title']));
+
+        return array_values($out);
+    }
+
+    protected function normalizeDialogIdFromDialogIdsItem(mixed $peer): ?string
+    {
+        if (is_int($peer) || is_string($peer)) {
+            $id = trim((string) $peer);
+            return $id !== '' ? $id : null;
+        }
+        if (is_array($peer)) {
+            // Some MP versions may return peer objects here.
+            return $this->getPeerIdFromDialogPeer($peer);
+        }
+        return null;
     }
 
     protected function extractDialogTitle(array $dialog, $api): string
