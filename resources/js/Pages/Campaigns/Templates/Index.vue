@@ -668,14 +668,14 @@ const saveTemplate = () => {
     form.transform(withTemplateFormPayload);
     if (editingTemplate.value) {
         form.put(route('campaign-templates.update', editingTemplate.value.id), {
-            preserveState: true,
+            preserveState: false,
             preserveScroll: true,
             forceFormData: true,
             onSuccess: () => closeModal(),
         });
     } else {
         form.post(route('campaign-templates.store'), {
-            preserveState: true,
+            preserveState: false,
             preserveScroll: true,
             forceFormData: true,
             onSuccess: () => closeModal(),

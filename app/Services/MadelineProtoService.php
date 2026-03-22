@@ -332,8 +332,7 @@ class MadelineProtoService
                 'detail' => self::exceptionSummary($e),
                 'class' => get_class($e),
             ]);
-
-            return [];
+            throw $e;
         }
     }
 

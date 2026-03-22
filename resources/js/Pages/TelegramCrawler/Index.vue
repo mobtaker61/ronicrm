@@ -96,7 +96,13 @@
                             </div>
                         </div>
                         <p v-else-if="!groupsLoading && groups.length === 0" class="text-gray-500 text-sm p-4">
-                            Groups will load automatically. Click Refresh to fetch from Telegram.
+                            <template v-if="groupsRefreshedEmpty">
+                                No groups or channels found. Make sure you have joined groups/channels in Telegram.
+                                If you have groups, try reconnecting in <a :href="route('settings.index')" class="text-blue-600 hover:underline">Settings → Telegram</a>.
+                            </template>
+                            <template v-else>
+                                Groups will load automatically. Click Refresh to fetch from Telegram.
+                            </template>
                         </p>
                     </div>
                 </aside>
@@ -373,6 +379,7 @@ const props = defineProps({
 const groups = ref([]);
 const groupsLoading = ref(false);
 const groupsError = ref('');
+const groupsRefreshedEmpty = ref(false);
 const selectedGroupId = ref('');
 const selectedGroupIds = ref(new Set());
 const showSendToGroups = ref(false);
@@ -450,15 +457,19 @@ const telegramGroupCategories = computed(() => page.props.telegramGroupCategorie
 const loadGroups = async (refresh = false) => {
     groupsLoading.value = true;
     groupsError.value = '';
+    groupsRefreshedEmpty.value = false;
     try {
         const params = new URLSearchParams();
         if (refresh) params.set('refresh', '1');
         if (groupCategoryFilter.value) params.set('category', groupCategoryFilter.value);
         const url = route('telegram-crawler.groups') + (params.toString() ? '?' + params.toString() : '');
-        const res = await axios.get(url);
+        const res = await axios.get(url, { timeout: 90000 });
         groups.value = res.data.groups || [];
+        if (res.data.refreshed && groups.value.length === 0) {
+            groupsRefreshedEmpty.value = true;
+        }
     } catch (e) {
-        groupsError.value = e.response?.data?.error || e.message || 'Failed to load groups';
+        groupsError.value = e.response?.data?.error || e.message || (e.code === 'ECONNABORTED' ? 'Request timed out. Try again.' : 'Failed to load groups');
     } finally {
         groupsLoading.value = false;
     }

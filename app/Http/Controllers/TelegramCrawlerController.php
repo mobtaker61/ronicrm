@@ -141,6 +141,7 @@ class TelegramCrawlerController extends Controller
         }
 
         try {
+            set_time_limit(120);
             $service = new MadelineProtoService($conn);
             $dialogs = $service->getDialogs();
             $fresh = array_filter($dialogs, fn ($d) => in_array($d['type'] ?? '', ['group', 'supergroup', 'channel']) || (isset($d['id']) && str_starts_with((string) $d['id'], '-')));
@@ -180,7 +181,7 @@ class TelegramCrawlerController extends Controller
 
             Cache::put($cacheKey, $groups, now()->addDays(1));
             $result = $this->filterGroupsByCategoryAndLanguage($groups, $request);
-            return response()->json(['groups' => $result]);
+            return response()->json(['groups' => $result, 'refreshed' => true, 'count' => count($result)]);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
