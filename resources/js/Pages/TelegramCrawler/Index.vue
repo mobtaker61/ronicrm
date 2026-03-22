@@ -265,9 +265,12 @@
                         </div>
                     </div>
 
-                    <!-- Crawl Settings -->
+                    <!-- Send to Group Members -->
                     <div class="bg-white rounded-lg shadow p-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Crawl Settings</h2>
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Send to Group Members</h2>
+                        <p class="text-sm text-gray-600 mb-4">
+                            Identify members who posted in the group and send them a direct message. Template content is sent in the group's language when set.
+                        </p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Posts to crawl</label>
@@ -281,7 +284,7 @@
                             </div>
                         </div>
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Template (optional)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Template (optional, uses group language)</label>
                             <select
                                 v-model="templateId"
                                 @change="onTemplateChange"
@@ -314,14 +317,14 @@
                             :disabled="crawlStarting || !selectedGroupId || !messageText.trim()"
                             class="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
                         >
-                            {{ crawlStarting ? 'Starting...' : 'Start Crawl' }}
+                            {{ crawlStarting ? 'Starting...' : 'Send to Members' }}
                         </button>
-                        <p v-if="!selectedGroupId && groups.length && !showSendToGroups" class="text-amber-600 text-sm mt-2">Select a group from the sidebar (exit "Select Groups" mode for crawl).</p>
+                        <p v-if="!selectedGroupId && groups.length && !showSendToGroups" class="text-amber-600 text-sm mt-2">Select a group from the sidebar (exit "Select Groups" mode first).</p>
                     </div>
 
                     <!-- Progress Panel -->
                     <div v-if="crawlId" class="bg-white rounded-lg shadow p-6">
-                        <h3 class="text-lg font-semibold mb-4">Crawl Progress</h3>
+                        <h3 class="text-lg font-semibold mb-4">Send to Members Progress</h3>
                         <p v-if="crawlStatus.status === 'pending'" class="text-sm text-amber-600 mb-4">
                             Job queued. Make sure <code class="bg-amber-100 px-1 rounded">php artisan queue:work</code> is running.
                         </p>

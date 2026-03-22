@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\CampaignTemplate;
 use App\Models\Customer;
 use App\Models\CustomerContact;
+use App\Models\TelegramGroup;
 use App\Models\TelegramMessage;
 use App\Models\TelegramUserConnection;
 use App\Services\CustomerMatchService;
@@ -66,10 +67,21 @@ class TelegramCrawlJob implements ShouldQueue
             $this->setProgress('running', 0, 0, 0, null, 'sending_messages', $total, null, $allPreview);
             Log::info('TelegramCrawlJob: sending to authors', ['total' => $total]);
             $imagePath = null;
+            $messageTextToUse = $this->messageText;
+            $groupLang = null;
+            $group = TelegramGroup::where('telegram_user_connection_id', $conn->id)
+                ->where('telegram_group_id', $this->groupId)
+                ->first();
+            if ($group) {
+                $groupLang = $group->language;
+            }
             if ($this->templateId) {
                 $tmpl = CampaignTemplate::find($this->templateId);
-                if ($tmpl && $tmpl->image) {
-                    $imagePath = storage_path('app/public/' . $tmpl->image);
+                if ($tmpl) {
+                    if ($tmpl->image) {
+                        $imagePath = storage_path('app/public/' . $tmpl->image);
+                    }
+                    $messageTextToUse = $tmpl->getContentForLanguage($groupLang) ?: $this->messageText;
                 }
             }
             $authorsSent = [];
@@ -84,9 +96,9 @@ class TelegramCrawlJob implements ShouldQueue
                     $authorsSent[] = ['user_id' => $userId, 'status' => 'skipped'];
                     continue;
                 }
-                $sentResult = $service->sendPrivateMessage($userId, $this->messageText, $imagePath);
+                $sentResult = $service->sendPrivateMessage($userId, $messageTextToUse, $imagePath);
                 if ($sentResult['success']) {
-                    $this->createCustomerAndSaveMessage($userId, $msg, $conn->id);
+                    $this->createCustomerAndSaveMessage($userId, $msg, $conn->id, $messageTextToUse);
                     $sent++;
                     $authorsSent[] = ['user_id' => $userId, 'status' => 'sent'];
                 } else {
@@ -127,7 +139,7 @@ class TelegramCrawlJob implements ShouldQueue
             ->where('direction', 'outgoing')->exists();
     }
 
-    protected function createCustomerAndSaveMessage(string $userId, array $msg, ?int $connId): void
+    protected function createCustomerAndSaveMessage(string $userId, array $msg, ?int $connId, ?string $messageSent = null): void
     {
         $customer = CustomerMatchService::findExistingByTelegram($userId, null, null);
         if ($customer) {
@@ -148,7 +160,7 @@ class TelegramCrawlJob implements ShouldQueue
         }
         TelegramMessage::create([
             'chat_id' => $userId,
-            'message' => $this->messageText,
+            'message' => $messageSent ?? $this->messageText,
             'message_type' => 'text',
             'customer_id' => $customer->id,
             'direction' => 'outgoing',
