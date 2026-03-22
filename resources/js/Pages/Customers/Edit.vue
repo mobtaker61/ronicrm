@@ -360,11 +360,17 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { useForm, Link } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { useForm, Link, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import IndustrySelect from '@/Components/IndustrySelect.vue';
 import { CUSTOMER_LANGUAGE_OPTIONS } from '@/constants/customerLanguages.js';
+
+const page = usePage();
+const languageOptions = computed(() => {
+    const langs = page.props.languages || [];
+    return langs.length ? langs.map((l) => l.name) : CUSTOMER_LANGUAGE_OPTIONS;
+});
 
 const props = defineProps({
     customer: Object,
@@ -372,8 +378,6 @@ const props = defineProps({
     projects: Array,
     socialMediaTypes: Array,
 });
-
-const languageOptions = CUSTOMER_LANGUAGE_OPTIONS;
 
 function initialLanguages(customer) {
     if (Array.isArray(customer.languages) && customer.languages.length) {

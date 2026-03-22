@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {
@@ -17,6 +18,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RoleSeeder::class,
+
         ]);
 
         // Create admin user
@@ -37,9 +39,26 @@ class DatabaseSeeder extends Seeder
         ]);
         $user->assignRole('user');
 
-        // Note: To seed sample data, run: php artisan db:seed --class=SampleDataSeeder
-        // Or run both commands separately:
-        // 1. php artisan db:seed (for users and roles)
-        // 2. php artisan db:seed --class=SampleDataSeeder (for sample data)
+        $this->call([
+            SampleDataSeeder::class,
+            LanguagesAndCategoriesSeeder::class,
+            SocialMediaTypeSeeder::class,
+        ]);
+
+        // PHP 8.4 + PDO: تراکنش یتیم در CLI commit نمی‌شود و باعث rollback می‌شود (CommitOrphanPdoTransaction فقط برای HTTP اجرا می‌شود)
+        $this->commitOrphanPdoTransaction();
+    }
+
+    protected function commitOrphanPdoTransaction(): void
+    {
+        try {
+            $connection = DB::connection();
+            $pdo = $connection->getPdo();
+            if ($pdo->inTransaction() && $connection->transactionLevel() === 0) {
+                $pdo->commit();
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
     }
 }

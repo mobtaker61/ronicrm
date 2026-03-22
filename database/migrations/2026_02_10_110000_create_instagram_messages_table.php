@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('instagram_messages', function (Blueprint $table) {
             $table->id();
-            $table->string('instagram_message_id')->nullable()->index();
+            $table->string('instagram_message_id', 512)->nullable()->index();
             $table->string('ig_user_id')->index(); // Instagram Scoped User ID (conversation partner)
             $table->string('from_username')->nullable();
             $table->text('message')->nullable();

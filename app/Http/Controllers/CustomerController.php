@@ -81,7 +81,7 @@ class CustomerController extends Controller
             'type' => 'required|in:person,company',
             'gender' => 'nullable|in:male,female,other',
             'languages' => 'nullable|array',
-            'languages.*' => ['string', Rule::in(Customer::LANGUAGE_OPTIONS)],
+            'languages.*' => ['string', Rule::in(\App\Models\Language::pluck('name')->toArray() ?: Customer::LANGUAGE_OPTIONS)],
             'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'company_name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
@@ -229,7 +229,7 @@ class CustomerController extends Controller
             'type' => 'required|in:person,company',
             'gender' => 'nullable|in:male,female,other',
             'languages' => 'nullable|array',
-            'languages.*' => ['string', Rule::in(Customer::LANGUAGE_OPTIONS)],
+            'languages.*' => ['string', Rule::in(\App\Models\Language::pluck('name')->toArray() ?: Customer::LANGUAGE_OPTIONS)],
             'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'company_name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
@@ -1009,7 +1009,7 @@ class CustomerController extends Controller
         if (! is_array($raw)) {
             $raw = [];
         }
-        $allowed = Customer::LANGUAGE_OPTIONS;
+        $allowed = \App\Models\Language::pluck('name')->toArray() ?: Customer::LANGUAGE_OPTIONS;
         $langs = collect($raw)
             ->filter(fn ($v) => is_string($v) && in_array($v, $allowed, true))
             ->unique()
@@ -1027,7 +1027,7 @@ class CustomerController extends Controller
             return null;
         }
         $parts = preg_split('/[,;|\/]+/', $raw, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        $allowed = Customer::LANGUAGE_OPTIONS;
+        $allowed = \App\Models\Language::pluck('name')->toArray() ?: Customer::LANGUAGE_OPTIONS;
         $out = [];
         foreach ($parts as $p) {
             $p = trim($p);

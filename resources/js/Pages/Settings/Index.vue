@@ -396,12 +396,12 @@
                 <!-- Languages Tab (Admin Only) -->
                 <div v-if="activeTab === 'languages' && isAdmin" class="p-6">
                     <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xl font-bold text-gray-900">مدیریت زبان‌ها</h2>
+                        <h2 class="text-xl font-bold text-gray-900">Languages Management</h2>
                         <button
                             @click="showLanguageModal = true; languageForm = { code: '', name: '', sort_order: 0 }; editingLanguage = null"
                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
                         >
-                            افزودن زبان
+                            Add Language
                         </button>
                     </div>
                     <div class="space-y-3">
@@ -415,11 +415,11 @@
                                 <span class="text-sm text-gray-500 mr-3">({{ lang.code }})</span>
                             </div>
                             <div class="flex gap-2">
-                                <button @click="editLanguage(lang)" class="text-blue-600 hover:text-blue-800 text-sm">ویرایش</button>
-                                <button @click="deleteLanguage(lang)" class="text-red-600 hover:text-red-800 text-sm">حذف</button>
+                                <button @click="editLanguage(lang)" class="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+                                <button @click="deleteLanguage(lang)" class="text-red-600 hover:text-red-800 text-sm">Delete</button>
                             </div>
                         </div>
-                        <p v-if="!languages?.length" class="text-gray-500 py-4">هنوز زبانی تعریف نشده.</p>
+                        <p v-if="!languages?.length" class="text-gray-500 py-4">No languages defined yet.</p>
                     </div>
                     <!-- Language Modal -->
                     <div
@@ -428,25 +428,25 @@
                         @click.self="showLanguageModal = false"
                     >
                         <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-                            <h3 class="text-lg font-semibold mb-4">{{ editingLanguage ? 'ویرایش زبان' : 'افزودن زبان' }}</h3>
+                            <h3 class="text-lg font-semibold mb-4">{{ editingLanguage ? 'Edit Language' : 'Add Language' }}</h3>
                             <div class="space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">کد زبان (مثلا fa, en) *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Language code (e.g. en, fa) *</label>
                                     <input v-model="languageForm.code" type="text" maxlength="10" class="w-full px-3 py-2 border rounded-md" :disabled="!!editingLanguage" />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">نام *</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                                     <input v-model="languageForm.name" type="text" class="w-full px-3 py-2 border rounded-md" />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">ترتیب</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Sort order</label>
                                     <input v-model.number="languageForm.sort_order" type="number" min="0" class="w-full px-3 py-2 border rounded-md" />
                                 </div>
                             </div>
                             <div class="flex justify-end gap-2 mt-6">
-                                <button @click="showLanguageModal = false" class="px-4 py-2 border rounded-lg hover:bg-gray-50">انصراف</button>
+                                <button @click="showLanguageModal = false" class="px-4 py-2 border rounded-lg hover:bg-gray-50">Cancel</button>
                                 <button @click="saveLanguage" :disabled="languageSaving || !languageForm.code || !languageForm.name" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                                    {{ languageSaving ? 'در حال ذخیره...' : 'ذخیره' }}
+                                    {{ languageSaving ? 'Saving...' : 'Save' }}
                                 </button>
                             </div>
                         </div>
@@ -882,13 +882,13 @@
 
                     <!-- Telegram Group Categories -->
                     <div class="mb-8">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-3">دسته‌بندی گروه‌های تلگرام</h3>
-                        <p class="text-sm text-gray-600 mb-4">دسته‌های دلخواه برای گروه‌های تلگرام تعریف کنید تا بتوانید آن‌ها را فیلتر و مدیریت کنید.</p>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Telegram Group Categories</h3>
+                        <p class="text-sm text-gray-600 mb-4">Define custom categories for Telegram groups to filter and manage them.</p>
                         <div class="flex flex-wrap gap-3 items-center mb-4">
                             <input
                                 v-model="newCategoryName"
                                 type="text"
-                                placeholder="نام دسته جدید"
+                                placeholder="New category name"
                                 class="px-3 py-2 border border-gray-300 rounded-md text-sm w-48"
                                 @keyup.enter="addTelegramGroupCategory"
                             />
@@ -898,7 +898,7 @@
                                 :disabled="!newCategoryName.trim() || categorySaving"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
                             >
-                                {{ categorySaving ? 'در حال ذخیره...' : 'افزودن' }}
+                                {{ categorySaving ? 'Saving...' : 'Add' }}
                             </button>
                         </div>
                         <div class="space-y-2">
@@ -914,7 +914,7 @@
                                         @click="startEditCategory(cat)"
                                         class="text-blue-600 hover:text-blue-800 text-sm"
                                     >
-                                        ویرایش
+                                        Edit
                                     </button>
                                     <template v-else>
                                         <input
@@ -923,18 +923,18 @@
                                             class="px-2 py-1 border border-gray-300 rounded text-sm w-40"
                                             @keyup.enter="saveEditCategory"
                                         />
-                                        <button @click="saveEditCategory" class="text-green-600 hover:text-green-800 text-sm">ذخیره</button>
-                                        <button @click="cancelEditCategory" class="text-gray-500 hover:text-gray-700 text-sm">انصراف</button>
+                                        <button @click="saveEditCategory" class="text-green-600 hover:text-green-800 text-sm">Save</button>
+                                        <button @click="cancelEditCategory" class="text-gray-500 hover:text-gray-700 text-sm">Cancel</button>
                                     </template>
                                     <button
                                         @click="deleteTelegramGroupCategory(cat)"
                                         class="text-red-600 hover:text-red-800 text-sm"
                                     >
-                                        حذف
+                                        Delete
                                     </button>
                                 </div>
                             </div>
-                            <p v-if="!telegramGroupCategories?.length" class="text-gray-500 text-sm py-2">هنوز دسته‌ای تعریف نشده.</p>
+                            <p v-if="!telegramGroupCategories?.length" class="text-gray-500 text-sm py-2">No categories defined yet.</p>
                         </div>
                     </div>
 
@@ -1396,7 +1396,7 @@ function editLanguage(lang) {
     showLanguageModal.value = true;
 }
 async function deleteLanguage(lang) {
-    if (!confirm(`زبان «${lang.name}» حذف شود؟`)) return;
+    if (!confirm(`Delete language "${lang.name}"?`)) return;
     try {
         await axios.delete(route('settings.languages.destroy', lang.id));
         router.reload({ preserveState: true });
@@ -1441,7 +1441,7 @@ function cancelEditCategory() {
     editCategoryName.value = '';
 }
 async function deleteTelegramGroupCategory(cat) {
-    if (!confirm(`دسته «${cat.name}» حذف شود؟`)) return;
+    if (!confirm(`Delete category "${cat.name}"?`)) return;
     try {
         await axios.delete(route('settings.telegram-group-categories.destroy', cat.id));
         router.reload({ preserveState: true });

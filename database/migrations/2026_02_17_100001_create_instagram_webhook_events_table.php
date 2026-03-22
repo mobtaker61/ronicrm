@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('instagram_connection_id')->nullable()->constrained('instagram_connections')->nullOnDelete();
             $table->string('event_type', 64)->index();
-            $table->string('mid', 128)->nullable()->index();
+            $table->string('mid', 512)->nullable()->index();
             $table->string('sender_id', 64)->nullable()->index();
             $table->string('recipient_id', 64)->nullable();
             $table->timestamp('event_timestamp')->nullable();

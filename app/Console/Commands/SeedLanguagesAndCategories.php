@@ -1,13 +1,17 @@
 <?php
 
-namespace Database\Seeders;
+namespace App\Console\Commands;
 
-use Illuminate\Database\Seeder;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-class LanguagesAndCategoriesSeeder extends Seeder
+class SeedLanguagesAndCategories extends Command
 {
-    public function run(): void
+    protected $signature = 'seed:languages-categories';
+
+    protected $description = 'Seed languages and telegram group categories (run if tables are empty)';
+
+    public function handle(): int
     {
         $now = now();
 
@@ -21,23 +25,6 @@ class LanguagesAndCategoriesSeeder extends Seeder
             ['code' => 'ur', 'name' => 'Urdu', 'sort_order' => 7],
             ['code' => 'other', 'name' => 'Other', 'sort_order' => 99],
         ];
-        foreach ($langs as $l) {
-            if (DB::table('languages')->where('code', $l['code'])->exists()) {
-                DB::table('languages')->where('code', $l['code'])->update([
-                    'name' => $l['name'],
-                    'sort_order' => $l['sort_order'],
-                    'updated_at' => $now,
-                ]);
-            } else {
-                DB::table('languages')->insert([
-                    'code' => $l['code'],
-                    'name' => $l['name'],
-                    'sort_order' => $l['sort_order'],
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
-            }
-        }
 
         $cats = [
             ['name' => 'Technology', 'sort_order' => 1],
@@ -49,16 +36,37 @@ class LanguagesAndCategoriesSeeder extends Seeder
             ['name' => 'Business', 'sort_order' => 7],
             ['name' => 'Other', 'sort_order' => 99],
         ];
+
+        $langCount = 0;
+        foreach ($langs as $l) {
+            if (! DB::table('languages')->where('code', $l['code'])->exists()) {
+                DB::table('languages')->insert([
+                    'code' => $l['code'],
+                    'name' => $l['name'],
+                    'sort_order' => $l['sort_order'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $langCount++;
+            }
+        }
+
+        $catCount = 0;
         foreach ($cats as $c) {
-            $existing = DB::table('telegram_group_categories')->where('name', $c['name'])->first();
-            if (! $existing) {
+            if (! DB::table('telegram_group_categories')->where('name', $c['name'])->exists()) {
                 DB::table('telegram_group_categories')->insert([
                     'name' => $c['name'],
                     'sort_order' => $c['sort_order'],
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
+                $catCount++;
             }
         }
+
+        $this->info("Added {$langCount} languages and {$catCount} categories.");
+        $this->info('Total: ' . DB::table('languages')->count() . ' languages, ' . DB::table('telegram_group_categories')->count() . ' categories.');
+
+        return self::SUCCESS;
     }
 }

@@ -40,24 +40,24 @@
                     </p>
                     <div class="flex flex-wrap gap-4 items-center">
                         <div class="flex items-center gap-2">
-                            <label class="text-sm font-medium text-gray-700">دسته‌بندی:</label>
+                            <label class="text-sm font-medium text-gray-700">Category:</label>
                             <select
                                 v-model="filterCategory"
                                 @change="applyFilters"
                                 class="rounded-md border-gray-300 text-sm py-1.5"
                             >
-                                <option value="">همه</option>
+                                <option value="">All</option>
                                 <option v-for="c in telegramGroupCategories" :key="c.id" :value="c.id">{{ c.name }}</option>
                             </select>
                         </div>
                         <div class="flex items-center gap-2">
-                            <label class="text-sm font-medium text-gray-700">زبان:</label>
+                            <label class="text-sm font-medium text-gray-700">Language:</label>
                             <select
                                 v-model="filterLanguage"
                                 @change="applyFilters"
                                 class="rounded-md border-gray-300 text-sm py-1.5"
                             >
-                                <option value="">همه</option>
+                                <option value="">All</option>
                                 <option v-for="lang in languages" :key="lang.id" :value="lang.code">{{ lang.name }}</option>
                             </select>
                         </div>
@@ -76,8 +76,8 @@
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">دسته‌بندی</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">زبان</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Language</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Can Post</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Synced</th>

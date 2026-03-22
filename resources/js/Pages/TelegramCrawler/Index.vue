@@ -34,13 +34,13 @@
                     <div class="flex-shrink-0 p-4 border-b border-gray-200 bg-gray-50">
                         <h2 class="text-lg font-semibold text-gray-900 mb-3">Groups</h2>
                         <div class="mb-3">
-                            <label class="block text-xs font-medium text-gray-600 mb-1">فیلتر دسته‌بندی</label>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Category filter</label>
                             <select
                                 v-model="groupCategoryFilter"
                                 @change="loadGroups(true)"
                                 class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md"
                             >
-                                <option value="">همه</option>
+                                <option value="">All</option>
                                 <option v-for="c in telegramGroupCategories" :key="c.id" :value="c.id">{{ c.name }}</option>
                             </select>
                         </div>

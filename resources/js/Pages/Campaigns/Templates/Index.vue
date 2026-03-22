@@ -453,8 +453,8 @@
                             </p>
                             <!-- Telegram: Multilingual content for group broadcast -->
                             <div v-if="form.type === 'telegram' && languages?.length" class="mt-4 p-4 border border-sky-200 rounded-lg bg-sky-50/60">
-                                <h4 class="text-sm font-semibold text-sky-900 mb-2">محتوای چندزبانه (ارسال بر اساس زبان گروه)</h4>
-                                <p class="text-xs text-sky-700 mb-3">برای هر زبان، محتوای جداگانه وارد کنید. اگر زبان گروه خالی باشد یا ترجمه نباشد، از محتوای اصلی بالا استفاده می‌شود.</p>
+                                <h4 class="text-sm font-semibold text-sky-900 mb-2">Multilingual content (sent by group language)</h4>
+                                <p class="text-xs text-sky-700 mb-3">Enter content for each language. If the group has no language set or no translation exists, the main content above will be used.</p>
                                 <div class="space-y-3">
                                     <div v-for="lang in languages" :key="lang.id">
                                         <label class="block text-xs font-medium text-gray-700 mb-1">{{ lang.name }} ({{ lang.code }})</label>
@@ -462,7 +462,7 @@
                                             v-model="form.content_translations[lang.code]"
                                             rows="4"
                                             class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-sky-500"
-                                            :placeholder="'محتوای ' + lang.name + '...'"
+                                            :placeholder="'Content in ' + lang.name + '...'"
                                         ></textarea>
                                     </div>
                                 </div>
