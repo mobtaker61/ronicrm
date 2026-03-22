@@ -97,11 +97,16 @@ class TelegramCrawlerController extends Controller
             'language' => ['nullable', 'string', 'max:10', Rule::in(array_merge([''], Language::pluck('code')->toArray()))],
         ]);
 
-        $update = [
-            'telegram_group_category_id' => $validated['telegram_group_category_id'] ?? null ?: null,
-            'language' => ($validated['language'] ?? null) ?: null,
-        ];
-        $group->update($update);
+        $update = [];
+        if ($request->has('telegram_group_category_id')) {
+            $update['telegram_group_category_id'] = $validated['telegram_group_category_id'] ?? null ?: null;
+        }
+        if ($request->has('language')) {
+            $update['language'] = ($validated['language'] ?? null) ?: null;
+        }
+        if ($update) {
+            $group->update($update);
+        }
         $group->load('category');
 
         return response()->json(['success' => true, 'group' => [
