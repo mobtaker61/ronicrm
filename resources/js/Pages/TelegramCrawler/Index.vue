@@ -3,9 +3,6 @@
         <template #header>
             <div class="flex items-center justify-between">
                 <span>Telegram Group Crawl</span>
-                <a :href="route('telegram-groups.index')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium">
-                    Groups
-                </a>
             </div>
         </template>
 
@@ -89,18 +86,12 @@
                                         <span class="text-xs text-gray-500">
                                             {{ g.type }}
                                             <template v-if="g.member_count">
-                                                · {{ g.member_count.toLocaleString() }} members
+                                                · {{ g.member_count.toLocaleString() }} 👤
                                             </template>
                                         </span>
                                         <span v-if="g.category?.name || g.language" class="text-xs text-blue-600 truncate">
                                             {{ [g.category?.name, g.language].filter(Boolean).join(' · ') }}
                                         </span>
-                                        <span class="text-xs text-gray-400 font-mono truncate ml-1">{{ g.id }}</span>
-                                    </div>
-                                    <div v-if="g.public_link" class="mt-0.5">
-                                        <a :href="g.public_link" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-500 hover:underline truncate inline-block max-w-full">
-                                            {{ g.public_link }}
-                                        </a>
                                     </div>
                                 </div>
                             </div>
