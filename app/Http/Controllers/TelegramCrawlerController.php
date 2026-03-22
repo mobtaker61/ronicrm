@@ -63,6 +63,10 @@ class TelegramCrawlerController extends Controller
                     'telegram_group_id' => $g->telegram_group_id,
                     'title' => $g->title,
                     'type' => $g->type,
+                    'member_count' => $g->member_count,
+                    'public_username' => $g->public_username,
+                    'public_link' => $g->public_link,
+                    'description' => $g->description,
                     'category' => $g->category ? ['id' => $g->category->id, 'name' => $g->category->name] : null,
                     'language' => $g->language,
                     'can_post' => $g->can_post,
@@ -128,12 +132,20 @@ class TelegramCrawlerController extends Controller
                 $g['last_error'] = null;
                 $g['category'] = null;
                 $g['language'] = null;
+                $g['member_count'] = $g['member_count'] ?? null;
+                $g['public_username'] = $g['public_username'] ?? null;
+                $g['public_link'] = $g['public_link'] ?? null;
+                $g['description'] = $g['description'] ?? null;
                 $db = $dbGroups->get($g['id'] ?? '');
                 if ($db) {
                     $g['can_post'] = $db->can_post;
                     $g['last_error'] = $db->last_error;
                     $g['category'] = $db->category ? ['id' => $db->category->id, 'name' => $db->category->name] : null;
                     $g['language'] = $db->language;
+                    $g['member_count'] = $db->member_count;
+                    $g['public_username'] = $db->public_username;
+                    $g['public_link'] = $db->public_link;
+                    $g['description'] = $db->description;
                 }
             }
             $result = $this->filterGroupsByCategoryAndLanguage($cached, $request);
@@ -175,8 +187,12 @@ class TelegramCrawlerController extends Controller
                     $g['last_error'] = $db->last_error;
                     $g['category'] = $db->category ? ['id' => $db->category->id, 'name' => $db->category->name] : null;
                     $g['language'] = $db->language;
+                    $g['member_count'] = $db->member_count;
+                    $g['public_username'] = $db->public_username;
+                    $g['public_link'] = $db->public_link;
+                    $g['description'] = $db->description;
                 }
-                TelegramGroup::findOrCreateForConnection($conn->id, (string) ($g['id'] ?? ''), $g['title'] ?? null, $g['type'] ?? null);
+                TelegramGroup::upsertFromTelegramPayload($conn->id, $g);
             }
 
             Cache::put($cacheKey, $groups, now()->addDays(1));

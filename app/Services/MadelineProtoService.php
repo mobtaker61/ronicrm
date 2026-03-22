@@ -310,7 +310,7 @@ class MadelineProtoService
             $api = $this->getApi();
             $api->start();
 
-            foreach (['getDialogsFromDialogIds', 'getDialogsFromMessagesApi', 'getDialogsFromFullDialogs'] as $method) {
+            foreach (['getDialogsFromMessagesApi', 'getDialogsFromDialogIds', 'getDialogsFromFullDialogs'] as $method) {
                 try {
                     $out = $this->{$method}($api);
                     Log::info("MadelineProto getDialogs: used {$method}");
@@ -385,6 +385,10 @@ class MadelineProtoService
                     'id' => $idStr,
                     'title' => $title ?: 'Unknown',
                     'type' => $type === 'chat' ? 'group' : $type,
+                    'member_count' => isset($entity['participants_count']) ? (int) $entity['participants_count'] : null,
+                    'public_username' => $entity['username'] ?? null,
+                    'public_link' => isset($entity['username']) ? ('https://t.me/'.$entity['username']) : null,
+                    'description' => $entity['about'] ?? null,
                 ];
                 $lastPeer = $peer;
             }
@@ -482,14 +486,17 @@ class MadelineProtoService
                 'id' => (string) $id,
                 'title' => $title,
                 'type' => $type,
+                'member_count' => null,
+                'public_username' => null,
+                'public_link' => null,
+                'description' => null,
             ];
         }
         return $out;
     }
 
     /**
-     * Most stable mode: fetch dialog IDs only (no getInfo/getId/getFullDialogs).
-     * This avoids known MadelineProto entity-cache "Undefined array key" failures.
+     * Fallback mode: fetch dialog IDs and enrich metadata best-effort.
      */
     protected function getDialogsFromDialogIds($api): array
     {
@@ -500,12 +507,33 @@ class MadelineProtoService
             if ($idStr === null || ! str_starts_with($idStr, '-')) {
                 continue;
             }
-            $out[$idStr] = [
+            $item = [
                 'id' => $idStr,
-                // On first sync title may be unknown; DB value is preserved and shown after merge.
                 'title' => 'ID '.$idStr,
                 'type' => str_starts_with($idStr, '-100') ? 'channel' : 'group',
+                'member_count' => null,
+                'public_username' => null,
+                'public_link' => null,
+                'description' => null,
             ];
+            try {
+                $info = $api->getInfo($idStr);
+                $type = $info['type'] ?? null;
+                if (is_string($type) && in_array($type, ['chat', 'group', 'supergroup', 'channel'], true)) {
+                    $item['type'] = $type === 'chat' ? 'group' : $type;
+                }
+                $chat = $info['Chat'] ?? null;
+                if (is_array($chat)) {
+                    $item['title'] = $chat['title'] ?? $item['title'];
+                    $item['member_count'] = isset($chat['participants_count']) ? (int) $chat['participants_count'] : null;
+                    $item['public_username'] = $chat['username'] ?? null;
+                    $item['public_link'] = isset($chat['username']) ? ('https://t.me/'.$chat['username']) : null;
+                    $item['description'] = $chat['about'] ?? null;
+                }
+            } catch (\Throwable) {
+                // keep fallback values
+            }
+            $out[$idStr] = $item;
         }
 
         usort($out, fn ($a, $b) => strcasecmp($a['title'], $b['title']));

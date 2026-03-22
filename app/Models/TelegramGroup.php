@@ -14,6 +14,10 @@ class TelegramGroup extends Model
         'telegram_group_id',
         'title',
         'type',
+        'member_count',
+        'public_username',
+        'public_link',
+        'description',
         'telegram_group_category_id',
         'language',
         'can_post',
@@ -68,6 +72,29 @@ class TelegramGroup extends Model
             'is_active' => true,
             'last_synced_at' => now(),
         ]);
+        return $g;
+    }
+
+    public static function upsertFromTelegramPayload(int $connectionId, array $payload): self
+    {
+        $groupId = (string) ($payload['id'] ?? '');
+        $g = self::findOrCreateForConnection(
+            $connectionId,
+            $groupId,
+            $payload['title'] ?? null,
+            $payload['type'] ?? null
+        );
+
+        $username = $payload['public_username'] ?? null;
+        $username = is_string($username) ? ltrim(trim($username), '@') : null;
+
+        $g->update([
+            'member_count' => isset($payload['member_count']) ? (int) $payload['member_count'] : null,
+            'public_username' => $username ?: null,
+            'public_link' => $payload['public_link'] ?? ($username ? ('https://t.me/'.$username) : null),
+            'description' => $payload['description'] ?? null,
+        ]);
+
         return $g;
     }
 

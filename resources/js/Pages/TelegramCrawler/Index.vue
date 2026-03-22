@@ -86,11 +86,21 @@
                                         <span v-if="showSendToGroups && !g.can_post" class="text-amber-600" title="Cannot post in this group">⚠</span>
                                     </div>
                                     <div class="flex items-center justify-between mt-0.5 gap-1 flex-wrap">
-                                        <span class="text-xs text-gray-500">{{ g.type }}</span>
+                                        <span class="text-xs text-gray-500">
+                                            {{ g.type }}
+                                            <template v-if="g.member_count">
+                                                · {{ g.member_count.toLocaleString() }} members
+                                            </template>
+                                        </span>
                                         <span v-if="g.category?.name || g.language" class="text-xs text-blue-600 truncate">
                                             {{ [g.category?.name, g.language].filter(Boolean).join(' · ') }}
                                         </span>
                                         <span class="text-xs text-gray-400 font-mono truncate ml-1">{{ g.id }}</span>
+                                    </div>
+                                    <div v-if="g.public_link" class="mt-0.5">
+                                        <a :href="g.public_link" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-500 hover:underline truncate inline-block max-w-full">
+                                            {{ g.public_link }}
+                                        </a>
                                     </div>
                                 </div>
                             </div>
