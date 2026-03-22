@@ -402,14 +402,14 @@ class MadelineProtoService
         if (! is_array($peer)) {
             return null;
         }
-        $t = $peer['_'] ?? '';
-        if (str_contains($t, 'Channel')) {
+        $t = strtolower($peer['_'] ?? '');
+        if (str_contains($t, 'channel')) {
             return '-100'.(string) ($peer['channel_id'] ?? '');
         }
-        if (str_contains($t, 'Chat')) {
+        if (str_contains($t, 'chat')) {
             return '-'.(string) ($peer['chat_id'] ?? '');
         }
-        if (str_contains($t, 'User')) {
+        if (str_contains($t, 'user')) {
             return (string) ($peer['user_id'] ?? '');
         }
         return null;
@@ -417,18 +417,18 @@ class MadelineProtoService
 
     protected function getEntityMapKey(array $entity): ?string
     {
-        $t = $entity['_'] ?? '';
+        $t = strtolower($entity['_'] ?? '');
         $id = $entity['id'] ?? null;
         if ($id === null) {
             return null;
         }
-        if (str_contains($t, 'Channel')) {
+        if (str_contains($t, 'channel')) {
             return '-100'.(string) $id;
         }
-        if (str_contains($t, 'Chat')) {
+        if (str_contains($t, 'chat')) {
             return '-'.(string) $id;
         }
-        if (str_contains($t, 'User')) {
+        if (str_contains($t, 'user')) {
             return (string) $id;
         }
         return null;
@@ -447,11 +447,11 @@ class MadelineProtoService
         if (! $entity) {
             return 'user';
         }
-        $t = $entity['_'] ?? '';
-        if (str_contains($t, 'Channel')) {
+        $t = strtolower($entity['_'] ?? '');
+        if (str_contains($t, 'channel')) {
             return (($entity['broadcast'] ?? false) && ! ($entity['megagroup'] ?? false)) ? 'channel' : 'supergroup';
         }
-        if (str_contains($t, 'Chat')) {
+        if (str_contains($t, 'chat')) {
             return 'group';
         }
         return 'user';
