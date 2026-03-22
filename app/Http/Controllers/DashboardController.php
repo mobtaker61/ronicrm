@@ -27,7 +27,7 @@ class DashboardController extends Controller
             'active_campaigns' => Campaign::whereIn('status', ['scheduled', 'running'])->count(),
             'total_industries' => Industry::count(),
             'total_templates' => CampaignTemplate::whereIn('type', ['whatsapp', 'telegram'])->count(),
-            'telegram_groups' => TelegramGroup::count(),
+            'telegram_groups' => TelegramGroup::active()->count(),
             'telegram_connected' => TelegramUserConnection::where('status', 'connected')->exists(),
             'instagram_connected' => \App\Models\InstagramConnection::whereNotNull('access_token_encrypted')->exists(),
         ];

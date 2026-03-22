@@ -20,7 +20,13 @@ class TelegramGroup extends Model
         'last_error',
         'last_crawled_message_id',
         'last_synced_at',
+        'is_active',
     ];
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
 
     public function category(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
@@ -31,6 +37,7 @@ class TelegramGroup extends Model
     {
         return [
             'can_post' => 'boolean',
+            'is_active' => 'boolean',
             'last_synced_at' => 'datetime',
         ];
     }
@@ -51,16 +58,16 @@ class TelegramGroup extends Model
                 'title' => $title,
                 'type' => $type,
                 'can_post' => true,
+                'is_active' => true,
                 'last_synced_at' => now(),
             ]
         );
-        if ($g->wasRecentlyCreated === false) {
-            $g->update([
-                'title' => $title ?? $g->title,
-                'type' => $type ?? $g->type,
-                'last_synced_at' => now(),
-            ]);
-        }
+        $g->update([
+            'title' => $title ?? $g->title,
+            'type' => $type ?? $g->type,
+            'is_active' => true,
+            'last_synced_at' => now(),
+        ]);
         return $g;
     }
 

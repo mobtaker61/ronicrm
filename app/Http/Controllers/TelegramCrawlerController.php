@@ -47,7 +47,7 @@ class TelegramCrawlerController extends Controller
         $conn = TelegramUserConnection::getActive();
 
         $query = $conn
-            ? TelegramGroup::with('category')->where('telegram_user_connection_id', $conn->id)
+            ? TelegramGroup::with('category')->active()->where('telegram_user_connection_id', $conn->id)
             : null;
 
         if ($query) {
@@ -150,11 +150,14 @@ class TelegramCrawlerController extends Controller
             $groups = $fresh;
             usort($groups, fn ($a, $b) => strcasecmp($a['title'] ?? '', $b['title'] ?? ''));
 
-            // Remove from DB groups we left (not in fresh fetch)
-            TelegramGroup::where('telegram_user_connection_id', $conn->id)
-                ->whereNotIn('telegram_group_id', $freshIds)
-                ->delete();
+            // فقط وقتی لیست تلگرام خالی نیست: گروه‌هایی که دیگر در تلگرام نیستند (از آن‌ها خارج شده‌ایم) را غیرفعال کن
+            if (count($freshIds) > 0) {
+                TelegramGroup::where('telegram_user_connection_id', $conn->id)
+                    ->whereNotIn('telegram_group_id', $freshIds)
+                    ->update(['is_active' => false]);
+            }
 
+            // گروه‌های جدید را اضافه کن، گروه‌های موجود را به‌روز کن (عنوان، نوع، is_active=true)
             $dbGroups = TelegramGroup::with('category')->where('telegram_user_connection_id', $conn->id)
                 ->whereIn('telegram_group_id', $freshIds)
                 ->get()

@@ -667,11 +667,10 @@ function withTemplateFormPayload(data) {
 const saveTemplate = () => {
     form.transform(withTemplateFormPayload);
     if (editingTemplate.value) {
-        form.post(route('campaign-templates.update', editingTemplate.value.id), {
+        form.put(route('campaign-templates.update', editingTemplate.value.id), {
             preserveState: true,
             preserveScroll: true,
             forceFormData: true,
-            method: 'put',
             onSuccess: () => closeModal(),
         });
     } else {
