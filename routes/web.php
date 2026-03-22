@@ -73,6 +73,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/telegram-crawler/sync-contacts', [\App\Http\Controllers\TelegramCrawlerController::class, 'syncContacts'])->name('telegram-crawler.sync-contacts');
     Route::get('/telegram-crawler/sync-status/{syncId}', [\App\Http\Controllers\TelegramCrawlerController::class, 'syncContactsStatus'])->name('telegram-crawler.sync-status');
     Route::get('/telegram-crawler/queue-status', [\App\Http\Controllers\TelegramCrawlerController::class, 'queueStatus'])->name('telegram-crawler.queue-status');
+    Route::get('/telegram/scheduled-sends', [\App\Http\Controllers\TelegramScheduledSendController::class, 'index'])->name('telegram.scheduled-sends.index');
+    Route::post('/telegram/scheduled-sends', [\App\Http\Controllers\TelegramScheduledSendController::class, 'store'])->name('telegram.scheduled-sends.store');
+    Route::post('/telegram/scheduled-sends/{schedule}/stop', [\App\Http\Controllers\TelegramScheduledSendController::class, 'stop'])->name('telegram.scheduled-sends.stop');
 
     // Inbox (WhatsApp Messages)
     Route::get('/inbox', [\App\Http\Controllers\InboxController::class, 'index'])->name('inbox.index');
