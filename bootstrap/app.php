@@ -39,6 +39,9 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyMinute()
             ->withoutOverlapping(25)
             ->when(function (): bool {
+                if (! filter_var(env('TELEGRAM_FETCH_INCOMING_SCHEDULED', true), FILTER_VALIDATE_BOOL)) {
+                    return false;
+                }
                 $conn = \App\Models\TelegramUserConnection::getActive();
                 if (! $conn) {
                     return true;

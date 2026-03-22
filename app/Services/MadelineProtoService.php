@@ -195,7 +195,8 @@ class MadelineProtoService
         $connId = $this->connection?->id ?? 0;
         $lockKey = 'madeline_session_'.$connId;
         $lockTtl = max(120, (int) config('services.telegram.madeline_cache_lock_ttl', 600));
-        $blockSeconds = max(30, (int) config('services.telegram.madeline_cache_lock_block', 420));
+        $defaultBlock = app()->runningInConsole() ? 420 : 10;
+        $blockSeconds = max(3, (int) config('services.telegram.madeline_cache_lock_block', $defaultBlock));
         $lock = Cache::lock($lockKey, $lockTtl);
         try {
             // در Laravel block() یا true برمی‌گرداند یا LockTimeoutException می‌اندازد (هرگز false نیست).
