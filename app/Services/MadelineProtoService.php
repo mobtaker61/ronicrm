@@ -335,71 +335,56 @@ class MadelineProtoService
      */
     protected function getDialogsFromMessagesApi($api): array
     {
+        // Keep refresh responsive: fetch a single large page instead of deep pagination.
+        $resp = $api->messages->getDialogs(
+            limit: 200,
+            offset_peer: ['_' => 'inputPeerEmpty'],
+            offset_id: 0,
+            offset_date: 0,
+        );
+        $dialogs = $resp['dialogs'] ?? [];
+        $chats = $resp['chats'] ?? [];
+        $users = $resp['users'] ?? [];
+
+        $chatMap = [];
+        foreach ($chats as $c) {
+            $key = $this->getEntityMapKey($c);
+            if ($key !== null) {
+                $chatMap[$key] = $c;
+            }
+        }
+        foreach ($users as $u) {
+            $key = $this->getEntityMapKey($u);
+            if ($key !== null) {
+                $chatMap[$key] = $u;
+            }
+        }
+
         $allChats = [];
-        $offsetPeer = ['_' => 'inputPeerEmpty'];
-        $offsetId = 0;
-        $offsetDate = 0;
-
-        for ($i = 0; $i < 20; $i++) {
-            $resp = $api->messages->getDialogs(
-                limit: 100,
-                offset_peer: $offsetPeer,
-                offset_id: $offsetId,
-                offset_date: $offsetDate,
-            );
-            $dialogs = $resp['dialogs'] ?? [];
-            $chats = $resp['chats'] ?? [];
-            $users = $resp['users'] ?? [];
-
-            $chatMap = [];
-            foreach ($chats as $c) {
-                $key = $this->getEntityMapKey($c);
-                if ($key !== null) {
-                    $chatMap[$key] = $c;
-                }
+        foreach ($dialogs as $d) {
+            $peer = $d['peer'] ?? null;
+            if (! $peer) {
+                continue;
             }
-            foreach ($users as $u) {
-                $key = $this->getEntityMapKey($u);
-                if ($key !== null) {
-                    $chatMap[$key] = $u;
-                }
+            $idStr = $this->getPeerIdFromDialogPeer($peer);
+            if ($idStr === null || ! str_starts_with($idStr, '-')) {
+                continue;
             }
-
-            $lastPeer = null;
-            foreach ($dialogs as $d) {
-                $peer = $d['peer'] ?? null;
-                if (! $peer) {
-                    continue;
-                }
-                $idStr = $this->getPeerIdFromDialogPeer($peer);
-                if ($idStr === null || ! str_starts_with($idStr, '-')) {
-                    continue;
-                }
-                $entity = $chatMap[$idStr] ?? null;
-                $title = $this->extractTitleFromEntity($entity);
-                $type = $this->extractTypeFromEntity($entity);
-                if (! in_array($type, ['group', 'supergroup', 'channel'], true)) {
-                    continue;
-                }
-                $allChats[$idStr] = [
-                    'id' => $idStr,
-                    'title' => $title ?: 'Unknown',
-                    'type' => $type === 'chat' ? 'group' : $type,
-                    'member_count' => isset($entity['participants_count']) ? (int) $entity['participants_count'] : null,
-                    'public_username' => $entity['username'] ?? null,
-                    'public_link' => isset($entity['username']) ? ('https://t.me/'.$entity['username']) : null,
-                    'description' => $entity['about'] ?? null,
-                ];
-                $lastPeer = $peer;
+            $entity = $chatMap[$idStr] ?? null;
+            $title = $this->extractTitleFromEntity($entity);
+            $type = $this->extractTypeFromEntity($entity);
+            if (! in_array($type, ['group', 'supergroup', 'channel'], true)) {
+                continue;
             }
-
-            if (empty($dialogs) || count($dialogs) < 100) {
-                break;
-            }
-            $last = end($dialogs);
-            $offsetId = $last['top_message'] ?? 0;
-            $offsetDate = $last['read_inbox_max_id'] ?? 0;
-            $offsetPeer = $lastPeer ?? $last['peer'] ?? $offsetPeer;
+            $allChats[$idStr] = [
+                'id' => $idStr,
+                'title' => $title ?: 'Unknown',
+                'type' => $type === 'chat' ? 'group' : $type,
+                'member_count' => isset($entity['participants_count']) ? (int) $entity['participants_count'] : null,
+                'public_username' => $entity['username'] ?? null,
+                'public_link' => isset($entity['username']) ? ('https://t.me/'.$entity['username']) : null,
+                'description' => $entity['about'] ?? null,
+            ];
         }
 
         usort($allChats, fn ($a, $b) => strcasecmp($a['title'], $b['title']));
@@ -503,7 +488,7 @@ class MadelineProtoService
     }
 
     /**
-     * Fallback mode: fetch dialog IDs and enrich metadata best-effort.
+     * Fast fallback mode: fetch dialog IDs only (no per-item getInfo).
      */
     protected function getDialogsFromDialogIds($api): array
     {
@@ -514,7 +499,7 @@ class MadelineProtoService
             if ($idStr === null || ! str_starts_with($idStr, '-')) {
                 continue;
             }
-            $item = [
+            $out[$idStr] = [
                 'id' => $idStr,
                 'title' => 'ID '.$idStr,
                 'type' => str_starts_with($idStr, '-100') ? 'channel' : 'group',
@@ -523,24 +508,6 @@ class MadelineProtoService
                 'public_link' => null,
                 'description' => null,
             ];
-            try {
-                $info = $api->getInfo($idStr);
-                $type = $info['type'] ?? null;
-                if (is_string($type) && in_array($type, ['chat', 'group', 'supergroup', 'channel'], true)) {
-                    $item['type'] = $type === 'chat' ? 'group' : $type;
-                }
-                $chat = $info['Chat'] ?? null;
-                if (is_array($chat)) {
-                    $item['title'] = $chat['title'] ?? $item['title'];
-                    $item['member_count'] = isset($chat['participants_count']) ? (int) $chat['participants_count'] : null;
-                    $item['public_username'] = $chat['username'] ?? null;
-                    $item['public_link'] = isset($chat['username']) ? ('https://t.me/'.$chat['username']) : null;
-                    $item['description'] = $chat['about'] ?? null;
-                }
-            } catch (\Throwable) {
-                // keep fallback values
-            }
-            $out[$idStr] = $item;
         }
 
         usort($out, fn ($a, $b) => strcasecmp($a['title'], $b['title']));

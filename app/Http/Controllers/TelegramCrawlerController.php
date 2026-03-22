@@ -150,7 +150,7 @@ class TelegramCrawlerController extends Controller
         }
 
         try {
-            set_time_limit(120);
+            set_time_limit(240);
             $service = new MadelineProtoService($conn);
             $dialogs = $service->getDialogs();
             $fresh = array_filter($dialogs, fn ($d) => in_array($d['type'] ?? '', ['group', 'supergroup', 'channel']) || (isset($d['id']) && str_starts_with((string) $d['id'], '-')));

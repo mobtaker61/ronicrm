@@ -3,22 +3,6 @@
         <template #header>
             <div class="flex items-center justify-between">
                 <span>Telegram Groups</span>
-                <div class="flex gap-2">
-                    <button
-                        type="button"
-                        @click="refreshGroups"
-                        :disabled="refreshing"
-                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
-                    >
-                        {{ refreshing ? 'Refreshing...' : 'Refresh' }}
-                    </button>
-                    <Link
-                        :href="route('telegram-crawler.index')"
-                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
-                    >
-                        Crawl
-                    </Link>
-                </div>
             </div>
         </template>
 
@@ -47,7 +31,7 @@
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
                     <p class="text-sm text-gray-600 mb-4">
-                        Groups you're a member of. Use Refresh on the crawl page to sync. Groups you've left are removed from the table.
+                        Groups you're a member of. Use Refresh to sync from Telegram. Groups you've left are removed from the table.
                     </p>
                     <div class="flex flex-wrap gap-4 items-center">
                         <div class="flex items-center gap-2">
@@ -72,13 +56,29 @@
                                 <option v-for="lang in languages" :key="lang.id" :value="lang.code">{{ lang.name }}</option>
                             </select>
                         </div>
-                        <Link
-                            v-if="filterCategory || filterLanguage"
-                            :href="route('telegram-groups.index')"
-                            class="text-sm text-blue-600 hover:text-blue-800"
-                        >
-                            پاک کردن فیلتر
-                        </Link>
+                        <div class="ml-auto flex items-center gap-2">
+                            <Link
+                                v-if="filterCategory || filterLanguage"
+                                :href="route('telegram-groups.index')"
+                                class="text-sm text-blue-600 hover:text-blue-800"
+                            >
+                                پاک کردن فیلتر
+                            </Link>
+                            <button
+                                type="button"
+                                @click="refreshGroups"
+                                :disabled="refreshing"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
+                            >
+                                {{ refreshing ? 'Refreshing...' : 'Refresh' }}
+                            </button>
+                            <Link
+                                :href="route('telegram-crawler.index')"
+                                class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
+                            >
+                                Crawl
+                            </Link>
+                        </div>
                     </div>
                 </div>
                 <div class="overflow-x-auto">
@@ -241,7 +241,7 @@ const refreshGroups = async () => {
     try {
         await axios.get(route('telegram-crawler.groups'), {
             params: { refresh: 1 },
-            timeout: 120000,
+            timeout: 240000,
         });
         applyFilters();
     } catch (e) {
