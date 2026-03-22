@@ -121,8 +121,37 @@ class TelegramCrawlerController extends Controller
         $forceRefresh = $request->boolean('refresh');
         $cached = Cache::get($cacheKey);
 
+        // Default behavior: load from DB only.
+        // Telegram API should be called only when user explicitly clicks Refresh.
+        if (! $forceRefresh) {
+            $dbGroups = TelegramGroup::with('category')
+                ->active()
+                ->where('telegram_user_connection_id', $conn->id)
+                ->orderBy('title')
+                ->get();
+
+            $groups = $dbGroups->map(function ($g) {
+                return [
+                    'id' => $g->telegram_group_id,
+                    'title' => $g->title ?? ('ID '.$g->telegram_group_id),
+                    'type' => $g->type ?? (str_starts_with((string) $g->telegram_group_id, '-100') ? 'channel' : 'group'),
+                    'member_count' => $g->member_count,
+                    'public_username' => $g->public_username,
+                    'public_link' => $g->public_link,
+                    'description' => $g->description,
+                    'can_post' => $g->can_post,
+                    'last_error' => $g->last_error,
+                    'category' => $g->category ? ['id' => $g->category->id, 'name' => $g->category->name] : null,
+                    'language' => $g->language,
+                ];
+            })->values()->all();
+
+            $result = $this->filterGroupsByCategoryAndLanguage($groups, $request);
+            return response()->json(['groups' => $result, 'source' => 'db']);
+        }
+
         // Return cached list unless user explicitly requested refresh (enrich with DB can_post)
-        if (!$forceRefresh && $cached !== null && count($cached) > 0) {
+        if ($cached !== null && count($cached) > 0) {
             $dbGroups = TelegramGroup::with('category')->where('telegram_user_connection_id', $conn->id)
                 ->whereIn('telegram_group_id', array_column($cached, 'id'))
                 ->get()
