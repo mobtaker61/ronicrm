@@ -4,6 +4,14 @@
             <div class="flex items-center justify-between">
                 <span>Telegram Groups</span>
                 <div class="flex gap-2">
+                    <button
+                        type="button"
+                        @click="refreshGroups"
+                        :disabled="refreshing"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
+                    >
+                        {{ refreshing ? 'Refreshing...' : 'Refresh' }}
+                    </button>
                     <Link
                         :href="route('telegram-crawler.index')"
                         class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
@@ -21,6 +29,9 @@
             <div v-if="$page.props.flash?.error" class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
                 {{ $page.props.flash.error }}
             </div>
+        </div>
+        <div v-if="refreshError" class="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+            {{ refreshError }}
         </div>
 
         <!-- Not Connected -->
@@ -190,6 +201,8 @@ const languages = computed(() => page.props.languages || []);
 const filterCategory = ref('');
 const filterLanguage = ref('');
 const updatingGroupId = ref(null);
+const refreshing = ref(false);
+const refreshError = ref('');
 
 onMounted(() => {
     const q = new URLSearchParams(window.location.search);
@@ -219,6 +232,22 @@ const updateGroup = async (g, field, value) => {
         console.error('Update failed', e);
     } finally {
         updatingGroupId.value = null;
+    }
+};
+
+const refreshGroups = async () => {
+    refreshing.value = true;
+    refreshError.value = '';
+    try {
+        await axios.get(route('telegram-crawler.groups'), {
+            params: { refresh: 1 },
+            timeout: 120000,
+        });
+        applyFilters();
+    } catch (e) {
+        refreshError.value = e.response?.data?.error || e.message || 'Refresh failed.';
+    } finally {
+        refreshing.value = false;
     }
 };
 

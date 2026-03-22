@@ -119,7 +119,6 @@ class TelegramCrawlerController extends Controller
         }
         $cacheKey = 'telegram_groups_' . $conn->id;
         $forceRefresh = $request->boolean('refresh');
-        $cached = Cache::get($cacheKey);
 
         // Default behavior: load from DB only.
         // Telegram API should be called only when user explicitly clicks Refresh.
@@ -148,37 +147,6 @@ class TelegramCrawlerController extends Controller
 
             $result = $this->filterGroupsByCategoryAndLanguage($groups, $request);
             return response()->json(['groups' => $result, 'source' => 'db']);
-        }
-
-        // Return cached list unless user explicitly requested refresh (enrich with DB can_post)
-        if ($cached !== null && count($cached) > 0) {
-            $dbGroups = TelegramGroup::with('category')->where('telegram_user_connection_id', $conn->id)
-                ->whereIn('telegram_group_id', array_column($cached, 'id'))
-                ->get()
-                ->keyBy('telegram_group_id');
-            foreach ($cached as &$g) {
-                $g['can_post'] = true;
-                $g['last_error'] = null;
-                $g['category'] = null;
-                $g['language'] = null;
-                $g['member_count'] = $g['member_count'] ?? null;
-                $g['public_username'] = $g['public_username'] ?? null;
-                $g['public_link'] = $g['public_link'] ?? null;
-                $g['description'] = $g['description'] ?? null;
-                $db = $dbGroups->get($g['id'] ?? '');
-                if ($db) {
-                    $g['can_post'] = $db->can_post;
-                    $g['last_error'] = $db->last_error;
-                    $g['category'] = $db->category ? ['id' => $db->category->id, 'name' => $db->category->name] : null;
-                    $g['language'] = $db->language;
-                    $g['member_count'] = $db->member_count;
-                    $g['public_username'] = $db->public_username;
-                    $g['public_link'] = $db->public_link;
-                    $g['description'] = $db->description;
-                }
-            }
-            $result = $this->filterGroupsByCategoryAndLanguage($cached, $request);
-            return response()->json(['groups' => $result]);
         }
 
         try {
