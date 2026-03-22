@@ -302,27 +302,160 @@ class MadelineProtoService
      */
     public function getDialogs(): array
     {
-        $useDialogIds = config('services.telegram.madeline_use_get_dialog_ids', false);
-        $result = $this->run(function () use ($useDialogIds) {
+        $result = $this->run(function () {
             $api = $this->getApi();
             $api->start();
 
-            if ($useDialogIds) {
-                return $this->getDialogsFromDialogIds($api);
-            }
-            try {
-                return $this->getDialogsFromFullDialogs($api);
-            } catch (\Throwable $e) {
-                $msg = $e->getMessage();
-                if (str_contains($msg, 'Undefined array key') || str_contains($msg, 'Undefined index')) {
-                    Log::info('MadelineProto getFullDialogs entity key bug, falling back to getDialogIds');
-                    return $this->getDialogsFromDialogIds($api);
+            foreach (['getDialogsFromMessagesApi', 'getDialogsFromDialogIds', 'getDialogsFromFullDialogs'] as $method) {
+                try {
+                    $out = $this->{$method}($api);
+                    if ($method !== 'getDialogsFromFullDialogs') {
+                        Log::info("MadelineProto getDialogs: used {$method}");
+                    }
+                    return $out;
+                } catch (\Throwable $e) {
+                    $msg = $e->getMessage();
+                    if (str_contains($msg, 'Undefined array key') || str_contains($msg, 'Undefined index')) {
+                        Log::info("MadelineProto {$method} entity key bug, trying next", ['error' => substr($msg, 0, 80)]);
+                        continue;
+                    }
+                    throw $e;
                 }
-                throw $e;
             }
+            return [];
         });
 
         return \is_array($result) ? $result : [];
+    }
+
+    /**
+     * Fetch dialogs using low-level messages.getDialogs (avoids entity cache bug).
+     */
+    protected function getDialogsFromMessagesApi($api): array
+    {
+        $allChats = [];
+        $offsetPeer = ['_' => 'inputPeerEmpty'];
+        $offsetId = 0;
+        $offsetDate = 0;
+
+        for ($i = 0; $i < 20; $i++) {
+            $resp = $api->messages->getDialogs(
+                limit: 100,
+                offset_peer: $offsetPeer,
+                offset_id: $offsetId,
+                offset_date: $offsetDate,
+            );
+            $dialogs = $resp['dialogs'] ?? [];
+            $chats = $resp['chats'] ?? [];
+            $users = $resp['users'] ?? [];
+
+            $chatMap = [];
+            foreach ($chats as $c) {
+                $key = $this->getEntityMapKey($c);
+                if ($key !== null) {
+                    $chatMap[$key] = $c;
+                }
+            }
+            foreach ($users as $u) {
+                $key = $this->getEntityMapKey($u);
+                if ($key !== null) {
+                    $chatMap[$key] = $u;
+                }
+            }
+
+            $lastPeer = null;
+            foreach ($dialogs as $d) {
+                $peer = $d['peer'] ?? null;
+                if (! $peer) {
+                    continue;
+                }
+                $idStr = $this->getPeerIdFromDialogPeer($peer);
+                if ($idStr === null || ! str_starts_with($idStr, '-')) {
+                    continue;
+                }
+                $entity = $chatMap[$idStr] ?? null;
+                $title = $this->extractTitleFromEntity($entity);
+                $type = $this->extractTypeFromEntity($entity);
+                if (! in_array($type, ['group', 'supergroup', 'channel'], true)) {
+                    continue;
+                }
+                $allChats[$idStr] = [
+                    'id' => $idStr,
+                    'title' => $title ?: 'Unknown',
+                    'type' => $type === 'chat' ? 'group' : $type,
+                ];
+                $lastPeer = $peer;
+            }
+
+            if (empty($dialogs) || count($dialogs) < 100) {
+                break;
+            }
+            $last = end($dialogs);
+            $offsetId = $last['top_message'] ?? 0;
+            $offsetDate = $last['read_inbox_max_id'] ?? 0;
+            $offsetPeer = $lastPeer ?? $last['peer'] ?? $offsetPeer;
+        }
+
+        usort($allChats, fn ($a, $b) => strcasecmp($a['title'], $b['title']));
+
+        return array_values($allChats);
+    }
+
+    protected function getPeerIdFromDialogPeer(array $peer): ?string
+    {
+        $t = $peer['_'] ?? '';
+        if (str_contains($t, 'Channel')) {
+            return '-100'.(string) ($peer['channel_id'] ?? '');
+        }
+        if (str_contains($t, 'Chat')) {
+            return '-'.(string) ($peer['chat_id'] ?? '');
+        }
+        if (str_contains($t, 'User')) {
+            return (string) ($peer['user_id'] ?? '');
+        }
+        return null;
+    }
+
+    protected function getEntityMapKey(array $entity): ?string
+    {
+        $t = $entity['_'] ?? '';
+        $id = $entity['id'] ?? null;
+        if ($id === null) {
+            return null;
+        }
+        if (str_contains($t, 'Channel')) {
+            return '-100'.(string) $id;
+        }
+        if (str_contains($t, 'Chat')) {
+            return '-'.(string) $id;
+        }
+        if (str_contains($t, 'User')) {
+            return (string) $id;
+        }
+        return null;
+    }
+
+    protected function extractTitleFromEntity(?array $entity): string
+    {
+        if (! $entity) {
+            return '';
+        }
+        return $entity['title'] ?? trim(($entity['first_name'] ?? '').' '.($entity['last_name'] ?? '')) ?: '';
+    }
+
+    protected function extractTypeFromEntity(?array $entity): string
+    {
+        if (! $entity) {
+            return 'user';
+        }
+        $t = $entity['_'] ?? '';
+        if (str_contains($t, 'Channel')) {
+            return (($entity['broadcast'] ?? false) && ! ($entity['megagroup'] ?? false)) ? 'channel' : 'supergroup';
+        }
+        if (str_contains($t, 'Chat')) {
+            return 'group';
+        }
+        return 'user';
     }
 
     /**
