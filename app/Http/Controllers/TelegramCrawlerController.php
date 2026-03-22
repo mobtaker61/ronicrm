@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\TelegramCrawlJob;
+use App\Jobs\TelegramForwardToGroupsJob;
 use App\Jobs\TelegramSendToGroupsJob;
 use App\Jobs\TelegramSyncContactsJob;
 use App\Models\CampaignTemplate;
@@ -298,6 +299,62 @@ class TelegramCrawlerController extends Controller
     public function sendToGroupsStatus(string $sendId): JsonResponse
     {
         $data = Cache::get('telegram_send_groups_' . $sendId);
+        if (!$data) {
+            return response()->json(['status' => 'pending']);
+        }
+        return response()->json($data);
+    }
+
+    /**
+     * Forward an existing Telegram post (by link) to selected groups.
+     */
+    public function forwardToGroups(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'post_link' => 'required|string|max:500',
+            'group_ids' => 'required|array',
+            'group_ids.*' => 'required|string|max:50',
+            'group_titles' => 'nullable|array',
+            'group_titles.*' => 'nullable|string|max:255',
+        ]);
+        $conn = TelegramUserConnection::getActive();
+        if (!$conn) {
+            return response()->json(['error' => 'Not connected.'], 403);
+        }
+
+        $parsed = MadelineProtoService::parseTelegramPostLink($validated['post_link']);
+        if (!$parsed) {
+            return response()->json(['error' => 'Invalid Telegram post link. Use format: t.me/channel/123 or t.me/c/1234567890/123'], 400);
+        }
+
+        $forwardId = Str::uuid()->toString();
+        Cache::put('telegram_forward_' . $forwardId, [
+            'status' => 'queued',
+            'processed' => 0,
+            'sent' => 0,
+            'failed' => 0,
+            'results' => [],
+        ], now()->addHours(24));
+
+        $titles = [];
+        foreach ($validated['group_ids'] as $gid) {
+            $titles[$gid] = $validated['group_titles'][$gid] ?? null;
+        }
+
+        TelegramForwardToGroupsJob::dispatch(
+            $parsed['from_peer'],
+            $parsed['message_id'],
+            $validated['group_ids'],
+            $forwardId,
+            $titles
+        );
+
+        return response()->json(['forward_id' => $forwardId]);
+    }
+
+    public function forwardToGroupsStatus(string $forwardId): JsonResponse
+    {
+        $data = Cache::get('telegram_forward_' . $forwardId);
         if (!$data) {
             return response()->json(['status' => 'pending']);
         }

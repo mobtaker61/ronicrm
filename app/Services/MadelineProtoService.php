@@ -980,6 +980,100 @@ class MadelineProtoService
     }
 
     /**
+     * Parse a Telegram post link and return from_peer and message_id.
+     * Supports: t.me/channel/123, t.me/c/1234567890/123, t.me/s/channel/123
+     *
+     * @return array{from_peer: string|int, message_id: int}|null
+     */
+    public static function parseTelegramPostLink(string $url): ?array
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return null;
+        }
+        $url = preg_replace('#^https?://(?:www\.)?#i', '', $url);
+        $url = trim($url, '/');
+        if (! str_starts_with(strtolower($url), 't.me/')) {
+            return null;
+        }
+        $path = substr($url, 5);
+        $parts = explode('/', $path);
+        $parts = array_values(array_filter($parts));
+
+        if (count($parts) >= 3 && strtolower($parts[0]) === 'c') {
+            $channelId = (int) $parts[1];
+            $msgId = (int) $parts[2];
+            if ($channelId < 1 || $msgId < 1) {
+                return null;
+            }
+
+            return ['from_peer' => '-100'.(string) $channelId, 'message_id' => $msgId];
+        }
+        if (count($parts) >= 3 && strtolower($parts[0]) === 's') {
+            $username = $parts[1];
+            $msgId = (int) $parts[2];
+            if ($username === '' || $msgId < 1) {
+                return null;
+            }
+
+            return ['from_peer' => ($username[0] ?? '') === '@' ? $username : $username, 'message_id' => $msgId];
+        }
+        if (count($parts) >= 2) {
+            $username = $parts[0];
+            $msgId = (int) $parts[1];
+            if ($username === '' || $msgId < 1) {
+                return null;
+            }
+
+            return ['from_peer' => ($username[0] ?? '') === '@' ? $username : $username, 'message_id' => $msgId];
+        }
+
+        return null;
+    }
+
+    /**
+     * Forward a message from a source (channel/group) to a destination group.
+     *
+     * @param  string|int  $fromPeer  Source: @channel_username or -1001234567890
+     * @param  int  $messageId  Message ID to forward
+     * @param  string  $toGroupId  Destination group ID (e.g. -1001234567890)
+     * @return array{ success: bool, message_id?: int, error?: string }
+     */
+    public function forwardMessageToGroup(string|int $fromPeer, int $messageId, string $toGroupId): array
+    {
+        try {
+            $result = $this->run(function () use ($fromPeer, $messageId, $toGroupId) {
+                $api = $this->getApi();
+                $api->start();
+                $updates = $api->messages->forwardMessages(
+                    from_peer: $fromPeer,
+                    id: [$messageId],
+                    to_peer: $toGroupId
+                );
+
+                $msgId = null;
+                if (isset($updates['updates']) && is_array($updates['updates'])) {
+                    foreach ($updates['updates'] as $u) {
+                        if (($u['_'] ?? '') === 'updateMessageID') {
+                            $msgId = $u['id'] ?? null;
+                            break;
+                        }
+                    }
+                }
+
+                return $msgId;
+            });
+            $this->connection?->update(['last_used_at' => now()]);
+
+            return ['success' => true, 'message_id' => $result];
+        } catch (\Throwable $e) {
+            Log::warning('MadelineProto forwardMessageToGroup failed: '.$e->getMessage());
+
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Send message to a group (as group post).
      *
      * @param  string  $groupId  Group/Channel ID (e.g. -1001234567890)

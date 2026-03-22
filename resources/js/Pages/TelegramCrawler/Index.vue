@@ -168,6 +168,59 @@
                         </div>
                     </div>
 
+                    <!-- Forward Post to Groups -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Forward Post to Groups</h2>
+                        <p class="text-sm text-gray-600 mb-4">
+                            Enter a Telegram post link and select groups. The post will be forwarded to selected groups. View stats stay on the original post.
+                        </p>
+                        <div class="flex flex-wrap gap-3 items-end">
+                            <div class="min-w-[280px] flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Post link</label>
+                                <input
+                                    v-model="forwardPostLink"
+                                    type="text"
+                                    placeholder="t.me/channel/123 or t.me/c/1234567890/123"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                @click="showSendToGroups = !showSendToGroups"
+                                class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
+                            >
+                                {{ showSendToGroups ? 'Cancel' : 'Select Groups' }}
+                            </button>
+                            <button
+                                v-if="showSendToGroups"
+                                type="button"
+                                @click="forwardToSelectedGroups"
+                                :disabled="forwardStarting || selectedGroupIds.size === 0 || !forwardPostLink.trim()"
+                                class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 text-sm font-medium"
+                            >
+                                {{ forwardStarting ? 'Forwarding...' : `Forward to ${selectedGroupIds.size} groups` }}
+                            </button>
+                        </div>
+                        <div v-if="forwardId" class="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
+                            <p class="font-medium text-gray-700 mb-2">Forward status</p>
+                            <p v-if="forwardStatus.error" class="text-red-600 mb-2">{{ forwardStatus.error }}</p>
+                            <div class="flex gap-4 text-sm">
+                                <span>Sent: {{ forwardStatus.sent ?? 0 }}</span>
+                                <span>Failed: {{ forwardStatus.failed ?? 0 }}</span>
+                                <span>Status: {{ forwardStatus.status || 'Pending...' }}</span>
+                            </div>
+                            <div v-if="forwardStatus.results?.length" class="mt-2 max-h-40 overflow-y-auto space-y-1 text-xs">
+                                <div
+                                    v-for="(r, i) in forwardStatus.results"
+                                    :key="i"
+                                    :class="r.status === 'sent' ? 'text-green-700' : 'text-red-700'"
+                                >
+                                    Group {{ r.group_id }}: {{ r.status === 'sent' ? '✓ Forwarded' : '✗ ' + (r.error || 'Error') }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Sync Contacts from Telegram -->
                     <div class="bg-white rounded-lg shadow p-6">
                         <h2 class="text-lg font-semibold text-gray-900 mb-4">Sync Contact Info from Telegram</h2>
@@ -388,6 +441,10 @@ const sendToGroupsTemplateId = ref('');
 const sendToGroupsStarting = ref(false);
 const sendId = ref('');
 const sendStatus = ref({});
+const forwardPostLink = ref('');
+const forwardId = ref('');
+const forwardStatus = ref({});
+const forwardStarting = ref(false);
 const limit = ref(50);
 const templateId = ref('');
 const messageText = ref('');
@@ -402,6 +459,7 @@ const syncStatus = ref({});
 const queueStatus = ref({});
 let crawlPollTimer = null;
 let sendPollTimer = null;
+let forwardPollTimer = null;
 let syncPollTimer = null;
 
 const toggleGroupSelection = (gId) => {
@@ -553,12 +611,50 @@ const pollSendStatus = async () => {
     } catch {}
 };
 
+const forwardToSelectedGroups = async () => {
+    if (selectedGroupIds.value.size === 0 || !forwardPostLink.value.trim()) return;
+    forwardStarting.value = true;
+    forwardStatus.value = {};
+    const groupTitles = {};
+    groups.value.forEach(g => {
+        if (selectedGroupIds.value.has(g.id)) groupTitles[g.id] = g.title || null;
+    });
+    try {
+        const res = await axios.post(route('telegram-crawler.forward-to-groups'), {
+            post_link: forwardPostLink.value.trim(),
+            group_ids: Array.from(selectedGroupIds.value),
+            group_titles: groupTitles,
+        });
+        forwardId.value = res.data.forward_id;
+        forwardPollTimer = setInterval(pollForwardStatus, 2000);
+    } catch (e) {
+        groupsError.value = e.response?.data?.error || e.message || 'Failed to forward';
+    } finally {
+        forwardStarting.value = false;
+    }
+};
+
+const pollForwardStatus = async () => {
+    if (!forwardId.value) return;
+    try {
+        const res = await axios.get(route('telegram-crawler.forward-status', { forwardId: forwardId.value }));
+        forwardStatus.value = res.data;
+        if (['completed', 'error'].includes(res.data?.status)) {
+            if (forwardPollTimer) clearInterval(forwardPollTimer);
+        }
+    } catch {}
+};
+
 watch(crawlId, (id) => {
     if (id) pollCrawlStatus();
 });
 
 watch(sendId, (id) => {
     if (id) pollSendStatus();
+});
+
+watch(forwardId, (id) => {
+    if (id) pollForwardStatus();
 });
 
 const fetchQueueStatus = async () => {
@@ -603,6 +699,7 @@ watch(syncId, (id) => {
 onUnmounted(() => {
     if (crawlPollTimer) clearInterval(crawlPollTimer);
     if (sendPollTimer) clearInterval(sendPollTimer);
+    if (forwardPollTimer) clearInterval(forwardPollTimer);
     if (syncPollTimer) clearInterval(syncPollTimer);
 });
 </script>

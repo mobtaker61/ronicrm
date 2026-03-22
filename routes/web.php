@@ -68,6 +68,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/telegram-crawler/crawl-status/{crawlId}', [\App\Http\Controllers\TelegramCrawlerController::class, 'crawlStatus'])->name('telegram-crawler.crawl-status');
     Route::post('/telegram-crawler/send-to-groups', [\App\Http\Controllers\TelegramCrawlerController::class, 'sendToGroups'])->name('telegram-crawler.send-to-groups');
     Route::get('/telegram-crawler/send-status/{sendId}', [\App\Http\Controllers\TelegramCrawlerController::class, 'sendToGroupsStatus'])->name('telegram-crawler.send-status');
+    Route::post('/telegram-crawler/forward-to-groups', [\App\Http\Controllers\TelegramCrawlerController::class, 'forwardToGroups'])->name('telegram-crawler.forward-to-groups');
+    Route::get('/telegram-crawler/forward-status/{forwardId}', [\App\Http\Controllers\TelegramCrawlerController::class, 'forwardToGroupsStatus'])->name('telegram-crawler.forward-status');
     Route::post('/telegram-crawler/sync-contacts', [\App\Http\Controllers\TelegramCrawlerController::class, 'syncContacts'])->name('telegram-crawler.sync-contacts');
     Route::get('/telegram-crawler/sync-status/{syncId}', [\App\Http\Controllers\TelegramCrawlerController::class, 'syncContactsStatus'])->name('telegram-crawler.sync-status');
     Route::get('/telegram-crawler/queue-status', [\App\Http\Controllers\TelegramCrawlerController::class, 'queueStatus'])->name('telegram-crawler.queue-status');
