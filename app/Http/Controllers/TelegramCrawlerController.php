@@ -184,10 +184,11 @@ class TelegramCrawlerController extends Controller
                     $g['last_error'] = $db->last_error;
                     $g['category'] = $db->category ? ['id' => $db->category->id, 'name' => $db->category->name] : null;
                     $g['language'] = $db->language;
-                    $g['member_count'] = $db->member_count;
-                    $g['public_username'] = $db->public_username;
-                    $g['public_link'] = $db->public_link;
-                    $g['description'] = $db->description;
+                    // Only use DB values as fallback when Telegram didn't provide fresh data
+                    $g['member_count'] = $g['member_count'] ?? $db->member_count;
+                    $g['public_username'] = $g['public_username'] ?? $db->public_username;
+                    $g['public_link'] = $g['public_link'] ?? $db->public_link;
+                    $g['description'] = $g['description'] ?? $db->description;
                 }
                 TelegramGroup::upsertFromTelegramPayload($conn->id, $g);
             }

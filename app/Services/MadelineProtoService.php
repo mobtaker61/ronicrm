@@ -336,7 +336,6 @@ class MadelineProtoService
      */
     protected function getDialogsFromMessagesApi($api): array
     {
-        // Keep refresh responsive: fetch a single large page instead of deep pagination.
         $resp = $api->messages->getDialogs(
             limit: 200,
             offset_peer: ['_' => 'inputPeerEmpty'],
@@ -346,6 +345,14 @@ class MadelineProtoService
         $dialogs = $resp['dialogs'] ?? [];
         $chats = $resp['chats'] ?? [];
         $users = $resp['users'] ?? [];
+
+        Log::info('MadelineProto getDialogsFromMessagesApi raw counts', [
+            'dialogs' => count($dialogs),
+            'chats' => count($chats),
+            'users' => count($users),
+            'sample_chat_types' => array_slice(array_map(fn ($c) => $c['_'] ?? 'MISSING', $chats), 0, 5),
+            'sample_dialog_peer_types' => array_slice(array_map(fn ($d) => ($d['peer']['_'] ?? (is_int($d['peer'] ?? null) ? 'int:'.$d['peer'] : 'unknown')), $dialogs), 0, 5),
+        ]);
 
         $chatMap = [];
         foreach ($chats as $c) {
@@ -361,7 +368,14 @@ class MadelineProtoService
             }
         }
 
+        Log::info('MadelineProto chatMap built', [
+            'total_keys' => count($chatMap),
+            'sample_keys' => array_slice(array_keys($chatMap), 0, 5),
+        ]);
+
         $allChats = [];
+        $matchedCount = 0;
+        $unmatchedIds = [];
         foreach ($dialogs as $d) {
             $peer = $d['peer'] ?? null;
             if (! $peer) {
@@ -372,6 +386,18 @@ class MadelineProtoService
                 continue;
             }
             $entity = $chatMap[$idStr] ?? null;
+            if ($entity) {
+                $matchedCount++;
+            } else {
+                $unmatchedIds[] = $idStr;
+                // Fallback: try getInfo for this peer to get title/type
+                try {
+                    $info = $api->getInfo((int) $idStr);
+                    $entity = $info['Chat'] ?? $info['channel'] ?? null;
+                } catch (\Throwable) {
+                    // ignore
+                }
+            }
             $title = $this->extractTitleFromEntity($entity);
             $type = $this->extractTypeFromEntity($entity);
             if (! in_array($type, ['group', 'supergroup', 'channel'], true)) {
@@ -387,6 +413,12 @@ class MadelineProtoService
                 'description' => $entity['about'] ?? null,
             ];
         }
+
+        Log::info('MadelineProto getDialogsFromMessagesApi result', [
+            'total_groups' => count($allChats),
+            'matched_entities' => $matchedCount,
+            'unmatched_ids' => array_slice($unmatchedIds, 0, 10),
+        ]);
 
         usort($allChats, fn ($a, $b) => strcasecmp($a['title'], $b['title']));
 
