@@ -74,8 +74,11 @@
                                         {{ g.title }}
                                         <span v-if="showSendToGroups && !g.can_post" class="text-amber-600" title="Cannot post in this group">⚠</span>
                                     </div>
-                                    <div class="flex items-center justify-between mt-0.5">
+                                    <div class="flex items-center justify-between mt-0.5 gap-1 flex-wrap">
                                         <span class="text-xs text-gray-500">{{ g.type }}</span>
+                                        <span v-if="g.category || g.language" class="text-xs text-blue-600 truncate">
+                                            {{ [g.category, g.language].filter(Boolean).join(' · ') }}
+                                        </span>
                                         <span class="text-xs text-gray-400 font-mono truncate ml-1">{{ g.id }}</span>
                                     </div>
                                 </div>

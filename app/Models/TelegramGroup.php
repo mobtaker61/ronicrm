@@ -14,6 +14,8 @@ class TelegramGroup extends Model
         'telegram_group_id',
         'title',
         'type',
+        'category',
+        'language',
         'can_post',
         'last_error',
         'last_crawled_message_id',

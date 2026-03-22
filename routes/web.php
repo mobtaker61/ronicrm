@@ -62,6 +62,7 @@ Route::middleware('auth')->group(function () {
     // Telegram Group Crawler
     Route::get('/telegram-crawler', [\App\Http\Controllers\TelegramCrawlerController::class, 'index'])->name('telegram-crawler.index');
     Route::get('/telegram-groups', [\App\Http\Controllers\TelegramCrawlerController::class, 'groupsIndex'])->name('telegram-groups.index');
+    Route::patch('/telegram-groups/{group}', [\App\Http\Controllers\TelegramCrawlerController::class, 'groupsUpdate'])->name('telegram-groups.update');
     Route::get('/telegram-crawler/groups', [\App\Http\Controllers\TelegramCrawlerController::class, 'groups'])->name('telegram-crawler.groups');
     Route::post('/telegram-crawler/crawl', [\App\Http\Controllers\TelegramCrawlerController::class, 'crawl'])->name('telegram-crawler.crawl');
     Route::get('/telegram-crawler/crawl-status/{crawlId}', [\App\Http\Controllers\TelegramCrawlerController::class, 'crawlStatus'])->name('telegram-crawler.crawl-status');

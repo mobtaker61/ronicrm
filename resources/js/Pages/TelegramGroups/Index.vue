@@ -35,9 +35,40 @@
         <div v-else class="space-y-6">
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
-                    <p class="text-sm text-gray-600">
+                    <p class="text-sm text-gray-600 mb-4">
                         Groups you're a member of. Use Refresh on the crawl page to sync. Groups you've left are removed from the table.
                     </p>
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700">دسته‌بندی:</label>
+                            <select
+                                v-model="filterCategory"
+                                @change="applyFilters"
+                                class="rounded-md border-gray-300 text-sm py-1.5"
+                            >
+                                <option value="">همه</option>
+                                <option v-for="(label, key) in categories" :key="key" :value="key">{{ label }}</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700">زبان:</label>
+                            <select
+                                v-model="filterLanguage"
+                                @change="applyFilters"
+                                class="rounded-md border-gray-300 text-sm py-1.5"
+                            >
+                                <option value="">همه</option>
+                                <option v-for="(label, key) in languages" :key="key" :value="key">{{ label }}</option>
+                            </select>
+                        </div>
+                        <Link
+                            v-if="filterCategory || filterLanguage"
+                            :href="route('telegram-groups.index')"
+                            class="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                            پاک کردن فیلتر
+                        </Link>
+                    </div>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -45,6 +76,8 @@
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">دسته‌بندی</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">زبان</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Can Post</th>
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Synced</th>
@@ -53,13 +86,35 @@
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <tr v-if="!groups.data?.length" class="text-center text-gray-500 py-8">
-                                <td colspan="6" class="px-4 py-6">
+                                <td colspan="8" class="px-4 py-6">
                                     No groups found. Click Refresh on the Crawl page to fetch groups.
                                 </td>
                             </tr>
                             <tr v-for="g in groups.data" :key="g.id" class="hover:bg-gray-50">
                                 <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ g.title || '—' }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-500">{{ g.type || '—' }}</td>
+                                <td class="px-4 py-3">
+                                    <select
+                                        :value="g.category || ''"
+                                        @change="(e) => updateGroup(g, 'category', e.target.value)"
+                                        :disabled="updatingGroupId === g.id"
+                                        class="text-sm rounded border-gray-300 py-1 min-w-[100px] disabled:opacity-50"
+                                    >
+                                        <option value="">—</option>
+                                        <option v-for="(label, key) in categories" :key="key" :value="key">{{ label }}</option>
+                                    </select>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <select
+                                        :value="g.language || ''"
+                                        @change="(e) => updateGroup(g, 'language', e.target.value)"
+                                        :disabled="updatingGroupId === g.id"
+                                        class="text-sm rounded border-gray-300 py-1 min-w-[100px] disabled:opacity-50"
+                                    >
+                                        <option value="">—</option>
+                                        <option v-for="(label, key) in languages" :key="key" :value="key">{{ label }}</option>
+                                    </select>
+                                </td>
                                 <td class="px-4 py-3 text-sm font-mono text-gray-500">{{ g.telegram_group_id }}</td>
                                 <td class="px-4 py-3">
                                     <span
@@ -118,14 +173,46 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
+import axios from 'axios';
 
 const props = defineProps({
     telegramConnected: { type: Boolean, default: false },
     groups: { type: Object, default: () => ({ data: [], links: [] }) },
+    categories: { type: Object, default: () => ({}) },
+    languages: { type: Object, default: () => ({}) },
 });
+
+const filterCategory = ref('');
+const filterLanguage = ref('');
+const updatingGroupId = ref(null);
+
+onMounted(() => {
+    const q = new URLSearchParams(window.location.search);
+    filterCategory.value = q.get('category') || '';
+    filterLanguage.value = q.get('language') || '';
+});
+
+const applyFilters = () => {
+    const params = {};
+    if (filterCategory.value) params.category = filterCategory.value;
+    if (filterLanguage.value) params.language = filterLanguage.value;
+    router.get(route('telegram-groups.index'), params, { preserveState: true });
+};
+
+const updateGroup = async (g, field, value) => {
+    updatingGroupId.value = g.id;
+    try {
+        await axios.patch(route('telegram-groups.update', g.id), { [field]: value || '' });
+        g[field] = value || null;
+    } catch (e) {
+        console.error('Update failed', e);
+    } finally {
+        updatingGroupId.value = null;
+    }
+};
 
 const formatDate = (v) => {
     if (!v) return '—';

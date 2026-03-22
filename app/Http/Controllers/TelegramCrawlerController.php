@@ -11,6 +11,7 @@ use App\Models\TelegramUserConnection;
 use App\Services\MadelineProtoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -42,26 +43,71 @@ class TelegramCrawlerController extends Controller
     public function groupsIndex(Request $request): Response
     {
         $conn = TelegramUserConnection::getActive();
-        $groups = $conn
+        $categories = config('telegram_groups.categories', []);
+        $languages = config('telegram_groups.languages', []);
+
+        $query = $conn
             ? TelegramGroup::where('telegram_user_connection_id', $conn->id)
-                ->orderBy('title')
-                ->paginate(50)
+            : null;
+
+        if ($query) {
+            if ($request->filled('category')) {
+                $query->where('category', $request->category);
+            }
+            if ($request->filled('language')) {
+                $query->where('language', $request->language);
+            }
+            $groups = $query->orderBy('title')->paginate(50)->withQueryString()
                 ->through(fn ($g) => [
                     'id' => $g->id,
                     'telegram_group_id' => $g->telegram_group_id,
                     'title' => $g->title,
                     'type' => $g->type,
+                    'category' => $g->category,
+                    'language' => $g->language,
                     'can_post' => $g->can_post,
                     'last_error' => $g->last_error,
                     'last_crawled_message_id' => $g->last_crawled_message_id,
                     'last_synced_at' => $g->last_synced_at?->toIso8601String(),
                     'created_at' => $g->created_at->toIso8601String(),
-                ])
-            : new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50);
+                ]);
+        } else {
+            $groups = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50);
+        }
+
         return Inertia::render('TelegramGroups/Index', [
             'telegramConnected' => $conn !== null,
             'groups' => $groups,
+            'categories' => $categories,
+            'languages' => $languages,
         ]);
+    }
+
+    public function groupsUpdate(Request $request, TelegramGroup $group): JsonResponse
+    {
+        $conn = TelegramUserConnection::getActive();
+        if (!$conn || $group->telegram_user_connection_id !== $conn->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $categories = array_keys(config('telegram_groups.categories', []));
+        $languages = array_keys(config('telegram_groups.languages', []));
+        $validated = $request->validate([
+            'category' => ['nullable', 'string', 'max:100', Rule::in(array_merge([''], $categories))],
+            'language' => ['nullable', 'string', 'max:10', Rule::in(array_merge([''], $languages))],
+        ]);
+
+        $update = [
+            'category' => $validated['category'] ?? null ?: null,
+            'language' => $validated['language'] ?? null ?: null,
+        ];
+        $group->update($update);
+
+        return response()->json(['success' => true, 'group' => [
+            'id' => $group->id,
+            'category' => $group->category,
+            'language' => $group->language,
+        ]]);
     }
 
     public function groups(Request $request): JsonResponse
@@ -83,10 +129,14 @@ class TelegramCrawlerController extends Controller
             foreach ($cached as &$g) {
                 $g['can_post'] = true;
                 $g['last_error'] = null;
+                $g['category'] = null;
+                $g['language'] = null;
                 $db = $dbGroups->get($g['id'] ?? '');
                 if ($db) {
                     $g['can_post'] = $db->can_post;
                     $g['last_error'] = $db->last_error;
+                    $g['category'] = $db->category;
+                    $g['language'] = $db->language;
                 }
             }
             return response()->json(['groups' => $cached]);
@@ -115,10 +165,14 @@ class TelegramCrawlerController extends Controller
             foreach ($groups as &$g) {
                 $g['can_post'] = true;
                 $g['last_error'] = null;
+                $g['category'] = null;
+                $g['language'] = null;
                 $db = $dbGroups->get((string) ($g['id'] ?? ''));
                 if ($db) {
                     $g['can_post'] = $db->can_post;
                     $g['last_error'] = $db->last_error;
+                    $g['category'] = $db->category;
+                    $g['language'] = $db->language;
                 }
                 TelegramGroup::findOrCreateForConnection($conn->id, (string) ($g['id'] ?? ''), $g['title'] ?? null, $g['type'] ?? null);
             }
