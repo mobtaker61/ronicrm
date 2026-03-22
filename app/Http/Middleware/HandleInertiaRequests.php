@@ -58,6 +58,8 @@ class HandleInertiaRequests extends Middleware
                     'permissions' => $request->user()->getAllPermissions()->pluck('name'),
                 ] : null,
             ],
+            'languages' => fn () => $request->user() ? \App\Models\Language::orderBy('sort_order')->orderBy('name')->get(['id', 'code', 'name']) : [],
+            'telegramGroupCategories' => fn () => $request->user() ? \App\Models\TelegramGroupCategory::orderBy('sort_order')->orderBy('name')->get(['id', 'name']) : [],
             'csrf_token' => csrf_token(),
         ];
     }

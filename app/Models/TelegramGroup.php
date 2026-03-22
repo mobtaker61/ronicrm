@@ -14,13 +14,18 @@ class TelegramGroup extends Model
         'telegram_group_id',
         'title',
         'type',
-        'category',
+        'telegram_group_category_id',
         'language',
         'can_post',
         'last_error',
         'last_crawled_message_id',
         'last_synced_at',
     ];
+
+    public function category(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(TelegramGroupCategory::class, 'telegram_group_category_id');
+    }
 
     protected function casts(): array
     {

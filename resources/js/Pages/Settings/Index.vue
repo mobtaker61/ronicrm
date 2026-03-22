@@ -94,6 +94,18 @@
                         </button>
                         <button
                             v-if="isAdmin"
+                            @click="activeTab = 'languages'"
+                            :class="[
+                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
+                                activeTab === 'languages'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ]"
+                        >
+                            Languages
+                        </button>
+                        <button
+                            v-if="isAdmin"
                             @click="activeTab = 'users'"
                             :class="[
                                 'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
@@ -379,6 +391,66 @@
                             </button>
                         </div>
                     </form>
+                </div>
+
+                <!-- Languages Tab (Admin Only) -->
+                <div v-if="activeTab === 'languages' && isAdmin" class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-gray-900">مدیریت زبان‌ها</h2>
+                        <button
+                            @click="showLanguageModal = true; languageForm = { code: '', name: '', sort_order: 0 }; editingLanguage = null"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                        >
+                            افزودن زبان
+                        </button>
+                    </div>
+                    <div class="space-y-3">
+                        <div
+                            v-for="lang in languages"
+                            :key="lang.id"
+                            class="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-lg border border-gray-200"
+                        >
+                            <div>
+                                <span class="font-medium text-gray-900">{{ lang.name }}</span>
+                                <span class="text-sm text-gray-500 mr-3">({{ lang.code }})</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button @click="editLanguage(lang)" class="text-blue-600 hover:text-blue-800 text-sm">ویرایش</button>
+                                <button @click="deleteLanguage(lang)" class="text-red-600 hover:text-red-800 text-sm">حذف</button>
+                            </div>
+                        </div>
+                        <p v-if="!languages?.length" class="text-gray-500 py-4">هنوز زبانی تعریف نشده.</p>
+                    </div>
+                    <!-- Language Modal -->
+                    <div
+                        v-if="showLanguageModal"
+                        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                        @click.self="showLanguageModal = false"
+                    >
+                        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+                            <h3 class="text-lg font-semibold mb-4">{{ editingLanguage ? 'ویرایش زبان' : 'افزودن زبان' }}</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">کد زبان (مثلا fa, en) *</label>
+                                    <input v-model="languageForm.code" type="text" maxlength="10" class="w-full px-3 py-2 border rounded-md" :disabled="!!editingLanguage" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">نام *</label>
+                                    <input v-model="languageForm.name" type="text" class="w-full px-3 py-2 border rounded-md" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">ترتیب</label>
+                                    <input v-model.number="languageForm.sort_order" type="number" min="0" class="w-full px-3 py-2 border rounded-md" />
+                                </div>
+                            </div>
+                            <div class="flex justify-end gap-2 mt-6">
+                                <button @click="showLanguageModal = false" class="px-4 py-2 border rounded-lg hover:bg-gray-50">انصراف</button>
+                                <button @click="saveLanguage" :disabled="languageSaving || !languageForm.code || !languageForm.name" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                                    {{ languageSaving ? 'در حال ذخیره...' : 'ذخیره' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Users Management Tab (Admin Only) -->
@@ -808,6 +880,64 @@
                         </p>
                     </div>
 
+                    <!-- Telegram Group Categories -->
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">دسته‌بندی گروه‌های تلگرام</h3>
+                        <p class="text-sm text-gray-600 mb-4">دسته‌های دلخواه برای گروه‌های تلگرام تعریف کنید تا بتوانید آن‌ها را فیلتر و مدیریت کنید.</p>
+                        <div class="flex flex-wrap gap-3 items-center mb-4">
+                            <input
+                                v-model="newCategoryName"
+                                type="text"
+                                placeholder="نام دسته جدید"
+                                class="px-3 py-2 border border-gray-300 rounded-md text-sm w-48"
+                                @keyup.enter="addTelegramGroupCategory"
+                            />
+                            <button
+                                type="button"
+                                @click="addTelegramGroupCategory"
+                                :disabled="!newCategoryName.trim() || categorySaving"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
+                            >
+                                {{ categorySaving ? 'در حال ذخیره...' : 'افزودن' }}
+                            </button>
+                        </div>
+                        <div class="space-y-2">
+                            <div
+                                v-for="cat in telegramGroupCategories"
+                                :key="cat.id"
+                                class="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg border border-gray-200"
+                            >
+                                <span class="font-medium text-gray-900">{{ cat.name }}</span>
+                                <div class="flex gap-2">
+                                    <button
+                                        v-if="editingCategoryId !== cat.id"
+                                        @click="startEditCategory(cat)"
+                                        class="text-blue-600 hover:text-blue-800 text-sm"
+                                    >
+                                        ویرایش
+                                    </button>
+                                    <template v-else>
+                                        <input
+                                            v-model="editCategoryName"
+                                            type="text"
+                                            class="px-2 py-1 border border-gray-300 rounded text-sm w-40"
+                                            @keyup.enter="saveEditCategory"
+                                        />
+                                        <button @click="saveEditCategory" class="text-green-600 hover:text-green-800 text-sm">ذخیره</button>
+                                        <button @click="cancelEditCategory" class="text-gray-500 hover:text-gray-700 text-sm">انصراف</button>
+                                    </template>
+                                    <button
+                                        @click="deleteTelegramGroupCategory(cat)"
+                                        class="text-red-600 hover:text-red-800 text-sm"
+                                    >
+                                        حذف
+                                    </button>
+                                </div>
+                            </div>
+                            <p v-if="!telegramGroupCategories?.length" class="text-gray-500 text-sm py-2">هنوز دسته‌ای تعریف نشده.</p>
+                        </div>
+                    </div>
+
                     <!-- Bot (legacy / optional) -->
                     <div class="border-t pt-6">
                         <h3 class="text-lg font-semibold text-gray-900 mb-3">Telegram Bot (optional)</h3>
@@ -1170,8 +1300,9 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { useForm, router } from '@inertiajs/vue3';
+import { useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import axios from 'axios';
 
 const props = defineProps({
     initialTab: {
@@ -1234,6 +1365,90 @@ const props = defineProps({
 
 const activeTab = ref(props.initialTab || 'social-media');
 const showAddModal = ref(false);
+const page = usePage();
+const languages = computed(() => page.props.languages || []);
+const telegramGroupCategories = computed(() => page.props.telegramGroupCategories || []);
+
+// Languages
+const showLanguageModal = ref(false);
+const editingLanguage = ref(null);
+const languageForm = ref({ code: '', name: '', sort_order: 0 });
+const languageSaving = ref(false);
+async function saveLanguage() {
+    languageSaving.value = true;
+    try {
+        if (editingLanguage.value) {
+            await axios.put(route('settings.languages.update', editingLanguage.value.id), languageForm.value);
+        } else {
+            await axios.post(route('settings.languages.store'), languageForm.value);
+        }
+        showLanguageModal.value = false;
+        router.reload({ preserveState: true });
+    } catch (e) {
+        alert(e.response?.data?.message || 'خطا');
+    } finally {
+        languageSaving.value = false;
+    }
+}
+function editLanguage(lang) {
+    editingLanguage.value = lang;
+    languageForm.value = { code: lang.code, name: lang.name, sort_order: lang.sort_order ?? 0 };
+    showLanguageModal.value = true;
+}
+async function deleteLanguage(lang) {
+    if (!confirm(`زبان «${lang.name}» حذف شود؟`)) return;
+    try {
+        await axios.delete(route('settings.languages.destroy', lang.id));
+        router.reload({ preserveState: true });
+    } catch (e) {
+        alert(e.response?.data?.message || 'خطا');
+    }
+}
+
+// Telegram Group Categories
+const newCategoryName = ref('');
+const categorySaving = ref(false);
+const editingCategoryId = ref(null);
+const editCategoryName = ref('');
+async function addTelegramGroupCategory() {
+    if (!newCategoryName.value.trim()) return;
+    categorySaving.value = true;
+    try {
+        await axios.post(route('settings.telegram-group-categories.store'), { name: newCategoryName.value.trim() });
+        newCategoryName.value = '';
+        router.reload({ preserveState: true });
+    } catch (e) {
+        alert(e.response?.data?.message || 'خطا');
+    } finally {
+        categorySaving.value = false;
+    }
+}
+function startEditCategory(cat) {
+    editingCategoryId.value = cat.id;
+    editCategoryName.value = cat.name;
+}
+async function saveEditCategory() {
+    try {
+        await axios.put(route('settings.telegram-group-categories.update', editingCategoryId.value), { name: editCategoryName.value });
+        cancelEditCategory();
+        router.reload({ preserveState: true });
+    } catch (e) {
+        alert(e.response?.data?.message || 'خطا');
+    }
+}
+function cancelEditCategory() {
+    editingCategoryId.value = null;
+    editCategoryName.value = '';
+}
+async function deleteTelegramGroupCategory(cat) {
+    if (!confirm(`دسته «${cat.name}» حذف شود؟`)) return;
+    try {
+        await axios.delete(route('settings.telegram-group-categories.destroy', cat.id));
+        router.reload({ preserveState: true });
+    } catch (e) {
+        alert(e.response?.data?.message || 'خطا');
+    }
+}
 const editingType = ref(null);
 const testEmail = ref('');
 

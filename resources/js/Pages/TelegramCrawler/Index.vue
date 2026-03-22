@@ -33,6 +33,17 @@
                 <aside class="w-full lg:w-80 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col min-w-0">
                     <div class="flex-shrink-0 p-4 border-b border-gray-200 bg-gray-50">
                         <h2 class="text-lg font-semibold text-gray-900 mb-3">Groups</h2>
+                        <div class="mb-3">
+                            <label class="block text-xs font-medium text-gray-600 mb-1">فیلتر دسته‌بندی</label>
+                            <select
+                                v-model="groupCategoryFilter"
+                                @change="loadGroups(true)"
+                                class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md"
+                            >
+                                <option value="">همه</option>
+                                <option v-for="c in telegramGroupCategories" :key="c.id" :value="c.id">{{ c.name }}</option>
+                            </select>
+                        </div>
                         <button
                             type="button"
                             @click="loadGroups(true)"
@@ -76,8 +87,8 @@
                                     </div>
                                     <div class="flex items-center justify-between mt-0.5 gap-1 flex-wrap">
                                         <span class="text-xs text-gray-500">{{ g.type }}</span>
-                                        <span v-if="g.category || g.language" class="text-xs text-blue-600 truncate">
-                                            {{ [g.category, g.language].filter(Boolean).join(' · ') }}
+                                        <span v-if="g.category?.name || g.language" class="text-xs text-blue-600 truncate">
+                                            {{ [g.category?.name, g.language].filter(Boolean).join(' · ') }}
                                         </span>
                                         <span class="text-xs text-gray-400 font-mono truncate ml-1">{{ g.id }}</span>
                                     </div>
@@ -350,6 +361,7 @@
 
 <script setup>
 import { ref, watch, onUnmounted, computed, onMounted } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import axios from 'axios';
 
@@ -431,11 +443,18 @@ const selectedSendToGroupsTemplate = computed(() =>
     props.templates.find(t => String(t.id) === String(sendToGroupsTemplateId.value)) || null
 );
 
+const groupCategoryFilter = ref('');
+const page = usePage();
+const telegramGroupCategories = computed(() => page.props.telegramGroupCategories || []);
+
 const loadGroups = async (refresh = false) => {
     groupsLoading.value = true;
     groupsError.value = '';
     try {
-        const url = refresh ? route('telegram-crawler.groups') + '?refresh=1' : route('telegram-crawler.groups');
+        const params = new URLSearchParams();
+        if (refresh) params.set('refresh', '1');
+        if (groupCategoryFilter.value) params.set('category', groupCategoryFilter.value);
+        const url = route('telegram-crawler.groups') + (params.toString() ? '?' + params.toString() : '');
         const res = await axios.get(url);
         groups.value = res.data.groups || [];
     } catch (e) {

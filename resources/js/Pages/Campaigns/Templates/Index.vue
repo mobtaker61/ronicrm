@@ -451,6 +451,22 @@
                                     Available variables: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}
                                 </template>
                             </p>
+                            <!-- Telegram: Multilingual content for group broadcast -->
+                            <div v-if="form.type === 'telegram' && languages?.length" class="mt-4 p-4 border border-sky-200 rounded-lg bg-sky-50/60">
+                                <h4 class="text-sm font-semibold text-sky-900 mb-2">محتوای چندزبانه (ارسال بر اساس زبان گروه)</h4>
+                                <p class="text-xs text-sky-700 mb-3">برای هر زبان، محتوای جداگانه وارد کنید. اگر زبان گروه خالی باشد یا ترجمه نباشد، از محتوای اصلی بالا استفاده می‌شود.</p>
+                                <div class="space-y-3">
+                                    <div v-for="lang in languages" :key="lang.id">
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">{{ lang.name }} ({{ lang.code }})</label>
+                                        <textarea
+                                            v-model="form.content_translations[lang.code]"
+                                            rows="4"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-sky-500"
+                                            :placeholder="'محتوای ' + lang.name + '...'"
+                                        ></textarea>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="flex justify-end space-x-3 pt-4 border-t">
@@ -483,10 +499,13 @@
 </template>
 
 <script setup>
-import { ref, nextTick, watch } from 'vue';
-import { useForm, router } from '@inertiajs/vue3';
+import { ref, nextTick, watch, computed } from 'vue';
+import { useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import MediaPickerModal from '@/Components/MediaPickerModal.vue';
+
+const page = usePage();
+const languages = computed(() => page.props.languages || []);
 
 const props = defineProps({
     templates: Array,
@@ -516,6 +535,7 @@ const form = useForm({
     type: '',
     subject: '',
     content: '',
+    content_translations: {},
     image: null,
     image_path: null,
     whatsapp_settings: null,
@@ -607,6 +627,7 @@ const editTemplate = (template) => {
     form.type = template.type;
     form.subject = template.subject || '';
     form.content = template.content;
+    form.content_translations = template.content_translations && typeof template.content_translations === 'object' ? { ...template.content_translations } : {};
     form.image = null;
     form.image_path = null;
     form.whatsapp_settings =
@@ -636,6 +657,9 @@ function withTemplateFormPayload(data) {
         d.whatsapp_settings = JSON.stringify(d.whatsapp_settings);
     } else {
         delete d.whatsapp_settings;
+    }
+    if (d.content_translations && typeof d.content_translations === 'object') {
+        d.content_translations = JSON.stringify(d.content_translations);
     }
     return d;
 }

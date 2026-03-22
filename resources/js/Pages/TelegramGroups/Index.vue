@@ -47,7 +47,7 @@
                                 class="rounded-md border-gray-300 text-sm py-1.5"
                             >
                                 <option value="">همه</option>
-                                <option v-for="(label, key) in categories" :key="key" :value="key">{{ label }}</option>
+                                <option v-for="c in telegramGroupCategories" :key="c.id" :value="c.id">{{ c.name }}</option>
                             </select>
                         </div>
                         <div class="flex items-center gap-2">
@@ -58,7 +58,7 @@
                                 class="rounded-md border-gray-300 text-sm py-1.5"
                             >
                                 <option value="">همه</option>
-                                <option v-for="(label, key) in languages" :key="key" :value="key">{{ label }}</option>
+                                <option v-for="lang in languages" :key="lang.id" :value="lang.code">{{ lang.name }}</option>
                             </select>
                         </div>
                         <Link
@@ -95,13 +95,13 @@
                                 <td class="px-4 py-3 text-sm text-gray-500">{{ g.type || '—' }}</td>
                                 <td class="px-4 py-3">
                                     <select
-                                        :value="g.category || ''"
+                                        :value="g.category?.id || ''"
                                         @change="(e) => updateGroup(g, 'category', e.target.value)"
                                         :disabled="updatingGroupId === g.id"
                                         class="text-sm rounded border-gray-300 py-1 min-w-[100px] disabled:opacity-50"
                                     >
                                         <option value="">—</option>
-                                        <option v-for="(label, key) in categories" :key="key" :value="key">{{ label }}</option>
+                                        <option v-for="c in telegramGroupCategories" :key="c.id" :value="c.id">{{ c.name }}</option>
                                     </select>
                                 </td>
                                 <td class="px-4 py-3">
@@ -112,7 +112,7 @@
                                         class="text-sm rounded border-gray-300 py-1 min-w-[100px] disabled:opacity-50"
                                     >
                                         <option value="">—</option>
-                                        <option v-for="(label, key) in languages" :key="key" :value="key">{{ label }}</option>
+                                        <option v-for="lang in languages" :key="lang.id" :value="lang.code">{{ lang.name }}</option>
                                     </select>
                                 </td>
                                 <td class="px-4 py-3 text-sm font-mono text-gray-500">{{ g.telegram_group_id }}</td>
@@ -173,17 +173,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 
 const props = defineProps({
     telegramConnected: { type: Boolean, default: false },
     groups: { type: Object, default: () => ({ data: [], links: [] }) },
-    categories: { type: Object, default: () => ({}) },
-    languages: { type: Object, default: () => ({}) },
 });
+
+const page = usePage();
+const telegramGroupCategories = computed(() => page.props.telegramGroupCategories || []);
+const languages = computed(() => page.props.languages || []);
 
 const filterCategory = ref('');
 const filterLanguage = ref('');
@@ -205,8 +207,14 @@ const applyFilters = () => {
 const updateGroup = async (g, field, value) => {
     updatingGroupId.value = g.id;
     try {
-        await axios.patch(route('telegram-groups.update', g.id), { [field]: value || '' });
-        g[field] = value || null;
+        const payload = field === 'category'
+            ? { telegram_group_category_id: value ? parseInt(value, 10) : null }
+            : { language: value || null };
+        const { data } = await axios.patch(route('telegram-groups.update', g.id), payload);
+        if (data.group) {
+            g.category = data.group.category;
+            g.language = data.group.language;
+        }
     } catch (e) {
         console.error('Update failed', e);
     } finally {

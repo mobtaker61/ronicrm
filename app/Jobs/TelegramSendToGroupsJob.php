@@ -37,7 +37,6 @@ class TelegramSendToGroupsJob implements ShouldQueue
             $this->setProgress('error', 0, 0, 0, [], 'Template not found or invalid.');
             return;
         }
-        $text = $tmpl->content;
         $imagePath = $tmpl->image ? storage_path('app/public/' . $tmpl->image) : null;
 
         $service = new MadelineProtoService($conn);
@@ -50,7 +49,15 @@ class TelegramSendToGroupsJob implements ShouldQueue
         $this->setProgress('running', 0, $sent, $failed, $results);
         $service->start();
 
+        $dbGroups = TelegramGroup::where('telegram_user_connection_id', $conn->id)
+            ->whereIn('telegram_group_id', $this->groupIds)
+            ->get()
+            ->keyBy('telegram_group_id');
+
         foreach ($this->groupIds as $i => $groupId) {
+            $group = $dbGroups->get($groupId);
+            $langCode = $group?->language;
+            $text = $tmpl->getContentForLanguage($langCode);
             $r = $service->sendGroupMessage($groupId, $text, $imagePath);
             $title = $titles[$groupId] ?? null;
             if ($r['success']) {

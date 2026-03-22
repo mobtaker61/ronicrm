@@ -146,4 +146,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/social-media-types', [\App\Http\Controllers\SocialMediaTypeController::class, 'store'])->name('settings.social-media-types.store');
     Route::put('/settings/social-media-types/{socialMediaType}', [\App\Http\Controllers\SocialMediaTypeController::class, 'update'])->name('settings.social-media-types.update');
     Route::delete('/settings/social-media-types/{socialMediaType}', [\App\Http\Controllers\SocialMediaTypeController::class, 'destroy'])->name('settings.social-media-types.destroy');
+
+    // Languages (Settings tab + shared)
+    Route::get('/settings/languages', [\App\Http\Controllers\LanguageController::class, 'index'])->name('settings.languages.index');
+    Route::post('/settings/languages', [\App\Http\Controllers\LanguageController::class, 'store'])->name('settings.languages.store');
+    Route::put('/settings/languages/{language}', [\App\Http\Controllers\LanguageController::class, 'update'])->name('settings.languages.update');
+    Route::delete('/settings/languages/{language}', [\App\Http\Controllers\LanguageController::class, 'destroy'])->name('settings.languages.destroy');
+
+    // Telegram Group Categories (Settings > Telegram tab)
+    Route::get('/settings/telegram-group-categories', [\App\Http\Controllers\TelegramGroupCategoryController::class, 'index'])->name('settings.telegram-group-categories.index');
+    Route::post('/settings/telegram-group-categories', [\App\Http\Controllers\TelegramGroupCategoryController::class, 'store'])->name('settings.telegram-group-categories.store');
+    Route::put('/settings/telegram-group-categories/{telegramGroupCategory}', [\App\Http\Controllers\TelegramGroupCategoryController::class, 'update'])->name('settings.telegram-group-categories.update');
+    Route::delete('/settings/telegram-group-categories/{telegramGroupCategory}', [\App\Http\Controllers\TelegramGroupCategoryController::class, 'destroy'])->name('settings.telegram-group-categories.destroy');
 });

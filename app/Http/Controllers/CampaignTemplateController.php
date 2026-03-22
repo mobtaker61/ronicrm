@@ -22,11 +22,14 @@ class CampaignTemplateController extends Controller
 
     public function store(Request $request)
     {
+        $this->normalizeContentTranslations($request);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'type' => 'required|in:whatsapp,email,telegram',
             'subject' => 'nullable|string|max:255',
             'content' => 'required|string',
+            'content_translations' => 'nullable|array',
+            'content_translations.*' => 'nullable|string',
             'image' => 'nullable|file|max:51200', // 50MB max - accept all file types
             'image_path' => 'nullable|string|max:500',
             'variables' => 'nullable|array',
@@ -62,11 +65,14 @@ class CampaignTemplateController extends Controller
 
     public function update(Request $request, CampaignTemplate $campaignTemplate)
     {
+        $this->normalizeContentTranslations($request);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'type' => 'required|in:whatsapp,email,telegram',
             'subject' => 'nullable|string|max:255',
             'content' => 'required|string',
+            'content_translations' => 'nullable|array',
+            'content_translations.*' => 'nullable|string',
             'image' => 'nullable|file|max:51200', // 50MB max - accept all file types
             'image_path' => 'nullable|string|max:500',
             'variables' => 'nullable|array',
@@ -104,6 +110,15 @@ class CampaignTemplateController extends Controller
 
         return redirect()->route('campaign-templates.index')
             ->with('success', 'Template updated successfully.');
+    }
+
+    protected function normalizeContentTranslations(Request $request): void
+    {
+        $val = $request->input('content_translations');
+        if (is_string($val)) {
+            $decoded = json_decode($val, true);
+            $request->merge(['content_translations' => is_array($decoded) ? $decoded : []]);
+        }
     }
 
     public function destroy(CampaignTemplate $campaignTemplate)
