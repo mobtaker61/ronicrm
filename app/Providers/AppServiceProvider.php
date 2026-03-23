@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +20,37 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        $this->stabilizeMysqlPdoSession();
+    }
+
+    /**
+     * PHP 8.4 + PDO/MySQL on some hosts may start with orphan tx/autocommit off.
+     * This makes INSERT/UPDATE appear successful but not persisted.
+     */
+    protected function stabilizeMysqlPdoSession(): void
+    {
+        try {
+            $connection = DB::connection();
+            $driver = $connection->getDriverName();
+            if (! in_array($driver, ['mysql', 'mariadb'], true)) {
+                return;
+            }
+
+            $pdo = $connection->getPdo();
+
+            // Ensure session autocommit is ON for expected Laravel behavior.
+            $connection->statement('SET SESSION autocommit = 1');
+
+            // If PDO believes there is an open tx but Laravel level is 0, commit it.
+            if ($pdo->inTransaction() && $connection->transactionLevel() === 0) {
+                try {
+                    $pdo->commit();
+                } catch (\Throwable) {
+                    // Ignore driver-level no-active-transaction errors.
+                }
+            }
+        } catch (\Throwable) {
+            // Never block app boot due to DB session stabilization failure.
+        }
     }
 }

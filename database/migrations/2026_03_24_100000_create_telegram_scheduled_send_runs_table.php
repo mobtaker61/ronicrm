@@ -14,8 +14,6 @@ return new class extends Migration
             return;
         }
 
-        Schema::dropIfExists('telegram_scheduled_send_items');
-        Schema::dropIfExists('telegram_scheduled_send_runs');
         Schema::create('telegram_scheduled_send_runs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('telegram_scheduled_send_id')->constrained('telegram_scheduled_sends')->cascadeOnDelete();

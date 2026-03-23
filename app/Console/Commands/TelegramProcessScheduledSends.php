@@ -231,6 +231,7 @@ class TelegramProcessScheduledSends extends Command
 
         $runCount = DB::table('telegram_scheduled_send_runs')->where('telegram_scheduled_send_id', $schedule->id)->count();
         $itemCount = DB::table('telegram_scheduled_send_items')->where('telegram_scheduled_send_run_id', $run->id)->count();
+        $dbName = DB::connection()->getDatabaseName();
 
         Log::info('Telegram scheduled send processed', [
             'schedule_id' => $schedule->id,
@@ -238,6 +239,8 @@ class TelegramProcessScheduledSends extends Command
             'processed' => $pendingItems->count(),
             'db_runs_total' => $runCount,
             'db_items_in_run' => $itemCount,
+            'database' => $dbName,
+            'connection' => config('database.default'),
         ]);
     }
 
