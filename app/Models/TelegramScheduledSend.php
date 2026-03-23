@@ -18,6 +18,7 @@ class TelegramScheduledSend extends Model
         'runs_count',
         'last_sent_at',
         'status',
+        'version',
     ];
 
     protected function casts(): array
@@ -65,8 +66,12 @@ class TelegramScheduledSend extends Model
             ->whereColumn('runs_count', '<', 'days_count')
             ->whereRaw('send_at_time <= ?', [$currentTime])
             ->where(function ($q) use ($today) {
-                $q->whereDoesntHave('runs', fn ($r) => $r->whereDate('run_date', $today))
-                    ->orWhereHas('runs', fn ($r) => $r->whereDate('run_date', $today)->where('status', 'in_progress')->whereHas('items', fn ($i) => $i->where('status', 'pending')));
+                $q->whereDoesntHave('runs', fn ($r) => $r->whereColumn('schedule_version', 'telegram_scheduled_sends.version')->whereDate('run_date', $today))
+                    ->orWhereHas('runs', fn ($r) => $r
+                        ->whereColumn('schedule_version', 'telegram_scheduled_sends.version')
+                        ->whereDate('run_date', $today)
+                        ->where('status', 'in_progress')
+                        ->whereHas('items', fn ($i) => $i->where('status', 'pending')));
             });
     }
 

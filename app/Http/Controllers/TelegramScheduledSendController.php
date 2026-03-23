@@ -10,6 +10,7 @@ use App\Models\TelegramUserConnection;
 use App\Services\MadelineProtoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -104,6 +105,7 @@ class TelegramScheduledSendController extends Controller
             'send_at_time' => $sendAtTime,
             'days_count' => $validated['days_count'],
             'status' => 'active',
+            'version' => 1,
         ]);
 
         $schedule->load(['template:id,name', 'category:id,name']);
@@ -163,6 +165,8 @@ class TelegramScheduledSendController extends Controller
         }
         $sendAtTime = \Carbon\Carbon::parse('2000-01-01 ' . $time)->format('H:i:s');
 
+        $newVersion = ((int) ($schedule->version ?? 1)) + 1;
+
         $schedule->update([
             'type' => $validated['type'],
             'campaign_template_id' => $validated['type'] === 'template' ? $validated['campaign_template_id'] : null,
@@ -170,6 +174,11 @@ class TelegramScheduledSendController extends Controller
             'telegram_group_category_id' => $validated['telegram_group_category_id'],
             'send_at_time' => $sendAtTime,
             'days_count' => $validated['days_count'],
+            // After edit, treat as a fresh schedule while preserving old run history.
+            'runs_count' => 0,
+            'last_sent_at' => null,
+            'status' => 'active',
+            'version' => $newVersion,
         ]);
 
         $schedule->load(['template:id,name', 'category:id,name', 'runs' => fn ($q) => $q->orderByDesc('run_date')->limit(5)->with('items')]);
@@ -250,7 +259,7 @@ class TelegramScheduledSendController extends Controller
 
     public function stop(TelegramScheduledSend $schedule): JsonResponse
     {
-        if ($schedule->user_id !== auth()->id()) {
+        if ($schedule->user_id !== Auth::id()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
         $schedule->stop();

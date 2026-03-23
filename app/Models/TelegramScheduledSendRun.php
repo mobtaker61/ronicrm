@@ -12,6 +12,7 @@ class TelegramScheduledSendRun extends Model
 
     protected $fillable = [
         'telegram_scheduled_send_id',
+        'schedule_version',
         'run_date',
         'status',
     ];

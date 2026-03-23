@@ -93,6 +93,7 @@ class TelegramProcessScheduledSends extends Command
         $run = TelegramScheduledSendRun::firstOrCreate(
             [
                 'telegram_scheduled_send_id' => $schedule->id,
+                'schedule_version' => (int) ($schedule->version ?? 1),
                 'run_date' => $today,
             ],
             ['status' => 'in_progress']
@@ -235,6 +236,7 @@ class TelegramProcessScheduledSends extends Command
 
         Log::info('Telegram scheduled send processed', [
             'schedule_id' => $schedule->id,
+            'schedule_version' => (int) ($schedule->version ?? 1),
             'run_id' => $run->id,
             'processed' => $pendingItems->count(),
             'db_runs_total' => $runCount,
