@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CampaignTemplate;
+use App\Models\TelegramGroup;
 use App\Models\TelegramGroupCategory;
 use App\Models\TelegramScheduledSend;
 use App\Models\TelegramUserConnection;
@@ -123,6 +124,53 @@ class TelegramScheduledSendController extends Controller
                 'created_at' => $schedule->created_at->toIso8601String(),
                 'runs' => [],
             ],
+        ]);
+    }
+
+    public function report(Request $request, TelegramScheduledSend $schedule): JsonResponse
+    {
+        if ($schedule->user_id !== $request->user()->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $schedule->load(['template:id,name', 'category:id,name']);
+        $conn = TelegramUserConnection::where('user_id', $schedule->user_id)->where('status', 'connected')->first();
+        $groupIds = $schedule->runs()->with('items')->get()->flatMap->items->pluck('telegram_group_id')->unique()->filter()->values();
+        $groups = $conn
+            ? TelegramGroup::where('telegram_user_connection_id', $conn->id)->whereIn('telegram_group_id', $groupIds)->get()->keyBy('telegram_group_id')
+            : collect();
+
+        $runs = $schedule->runs()
+            ->with('items')
+            ->orderByDesc('run_date')
+            ->get()
+            ->map(function ($r) use ($groups) {
+                return [
+                    'id' => $r->id,
+                    'run_date' => $r->run_date->toDateString(),
+                    'status' => $r->status,
+                    'items' => $r->items->map(fn ($i) => [
+                        'id' => $i->id,
+                        'telegram_group_id' => $i->telegram_group_id,
+                        'group_title' => $groups->get($i->telegram_group_id)?->title ?? $i->telegram_group_id,
+                        'status' => $i->status,
+                        'error' => $i->error,
+                        'sent_at' => $i->sent_at?->toIso8601String(),
+                    ])->values()->all(),
+                    'sent_count' => $r->items->where('status', 'sent')->count(),
+                    'failed_count' => $r->items->where('status', 'failed')->count(),
+                    'pending_count' => $r->items->where('status', 'pending')->count(),
+                ];
+            });
+
+        return response()->json([
+            'schedule' => [
+                'id' => $schedule->id,
+                'type_label' => $schedule->type === 'template' ? 'Template' : 'Forward',
+                'content' => $schedule->type === 'template' ? ($schedule->template?->name ?? '—') : ($schedule->post_link ?? '—'),
+                'category' => $schedule->category?->name ?? '—',
+            ],
+            'runs' => $runs,
         ]);
     }
 

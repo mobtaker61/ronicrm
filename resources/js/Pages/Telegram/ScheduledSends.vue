@@ -141,7 +141,15 @@
                                             {{ s.status }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            @click="openReport(s)"
+                                            class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                            title="گزارش اجرا"
+                                        >
+                                            گزارش
+                                        </button>
                                         <button
                                             v-if="s.status === 'active'"
                                             type="button"
@@ -151,7 +159,7 @@
                                         >
                                             {{ stoppingId === s.id ? '...' : 'Stop' }}
                                         </button>
-                                        <span v-else class="text-gray-400 text-sm">—</span>
+                                        <span v-else-if="s.status !== 'active'" class="text-gray-400 text-sm">—</span>
                                     </td>
                                 </tr>
                                 <tr v-if="s.runs?.length" class="bg-gray-50/50">
@@ -172,6 +180,78 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Report Modal -->
+            <Teleport to="body">
+                <div
+                    v-if="reportModal.show"
+                    class="fixed inset-0 z-50 overflow-y-auto"
+                    aria-labelledby="modal-title"
+                    role="dialog"
+                    aria-modal="true"
+                >
+                    <div class="flex min-h-screen items-center justify-center p-4">
+                        <div class="fixed inset-0 bg-gray-500/75 transition-opacity" @click="closeReport" />
+                        <div class="relative bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+                            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                                <h3 class="text-lg font-semibold text-gray-900">
+                                    گزارش اجرا — {{ reportModal.schedule?.type_label }}: {{ reportModal.schedule?.content || '—' }}
+                                </h3>
+                                <button
+                                    type="button"
+                                    @click="closeReport"
+                                    class="text-gray-400 hover:text-gray-600 rounded-lg p-1"
+                                >
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="px-6 py-4 overflow-auto flex-1">
+                                <div v-if="reportModal.loading" class="text-center py-12 text-gray-500">در حال بارگذاری...</div>
+                                <div v-else-if="reportModal.error" class="text-red-600 py-4">{{ reportModal.error }}</div>
+                                <div v-else-if="!reportModal.runs?.length" class="text-gray-500 py-8 text-center">هنوز اجرایی ثبت نشده است.</div>
+                                <div v-else class="space-y-6">
+                                    <div v-for="r in reportModal.runs" :key="r.id" class="border border-gray-200 rounded-lg overflow-hidden">
+                                        <div class="px-4 py-2 bg-gray-50 flex items-center justify-between gap-4 flex-wrap">
+                                            <span class="font-medium text-gray-900">{{ r.run_date }}</span>
+                                            <div class="flex gap-3 text-sm">
+                                                <span :class="r.status === 'completed' ? 'text-green-700' : 'text-amber-700'">{{ r.status }}</span>
+                                                <span class="text-green-600">✓ {{ r.sent_count }}</span>
+                                                <span v-if="r.failed_count" class="text-red-600">✗ {{ r.failed_count }}</span>
+                                                <span v-if="r.pending_count" class="text-gray-500">⏳ {{ r.pending_count }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="divide-y divide-gray-100">
+                                            <div
+                                                v-for="item in r.items"
+                                                :key="item.id"
+                                                class="px-4 py-2 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm"
+                                            >
+                                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                                    <span class="text-gray-700 truncate" :title="item.telegram_group_id">{{ item.group_title }}</span>
+                                                    <span
+                                                        :class="[
+                                                            'shrink-0 px-2 py-0.5 rounded text-xs font-medium',
+                                                            item.status === 'sent' && 'bg-green-100 text-green-800',
+                                                            item.status === 'failed' && 'bg-red-100 text-red-800',
+                                                            item.status === 'pending' && 'bg-gray-100 text-gray-600'
+                                                        ]"
+                                                    >
+                                                        {{ item.status === 'sent' ? 'ارسال شد' : item.status === 'failed' ? 'خطا' : 'در انتظار' }}
+                                                    </span>
+                                                    <span v-if="item.sent_at" class="text-xs text-gray-400 shrink-0">{{ formatDate(item.sent_at) }}</span>
+                                                </div>
+                                                <span v-if="item.error" class="text-xs text-red-600 truncate" :title="item.error">{{ item.error }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Teleport>
         </div>
     </AppLayout>
 </template>
@@ -250,6 +330,45 @@ const stop = async (s) => {
         error.value = e.response?.data?.error || e.message || 'Failed to stop.';
     } finally {
         stoppingId.value = null;
+    }
+};
+
+const reportModal = reactive({
+    show: false,
+    loading: false,
+    error: '',
+    schedule: null,
+    runs: [],
+});
+
+const openReport = async (s) => {
+    reportModal.show = true;
+    reportModal.loading = true;
+    reportModal.error = '';
+    reportModal.schedule = { type_label: s.type_label, content: s.type === 'template' ? (s.template?.name || '—') : (s.post_link || '—') };
+    reportModal.runs = [];
+    try {
+        const { data } = await axios.get(route('telegram.scheduled-sends.report', { schedule: s.id }));
+        reportModal.schedule = data.schedule;
+        reportModal.runs = data.runs;
+    } catch (e) {
+        reportModal.error = e.response?.data?.error || e.message || 'خطا در بارگذاری گزارش.';
+    } finally {
+        reportModal.loading = false;
+    }
+};
+
+const closeReport = () => {
+    reportModal.show = false;
+};
+
+const formatDate = (iso) => {
+    if (!iso) return '';
+    try {
+        const d = new Date(iso);
+        return d.toLocaleDateString('fa-IR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch {
+        return iso;
     }
 };
 </script>
