@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
+            \App\Http\Middleware\SetCurrentOrganization::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             // بعد از کنترلر: commit تراکنش یتیم PDO تا CRUD در دیتابیس پایدار شود
             \App\Http\Middleware\CommitOrphanPdoTransaction::class,
@@ -25,8 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Webhooks receive POST from external services (no CSRF token)
         $middleware->validateCsrfTokens(except: [
             'telegram-webhook',
+            'telegram-webhook/*',
             'wpwebhook',
             'instagram-webhook',
+            'instagram-webhook/*',
         ]);
 
         // Trust all proxies (needed for ngrok)

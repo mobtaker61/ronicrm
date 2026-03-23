@@ -17,7 +17,7 @@ class InstagramMessagingService
         if ($conn && $conn->getAccessToken()) {
             return true;
         }
-        $settings = Setting::get('instagram', []);
+        $settings = Setting::getScoped('instagram', []);
         return !empty($settings['enabled']) && !empty($settings['access_token']);
     }
 
@@ -34,7 +34,7 @@ class InstagramMessagingService
             }
             return $meta->sendMessage($conn, $igUserId, $message, $fileUrl);
         }
-        $settings = Setting::get('instagram', []);
+        $settings = Setting::getScoped('instagram', []);
         $token = $settings['access_token'] ?? null;
         if (empty($token)) {
             return [

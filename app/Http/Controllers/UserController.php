@@ -8,14 +8,13 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
-use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            if (!auth()->user()->hasRole('admin')) {
+            if (!auth()->user()->hasGlobalAdminAccess()) {
                 abort(403, 'Unauthorized action.');
             }
             return $next($request);
@@ -40,7 +39,7 @@ class UserController extends Controller
 
         return Inertia::render('Settings/Users/Index', [
             'users' => $users,
-            'roles' => Role::orderBy('name')->get(['id', 'name']),
+            'roles' => \Spatie\Permission\Models\Role::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -63,7 +62,18 @@ class UserController extends Controller
             'username' => $validated['username'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
+            'current_organization_id' => auth()->user()->current_organization_id,
         ]);
+
+        if (auth()->user()->current_organization_id) {
+            $user->organizations()->syncWithoutDetaching([
+                auth()->user()->current_organization_id => [
+                    'role_in_org' => 'org_agent',
+                    'is_default' => true,
+                    'status' => 'active',
+                ],
+            ]);
+        }
 
         if (!empty($validated['roles'])) {
             $user->assignRole($validated['roles']);

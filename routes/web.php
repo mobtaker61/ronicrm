@@ -26,10 +26,15 @@ Route::get('/p/{shareToken}/export-excel', [\App\Http\Controllers\PublicProjectS
 // Webhooks (no auth, no CSRF – called by Telegram, Ronibot, Meta)
 Route::post('/wpwebhook', [\App\Http\Controllers\RonibotWebhookController::class, 'handle'])->name('ronibot.webhook');
 Route::post('/telegram-webhook', [\App\Http\Controllers\TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
+Route::post('/telegram-webhook/{organization}', [\App\Http\Controllers\TelegramWebhookController::class, 'handle'])->name('telegram.webhook.organization');
 Route::get('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookController::class, 'verify'])->name('instagram.webhook.verify');
 Route::post('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookController::class, 'handle'])->middleware('throttle:120,1')->name('instagram.webhook');
+Route::get('/instagram-webhook/{organization}', [\App\Http\Controllers\InstagramWebhookController::class, 'verify'])->name('instagram.webhook.verify.organization');
+Route::post('/instagram-webhook/{organization}', [\App\Http\Controllers\InstagramWebhookController::class, 'handle'])->middleware('throttle:120,1')->name('instagram.webhook.organization');
 
 Route::middleware('auth')->group(function () {
+    Route::post('/organizations/current', [\App\Http\Controllers\CurrentOrganizationController::class, 'update'])->name('organizations.current.update');
+
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Industries
@@ -148,6 +153,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/users', [\App\Http\Controllers\UserController::class, 'store'])->name('settings.users.store');
     Route::put('/settings/users/{user}', [\App\Http\Controllers\UserController::class, 'update'])->name('settings.users.update');
     Route::delete('/settings/users/{user}', [\App\Http\Controllers\UserController::class, 'destroy'])->name('settings.users.destroy');
+    Route::post('/settings/organizations', [\App\Http\Controllers\OrganizationController::class, 'store'])->name('settings.organizations.store');
+    Route::put('/settings/organizations/{organization}', [\App\Http\Controllers\OrganizationController::class, 'update'])->name('settings.organizations.update');
+    Route::delete('/settings/organizations/{organization}', [\App\Http\Controllers\OrganizationController::class, 'destroy'])->name('settings.organizations.destroy');
+    Route::post('/settings/organizations/{organization}/members', [\App\Http\Controllers\OrganizationController::class, 'addMember'])->name('settings.organizations.members.store');
+    Route::put('/settings/organizations/{organization}/members/{user}', [\App\Http\Controllers\OrganizationController::class, 'updateMember'])->name('settings.organizations.members.update');
+    Route::delete('/settings/organizations/{organization}/members/{user}', [\App\Http\Controllers\OrganizationController::class, 'removeMember'])->name('settings.organizations.members.destroy');
 
     Route::get('/settings/social-media-types', [\App\Http\Controllers\SocialMediaTypeController::class, 'index'])->name('settings.social-media-types');
     Route::post('/settings/social-media-types', [\App\Http\Controllers\SocialMediaTypeController::class, 'store'])->name('settings.social-media-types.store');

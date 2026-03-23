@@ -30,7 +30,7 @@ class InstagramWebhookController extends Controller
 
         $expectedToken = config('services.meta_instagram.verify_token', '');
         if (empty($expectedToken)) {
-            $settings = \App\Models\Setting::get('instagram', []);
+            $settings = \App\Models\Setting::getScoped('instagram', []);
             $expectedToken = (string) ($settings['webhook_verify_token'] ?? '');
         }
 

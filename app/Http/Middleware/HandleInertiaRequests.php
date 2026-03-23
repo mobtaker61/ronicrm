@@ -54,10 +54,31 @@ class HandleInertiaRequests extends Middleware
                     'id' => $request->user()->id,
                     'name' => $request->user()->name,
                     'email' => $request->user()->email,
+                    'current_organization_id' => $request->user()->current_organization_id,
                     'roles' => $request->user()->getRoleNames(),
                     'permissions' => $request->user()->getAllPermissions()->pluck('name'),
                 ] : null,
             ],
+            'organizations' => fn () => $request->user()
+                ? $request->user()->organizations()
+                    ->orderBy('name')
+                    ->get(['organizations.id', 'organizations.name', 'organizations.slug'])
+                    ->map(fn ($organization) => [
+                        'id' => $organization->id,
+                        'name' => $organization->name,
+                        'slug' => $organization->slug,
+                        'role_in_org' => $organization->pivot?->role_in_org,
+                        'status' => $organization->pivot?->status,
+                        'is_default' => (bool) ($organization->pivot?->is_default ?? false),
+                    ])
+                    ->values()
+                : [],
+            'currentOrganization' => fn () => $request->user()?->currentOrganization?->only(['id', 'name', 'slug']),
+            'currentOrganizationRole' => fn () => $request->user()
+                ? $request->user()->organizations()
+                    ->where('organizations.id', $request->user()->current_organization_id)
+                    ->first()?->pivot?->role_in_org
+                : null,
             'languages' => fn () => $request->user() ? \App\Models\Language::orderBy('sort_order')->orderBy('name')->get(['id', 'code', 'name']) : [],
             'telegramGroupCategories' => fn () => $request->user() ? \App\Models\TelegramGroupCategory::orderBy('sort_order')->orderBy('name')->get(['id', 'name']) : [],
             'csrf_token' => csrf_token(),

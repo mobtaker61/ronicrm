@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WhatsAppMessage extends Model
 {
+    use BelongsToOrganization;
+
     protected $table = 'whatsapp_messages';
 
     protected $fillable = [
+        'organization_id',
         'message_id',
         'from_phone',
         'to_phone',

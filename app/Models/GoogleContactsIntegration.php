@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class GoogleContactsIntegration extends Model
 {
+    use BelongsToOrganization;
+
     protected $fillable = [
+        'organization_id',
         'refresh_token',
         'access_token',
         'access_token_expires_at',
@@ -29,9 +33,14 @@ class GoogleContactsIntegration extends Model
         return $this->belongsTo(User::class, 'connected_by');
     }
 
-    public static function getSingleton(): ?self
+    public static function getSingleton(?int $organizationId = null): ?self
     {
-        return static::query()->orderBy('id')->first();
+        $query = static::query()->orderBy('id');
+        if ($organizationId) {
+            $query->forOrganization($organizationId);
+        }
+
+        return $query->first();
     }
 
     public function accessTokenExpired(): bool

@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\TelegramUserConnection;
 use App\Services\MadelineProtoService;
+use App\Support\OrganizationContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -25,13 +26,17 @@ class TelegramSyncContactsJob implements ShouldQueue
     public int $timeout = 3600;
 
     public function __construct(
-        public ?string $syncId = null
+        public ?string $syncId = null,
+        public ?int $organizationId = null
     ) {
         $this->syncId = $syncId ?? 'sync_' . uniqid();
+        $this->organizationId = $organizationId ?? OrganizationContext::getOrganizationId();
     }
 
     public function handle(): void
     {
+        OrganizationContext::setOrganizationId($this->organizationId);
+
         $conn = TelegramUserConnection::getActive();
         if (!$conn || !$conn->isConnected()) {
             $this->setProgress('error', 0, 0, 'No active Telegram connection.');

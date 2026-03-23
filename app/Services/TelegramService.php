@@ -14,7 +14,7 @@ class TelegramService
 
     public function __construct()
     {
-        $settings = Setting::get('telegram', []);
+        $settings = Setting::getScoped('telegram', []);
         $this->botToken = $settings['bot_token'] ?? '';
         $this->enabled = $settings['enabled'] ?? false;
     }

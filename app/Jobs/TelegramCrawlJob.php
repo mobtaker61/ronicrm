@@ -10,6 +10,7 @@ use App\Models\TelegramMessage;
 use App\Models\TelegramUserConnection;
 use App\Services\CustomerMatchService;
 use App\Services\MadelineProtoService;
+use App\Support\OrganizationContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -28,11 +29,14 @@ class TelegramCrawlJob implements ShouldQueue
         public int $limit,
         public string $messageText,
         public string $crawlId,
-        public ?int $templateId = null
+        public ?int $templateId = null,
+        public ?int $organizationId = null
     ) {}
 
     public function handle(): void
     {
+        OrganizationContext::setOrganizationId($this->organizationId ?? OrganizationContext::getOrganizationId());
+
         Log::info('TelegramCrawlJob started', ['crawl_id' => $this->crawlId, 'group_id' => $this->groupId]);
 
         $conn = TelegramUserConnection::getActive();

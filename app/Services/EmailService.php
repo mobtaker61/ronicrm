@@ -38,7 +38,7 @@ class EmailService
     public function sendHtmlEmail(string $to, string $subject, string $htmlContent, ?string $from = null, ?array $attachments = null): array
     {
         try {
-            $smtpSettings = Setting::get('smtp', []);
+            $smtpSettings = Setting::getScoped('smtp', []);
 
             if (! empty($smtpSettings['host']) && ! empty($smtpSettings['username']) && ! empty($smtpSettings['password'])) {
                 $this->applySmtpConfigFromSettings($smtpSettings);

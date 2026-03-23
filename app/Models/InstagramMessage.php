@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InstagramMessage extends Model
 {
+    use BelongsToOrganization;
+
     protected $table = 'instagram_messages';
 
     protected $fillable = [
+        'organization_id',
         'instagram_connection_id',
         'instagram_message_id',
         'ig_user_id',

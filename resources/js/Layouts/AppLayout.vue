@@ -226,7 +226,7 @@
                     </Link>
 
                     <Link
-                        v-if="page.props.auth?.user?.roles?.includes('admin')"
+                        v-if="canAccessSettings"
                         :href="getRoute('settings.index')"
                         :class="[
                             'flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
@@ -249,6 +249,9 @@
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-gray-900 truncate">{{ $page.props.auth.user?.name }}</p>
                             <p class="text-xs text-gray-500 truncate">{{ $page.props.auth.user?.email }}</p>
+                            <p v-if="$page.props.currentOrganizationRole" class="text-xs text-blue-600 truncate">
+                                Role: {{ $page.props.currentOrganizationRole }}
+                            </p>
                         </div>
                     </div>
                     <form @submit.prevent="logout" class="mt-2">
@@ -284,6 +287,23 @@
                         <slot name="header" />
                     </h2>
                     <div class="flex items-center space-x-4">
+                        <div v-if="organizations.length" class="flex items-center space-x-2">
+                            <label for="org-switcher" class="hidden md:block text-sm text-gray-500">Organization</label>
+                            <select
+                                id="org-switcher"
+                                v-model="selectedOrganizationId"
+                                @change="switchOrganization"
+                                class="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option
+                                    v-for="organization in organizations"
+                                    :key="organization.id"
+                                    :value="organization.id"
+                                >
+                                    {{ organization.name }}
+                                </option>
+                            </select>
+                        </div>
                         <div class="hidden md:flex items-center space-x-2 text-sm text-gray-500">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -304,11 +324,17 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 
 const sidebarOpen = ref(true);
 const page = usePage();
+const organizations = computed(() => page.props.organizations || []);
+const selectedOrganizationId = ref(page.props.auth?.user?.current_organization_id || null);
+const canAccessSettings = computed(() => {
+    const roles = page.props.auth?.user?.roles || [];
+    return roles.includes('admin') || roles.includes('super_admin');
+});
 
 // Route helper function
 const getRoute = (name) => {
@@ -347,4 +373,24 @@ const isCurrentRoute = (pattern) => {
 const logout = () => {
     router.post('/logout');
 };
+
+const switchOrganization = () => {
+    if (!selectedOrganizationId.value) {
+        return;
+    }
+
+    router.post('/organizations/current', {
+        organization_id: selectedOrganizationId.value,
+    }, {
+        preserveState: false,
+        preserveScroll: false,
+    });
+};
+
+watch(
+    () => page.props.auth?.user?.current_organization_id,
+    (newValue) => {
+        selectedOrganizationId.value = newValue || null;
+    }
+);
 </script>

@@ -7,6 +7,7 @@ use App\Models\CustomerContact;
 use App\Models\TelegramMessage;
 use App\Models\TelegramUserConnection;
 use App\Services\MadelineProtoService;
+use App\Support\OrganizationContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -21,9 +22,17 @@ class TelegramSyncJob implements ShouldQueue
     use Queueable, InteractsWithQueue, SerializesModels;
 
     public int $timeout = 300;
+    public ?int $organizationId;
+
+    public function __construct(?int $organizationId = null)
+    {
+        $this->organizationId = $organizationId ?? OrganizationContext::getOrganizationId();
+    }
 
     public function handle(): void
     {
+        OrganizationContext::setOrganizationId($this->organizationId);
+
         $conn = TelegramUserConnection::getActive();
         if (!$conn || !$conn->isConnected()) {
             return;

@@ -6,6 +6,7 @@ use App\Models\CampaignTemplate;
 use App\Models\TelegramGroup;
 use App\Models\TelegramUserConnection;
 use App\Services\MadelineProtoService;
+use App\Support\OrganizationContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -22,11 +23,14 @@ class TelegramSendToGroupsJob implements ShouldQueue
         public array $groupIds,
         public int $templateId,
         public string $sendId,
-        public ?array $groupTitles = null
+        public ?array $groupTitles = null,
+        public ?int $organizationId = null
     ) {}
 
     public function handle(): void
     {
+        OrganizationContext::setOrganizationId($this->organizationId ?? OrganizationContext::getOrganizationId());
+
         $conn = TelegramUserConnection::getActive();
         if (!$conn || !$conn->isConnected()) {
             $this->setProgress('error', 0, 0, 0, [], 'No active Telegram connection.');

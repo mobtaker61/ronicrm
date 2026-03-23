@@ -86,6 +86,13 @@ const routeHelper = (name, params = null, absolute = false) => {
         'settings.users.store': '/settings/users',
         'settings.users.update': (id) => `/settings/users/${id}`,
         'settings.users.destroy': (id) => `/settings/users/${id}`,
+        'organizations.current.update': '/organizations/current',
+        'settings.organizations.store': '/settings/organizations',
+        'settings.organizations.update': (id) => `/settings/organizations/${id}`,
+        'settings.organizations.destroy': (id) => `/settings/organizations/${id}`,
+        'settings.organizations.members.store': (id) => `/settings/organizations/${id}/members`,
+        'settings.organizations.members.update': (organizationId, userId) => `/settings/organizations/${organizationId}/members/${userId}`,
+        'settings.organizations.members.destroy': (organizationId, userId) => `/settings/organizations/${organizationId}/members/${userId}`,
         'settings.telegram.register-webhook': '/settings/telegram/register-webhook',
     };
     

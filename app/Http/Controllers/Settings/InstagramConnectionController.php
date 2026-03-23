@@ -52,7 +52,7 @@ class InstagramConnectionController extends Controller
         if ($conn) {
             $conn->delete();
         }
-        Setting::set('instagram', array_merge(Setting::get('instagram', []), ['enabled' => false]));
+        Setting::setForOrganization('instagram', array_merge(Setting::getScoped('instagram', []), ['enabled' => false]));
         return redirect()->route('settings.index')->with('success', 'Instagram account disconnected.');
     }
 }

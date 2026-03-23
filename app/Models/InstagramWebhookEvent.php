@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InstagramWebhookEvent extends Model
 {
+    use BelongsToOrganization;
+
     protected $table = 'instagram_webhook_events';
 
     protected $fillable = [
+        'organization_id',
         'instagram_connection_id',
         'event_type',
         'mid',

@@ -3,12 +3,14 @@
 namespace App\Console\Commands;
 
 use App\Models\CampaignTemplate;
+use App\Models\Organization;
 use App\Models\TelegramGroup;
 use App\Models\TelegramScheduledSend;
 use App\Models\TelegramScheduledSendItem;
 use App\Models\TelegramScheduledSendRun;
 use App\Models\TelegramUserConnection;
 use App\Services\MadelineProtoService;
+use App\Support\OrganizationContext;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +19,7 @@ use Illuminate\Support\Facades\Schema;
 
 class TelegramProcessScheduledSends extends Command
 {
-    protected $signature = 'telegram:process-scheduled-sends';
+    protected $signature = 'telegram:process-scheduled-sends {--organization_id=}';
 
     protected $description = 'Process due Telegram scheduled sends (template or forward to category groups)';
 
@@ -36,24 +38,29 @@ class TelegramProcessScheduledSends extends Command
                 return 1;
             }
 
-            $due = TelegramScheduledSend::dueNow()->get();
-            if ($due->isEmpty()) {
-                return 0;
-            }
-
-            foreach ($due as $schedule) {
-                $scheduleConn = TelegramUserConnection::where('user_id', $schedule->user_id)->where('status', 'connected')->first();
-                if (! $scheduleConn || ! $scheduleConn->isConnected()) {
+            $organizationIds = $this->resolveOrganizationIds();
+            foreach ($organizationIds as $organizationId) {
+                OrganizationContext::setOrganizationId((int) $organizationId);
+                $due = TelegramScheduledSend::dueNow()->get();
+                if ($due->isEmpty()) {
                     continue;
                 }
-                try {
-                    $this->processOne($schedule, $scheduleConn);
-                } catch (\Throwable $e) {
-                    Log::error('Telegram scheduled send processOne failed', [
-                        'schedule_id' => $schedule->id,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
-                    ]);
+
+                foreach ($due as $schedule) {
+                    $scheduleConn = TelegramUserConnection::where('user_id', $schedule->user_id)->where('status', 'connected')->first();
+                    if (! $scheduleConn || ! $scheduleConn->isConnected()) {
+                        continue;
+                    }
+                    try {
+                        $this->processOne($schedule, $scheduleConn);
+                    } catch (\Throwable $e) {
+                        Log::error('Telegram scheduled send processOne failed', [
+                            'organization_id' => $organizationId,
+                            'schedule_id' => $schedule->id,
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                        ]);
+                    }
                 }
             }
 
@@ -66,6 +73,24 @@ class TelegramProcessScheduledSends extends Command
 
             return 1;
         }
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    protected function resolveOrganizationIds(): array
+    {
+        $target = $this->option('organization_id');
+        if ($target) {
+            return [(int) $target];
+        }
+
+        return Organization::query()
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 
     protected function processOne(TelegramScheduledSend $schedule, TelegramUserConnection $conn): void

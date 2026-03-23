@@ -6,7 +6,9 @@ use App\Models\Campaign;
 use App\Models\CampaignRecipient;
 use App\Models\Customer;
 use App\Models\Industry;
+use App\Models\Organization;
 use App\Models\User;
+use App\Support\OrganizationContext;
 use Illuminate\Database\Seeder;
 
 class SampleDataSeeder extends Seeder
@@ -16,6 +18,18 @@ class SampleDataSeeder extends Seeder
      */
     public function run(): void
     {
+        $defaultOrganizationId = Organization::query()
+            ->where('slug', 'roni-plus')
+            ->value('id') ?? Organization::query()->orderBy('id')->value('id');
+
+        if (! $defaultOrganizationId) {
+            $this->command->error('No organization found. Please migrate first to create default organization.');
+
+            return;
+        }
+
+        OrganizationContext::setOrganizationId((int) $defaultOrganizationId);
+
         $admin = User::where('email', 'admin@ronicrm.com')->first();
         $user = User::where('email', 'user@ronicrm.com')->first();
 
@@ -179,7 +193,9 @@ class SampleDataSeeder extends Seeder
 
         $customerModels = [];
         foreach ($customers as $customer) {
-            $customerModels[] = Customer::create($customer);
+            $customerModels[] = Customer::create(array_merge($customer, [
+                'organization_id' => $defaultOrganizationId,
+            ]));
         }
 
         $this->command->info('Created ' . count($customerModels) . ' customers.');
@@ -231,7 +247,9 @@ class SampleDataSeeder extends Seeder
 
         $campaignModels = [];
         foreach ($campaigns as $campaign) {
-            $campaignModels[] = Campaign::create($campaign);
+            $campaignModels[] = Campaign::create(array_merge($campaign, [
+                'organization_id' => $defaultOrganizationId,
+            ]));
         }
 
         $this->command->info('Created ' . count($campaignModels) . ' campaigns.');
@@ -248,6 +266,7 @@ class SampleDataSeeder extends Seeder
                 }
                 foreach ($selectedCustomers as $customer) {
                     CampaignRecipient::create([
+                        'organization_id' => $defaultOrganizationId,
                         'campaign_id' => $campaign->id,
                         'customer_id' => $customer->id,
                         'status' => 'sent',
@@ -263,6 +282,7 @@ class SampleDataSeeder extends Seeder
                 }
                 foreach ($selectedCustomers as $customer) {
                     CampaignRecipient::create([
+                        'organization_id' => $defaultOrganizationId,
                         'campaign_id' => $campaign->id,
                         'customer_id' => $customer->id,
                         'status' => 'pending',

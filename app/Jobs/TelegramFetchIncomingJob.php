@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Customer;
 use App\Models\CustomerContact;
+use App\Support\OrganizationContext;
 use App\Models\TelegramMessage;
 use App\Services\CustomerMatchService;
 use App\Models\TelegramUserConnection;
@@ -20,6 +21,12 @@ class TelegramFetchIncomingJob implements ShouldQueue
     use Queueable, InteractsWithQueue, SerializesModels;
 
     public int $timeout = 600;
+    public ?int $organizationId;
+
+    public function __construct(?int $organizationId = null)
+    {
+        $this->organizationId = $organizationId ?? OrganizationContext::getOrganizationId();
+    }
 
     protected function fetchLockPath(): string
     {
@@ -28,6 +35,8 @@ class TelegramFetchIncomingJob implements ShouldQueue
 
     public function handle(): void
     {
+        OrganizationContext::setOrganizationId($this->organizationId);
+
         $lockHandle = @fopen($this->fetchLockPath(), 'c+');
         if (! $lockHandle) {
             Log::warning('TelegramFetchIncomingJob: cannot open lock file, skipping');

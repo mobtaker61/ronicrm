@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,9 +10,12 @@ use Illuminate\Support\Facades\Crypt;
 
 class InstagramConnection extends Model
 {
+    use BelongsToOrganization;
+
     protected $table = 'instagram_connections';
 
     protected $fillable = [
+        'organization_id',
         'user_id',
         'ig_business_account_id',
         'ig_username',
@@ -74,8 +78,14 @@ class InstagramConnection extends Model
         return $this->token_expires_at->isPast();
     }
 
-    public static function getActive(): ?self
+    public static function getActive(?int $organizationId = null): ?self
     {
-        return self::orderBy('updated_at', 'desc')->first();
+        $query = self::query()->orderBy('updated_at', 'desc');
+
+        if ($organizationId) {
+            $query->forOrganization($organizationId);
+        }
+
+        return $query->first();
     }
 }

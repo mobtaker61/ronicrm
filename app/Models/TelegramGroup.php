@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TelegramGroup extends Model
 {
+    use BelongsToOrganization;
+
     protected $table = 'telegram_groups';
 
     protected $fillable = [
+        'organization_id',
         'telegram_user_connection_id',
         'telegram_group_id',
         'title',

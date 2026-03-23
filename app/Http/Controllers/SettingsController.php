@@ -17,7 +17,7 @@ class SettingsController extends Controller
     {
         // Check if user is admin for all methods
         $this->middleware(function ($request, $next) {
-            if (! Auth::check() || ! Auth::user()->hasRole('admin')) {
+            if (! Auth::check() || ! Auth::user()->hasGlobalAdminAccess()) {
                 abort(403, 'Unauthorized action. Only administrators can access settings.');
             }
 
@@ -27,10 +27,12 @@ class SettingsController extends Controller
 
     public function index(): Response
     {
-        $isAdmin = Auth::user()->hasRole('admin');
+        $isAdmin = Auth::user()->hasGlobalAdminAccess();
+        $isSuperAdmin = Auth::user()->hasRole('super_admin');
 
         $users = [];
         $roles = [];
+        $organizations = [];
         if ($isAdmin) {
             $users = \App\Models\User::with('roles')->orderBy('name')->get()->map(function ($user) {
                 return [
@@ -48,17 +50,40 @@ class SettingsController extends Controller
                     'name' => $role->name,
                 ];
             });
+            if ($isSuperAdmin) {
+                $organizations = \App\Models\Organization::query()
+                    ->with(['users' => fn ($q) => $q->orderBy('name')])
+                    ->withCount('users')
+                    ->orderBy('name')
+                    ->get()
+                    ->map(fn ($organization) => [
+                        'id' => $organization->id,
+                        'name' => $organization->name,
+                        'slug' => $organization->slug,
+                        'is_active' => (bool) $organization->is_active,
+                        'users_count' => $organization->users_count,
+                        'members' => $organization->users->map(fn ($member) => [
+                            'id' => $member->id,
+                            'name' => $member->name,
+                            'email' => $member->email,
+                            'role_in_org' => $member->pivot?->role_in_org,
+                            'status' => $member->pivot?->status,
+                            'is_default' => (bool) ($member->pivot?->is_default ?? false),
+                        ])->values(),
+                    ]);
+            }
         }
 
         return Inertia::render('Settings/Index', [
-            'initialTab' => in_array(request()->query('tab'), ['social-media', 'smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts', 'languages', 'users'], true)
+            'initialTab' => in_array(request()->query('tab'), ['social-media', 'smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts', 'languages', 'users', 'organizations'], true)
                 ? request()->query('tab')
                 : 'social-media',
             'isAdmin' => $isAdmin,
             'users' => $users,
             'roles' => $roles,
+            'organizations' => $organizations,
             'socialMediaTypes' => SocialMediaType::orderBy('sort_order')->get(),
-            'smtpSettings' => Setting::get('smtp', [
+            'smtpSettings' => Setting::getScoped('smtp', [
                 'host' => '',
                 'port' => '587',
                 'username' => '',
@@ -72,14 +97,14 @@ class SettingsController extends Controller
                 'imap_port' => '993',
                 'imap_encryption' => 'ssl',
             ]),
-            'ronibotSettings' => Setting::get('ronibot', [
+            'ronibotSettings' => Setting::getScoped('ronibot', [
                 'api_url' => 'https://ronibot.com/api/create-message',
                 'appkey' => '',
                 'authkey' => '',
                 'webhook_url' => 'https://crm.roniplus.ae/wpwebhook',
                 'enabled' => false,
             ]),
-            'telegramSettings' => array_merge(Setting::get('telegram', [
+            'telegramSettings' => array_merge(Setting::getScoped('telegram', [
                 'bot_token' => '',
                 'webhook_url' => '',
                 'enabled' => false,
@@ -90,7 +115,7 @@ class SettingsController extends Controller
                     return $base ? (rtrim($base, '/').'/telegram-webhook') : '';
                 })(),
             ]),
-            'instagramSettings' => Setting::get('instagram', [
+            'instagramSettings' => Setting::getScoped('instagram', [
                 'enabled' => false,
                 'access_token' => '',
                 'webhook_verify_token' => '',
@@ -191,13 +216,13 @@ class SettingsController extends Controller
 
         // Don't update password if it's empty (keep existing)
         if (empty($validated['password'])) {
-            $existing = Setting::get('smtp', []);
+            $existing = Setting::getScoped('smtp', []);
             if (isset($existing['password'])) {
                 $validated['password'] = $existing['password'];
             }
         }
 
-        Setting::set('smtp', $validated);
+        Setting::setForOrganization('smtp', $validated);
 
         // Update .env file or config cache if needed
         // For now, we'll just store in database
@@ -216,7 +241,7 @@ class SettingsController extends Controller
             'enabled' => 'boolean',
         ]);
 
-        Setting::set('ronibot', $validated);
+        Setting::setForOrganization('ronibot', $validated);
 
         return redirect()->back()
             ->with('success', 'Ronibot settings updated successfully.');
@@ -230,7 +255,7 @@ class SettingsController extends Controller
         ]);
 
         try {
-            $ronibotSettings = Setting::get('ronibot', []);
+            $ronibotSettings = Setting::getScoped('ronibot', []);
 
             if (empty($ronibotSettings['appkey']) || empty($ronibotSettings['authkey'])) {
                 return redirect()->back()
@@ -271,10 +296,10 @@ class SettingsController extends Controller
             'enabled' => 'boolean',
         ]);
 
-        $previous = Setting::get('telegram', []);
+        $previous = Setting::getScoped('telegram', []);
         // ادغام با قبلی تا در صورت عدم ارسال token از فرم، مقدار قبلی حفظ شود
         $toSave = array_merge($previous, $validated);
-        Setting::set('telegram', $toSave);
+        Setting::setForOrganization('telegram', $toSave);
 
         // ثبت یا حذف وب‌هوک با تلگرام (الزامی برای دریافت پیام‌های ربات)
         $telegramService = app(\App\Services\TelegramService::class);
@@ -308,13 +333,16 @@ class SettingsController extends Controller
 
     protected function getTelegramWebhookUrl(): string
     {
+        $orgSlug = Auth::user()?->currentOrganization?->slug;
+        $path = $orgSlug ? '/telegram-webhook/'.$orgSlug : '/telegram-webhook';
+
         $custom = trim(env('TELEGRAM_WEBHOOK_URL', ''));
         if ($custom !== '') {
-            return str_contains($custom, '/telegram-webhook') ? $custom : rtrim($custom, '/').'/telegram-webhook';
+            return str_contains($custom, '/telegram-webhook') ? $custom : rtrim($custom, '/').$path;
         }
         $base = rtrim(config('app.url', ''), '/');
 
-        return $base ? ($base.'/telegram-webhook') : '';
+        return $base ? ($base.$path) : '';
     }
 
     /**
@@ -322,7 +350,7 @@ class SettingsController extends Controller
      */
     public function registerTelegramWebhook(Request $request)
     {
-        $settings = Setting::get('telegram', []);
+        $settings = Setting::getScoped('telegram', []);
         $token = trim($settings['bot_token'] ?? '');
         if ($token === '') {
             return redirect()->route('settings.index', ['tab' => 'telegram'])
@@ -376,12 +404,12 @@ class SettingsController extends Controller
             'webhook_verify_token' => 'nullable|string|max:255',
         ]);
 
-        $current = Setting::get('instagram', []);
+        $current = Setting::getScoped('instagram', []);
         if (empty($validated['access_token'])) {
             $validated['access_token'] = $current['access_token'] ?? '';
         }
         $validated['webhook_verify_token'] = $validated['webhook_verify_token'] ?? $current['webhook_verify_token'] ?? '';
-        Setting::set('instagram', $validated);
+        Setting::setForOrganization('instagram', $validated);
 
         return redirect()->back()
             ->with('success', 'Instagram settings updated successfully.');
@@ -408,7 +436,7 @@ class SettingsController extends Controller
         ]);
 
         try {
-            $smtpSettings = Setting::get('smtp', []);
+            $smtpSettings = Setting::getScoped('smtp', []);
 
             if (empty($smtpSettings['host']) || empty($smtpSettings['username'])) {
                 return redirect()->back()

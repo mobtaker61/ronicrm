@@ -154,7 +154,7 @@ class TelegramWebhookController extends Controller
     protected function getFileUrl(string $fileId): ?string
     {
         try {
-            $settings = \App\Models\Setting::get('telegram', []);
+            $settings = \App\Models\Setting::getScoped('telegram', []);
             $token = $settings['bot_token'] ?? '';
             if ($token === '') {
                 return null;

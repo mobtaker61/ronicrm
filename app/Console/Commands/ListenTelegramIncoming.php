@@ -2,17 +2,27 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Organization;
 use App\Models\TelegramUserConnection;
+use App\Support\OrganizationContext;
 use App\Telegram\IncomingMessageHandler;
 use Illuminate\Console\Command;
 
 class ListenTelegramIncoming extends Command
 {
-    protected $signature = 'telegram:listen-incoming';
+    protected $signature = 'telegram:listen-incoming {--organization_id=}';
     protected $description = 'Listen for incoming Telegram DMs in real-time (run in screen/supervisor)';
 
     public function handle(): int
     {
+        $organizationId = $this->option('organization_id');
+        if ($organizationId) {
+            OrganizationContext::setOrganizationId((int) $organizationId);
+        } elseif (! OrganizationContext::hasOrganization()) {
+            $fallback = Organization::query()->where('is_active', true)->orderBy('id')->value('id');
+            OrganizationContext::setOrganizationId($fallback ? (int) $fallback : null);
+        }
+
         $conn = TelegramUserConnection::getActive();
         if (!$conn || !$conn->isConnected()) {
             $this->error('No active Telegram user connection. Connect via Settings first.');

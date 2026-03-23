@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Crypt;
@@ -9,9 +10,12 @@ use Illuminate\Support\Facades\Storage;
 
 class TelegramUserConnection extends Model
 {
+    use BelongsToOrganization;
+
     protected $table = 'telegram_user_connections';
 
     protected $fillable = [
+        'organization_id',
         'user_id',
         'phone',
         'telegram_username',
@@ -126,11 +130,15 @@ class TelegramUserConnection extends Model
         return true;
     }
 
-    public static function getActive(): ?self
+    public static function getActive(?int $organizationId = null): ?self
     {
-        $conn = self::where('status', 'connected')
+        $query = self::where('status', 'connected')
             ->orderBy('updated_at', 'desc')
-            ->first();
+            ->limit(1);
+        if ($organizationId) {
+            $query->forOrganization($organizationId);
+        }
+        $conn = $query->first();
         if ($conn && $conn->session_path && !$conn->hasSessionOnDisk()) {
             return null;
         }

@@ -116,6 +116,18 @@
                         >
                             Users Management
                         </button>
+                        <button
+                            v-if="isSuperAdmin"
+                            @click="activeTab = 'organizations'"
+                            :class="[
+                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
+                                activeTab === 'organizations'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ]"
+                        >
+                            Organizations
+                        </button>
                     </nav>
                 </div>
 
@@ -650,6 +662,226 @@
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Organizations Tab (Super Admin Only) -->
+                <div v-if="activeTab === 'organizations' && isSuperAdmin" class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900">Organizations</h2>
+                            <p class="text-sm text-gray-500 mt-1">Manage organizations across the whole platform.</p>
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="saveOrganization" class="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                                <input
+                                    v-model="organizationForm.name"
+                                    type="text"
+                                    required
+                                    placeholder="Organization name"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Slug *</label>
+                                <input
+                                    v-model="organizationForm.slug"
+                                    type="text"
+                                    required
+                                    placeholder="organization-slug"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div class="flex items-center pt-7">
+                                <label class="flex items-center space-x-2">
+                                    <input
+                                        v-model="organizationForm.is_active"
+                                        type="checkbox"
+                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span class="text-sm text-gray-700">Active</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-3">
+                            <button
+                                v-if="editingOrganization"
+                                type="button"
+                                @click="resetOrganizationForm"
+                                class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 text-sm"
+                            >
+                                Cancel Edit
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="organizationForm.processing"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
+                            >
+                                {{ organizationForm.processing ? 'Saving...' : (editingOrganization ? 'Update Organization' : 'Create Organization') }}
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slug</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Members</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <tr v-for="organization in organizations" :key="organization.id" class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ organization.name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ organization.slug }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                            <span
+                                                :class="organization.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'"
+                                                class="px-2 py-1 rounded-full text-xs font-medium"
+                                            >
+                                                {{ organization.is_active ? 'Active' : 'Inactive' }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ organization.users_count }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <button
+                                                @click="editOrganization(organization)"
+                                                class="text-blue-600 hover:text-blue-900 mr-4"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                @click="openMembersModal(organization)"
+                                                class="text-indigo-600 hover:text-indigo-900 mr-4"
+                                            >
+                                                Members
+                                            </button>
+                                            <button
+                                                @click="deleteOrganization(organization)"
+                                                :disabled="organization.slug === 'roni-plus'"
+                                                :class="[
+                                                    'text-red-600 hover:text-red-900',
+                                                    organization.slug === 'roni-plus' ? 'opacity-50 cursor-not-allowed' : ''
+                                                ]"
+                                            >
+                                                Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div v-if="!organizations.length" class="px-6 py-8 text-center text-gray-500">
+                            No organizations found.
+                        </div>
+                    </div>
+
+                    <div
+                        v-if="showMembersModal"
+                        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                        @click.self="closeMembersModal"
+                    >
+                        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                                <h3 class="text-lg font-semibold text-gray-900">
+                                    Manage Members - {{ selectedOrganizationForMembers?.name }}
+                                </h3>
+                                <button @click="closeMembersModal" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+                            </div>
+                            <div class="p-6 space-y-5">
+                                <form @submit.prevent="addOrganizationMember" class="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-4">
+                                    <h4 class="text-sm font-semibold text-gray-800">Add Member</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">User *</label>
+                                            <select v-model="memberForm.user_id" required class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                                <option value="">Select user</option>
+                                                <option v-for="u in users" :key="u.id" :value="u.id">{{ u.name }} ({{ u.email }})</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">Role *</label>
+                                            <select v-model="memberForm.role_in_org" required class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                                <option value="org_admin">org_admin</option>
+                                                <option value="org_manager">org_manager</option>
+                                                <option value="org_agent">org_agent</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">Status *</label>
+                                            <select v-model="memberForm.status" required class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                                <option value="active">active</option>
+                                                <option value="inactive">inactive</option>
+                                            </select>
+                                        </div>
+                                        <div class="flex items-end">
+                                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                <input v-model="memberForm.is_default" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                                Default org for user
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-end">
+                                        <button type="submit" :disabled="memberForm.processing || !selectedOrganizationForMembers" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm">
+                                            {{ memberForm.processing ? 'Adding...' : 'Add Member' }}
+                                        </button>
+                                    </div>
+                                </form>
+
+                                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Default</th>
+                                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-100 bg-white">
+                                            <tr v-for="member in selectedOrganizationMembers" :key="member.id">
+                                                <td class="px-4 py-2 text-sm text-gray-900">{{ member.name }}</td>
+                                                <td class="px-4 py-2 text-sm text-gray-500">{{ member.email }}</td>
+                                                <td class="px-4 py-2">
+                                                    <select v-model="member.role_in_org" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                                                        <option value="org_admin">org_admin</option>
+                                                        <option value="org_manager">org_manager</option>
+                                                        <option value="org_agent">org_agent</option>
+                                                    </select>
+                                                </td>
+                                                <td class="px-4 py-2">
+                                                    <select v-model="member.status" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                                                        <option value="active">active</option>
+                                                        <option value="inactive">inactive</option>
+                                                    </select>
+                                                </td>
+                                                <td class="px-4 py-2">
+                                                    <input v-model="member.is_default" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                                </td>
+                                                <td class="px-4 py-2 text-right whitespace-nowrap">
+                                                    <button @click="updateOrganizationMember(member)" class="text-blue-600 hover:text-blue-900 mr-3 text-sm">Save</button>
+                                                    <button @click="removeOrganizationMember(member)" class="text-red-600 hover:text-red-900 text-sm">Remove</button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <div v-if="!selectedOrganizationMembers.length" class="px-4 py-6 text-center text-sm text-gray-500">
+                                        No members in this organization.
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1317,6 +1549,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    organizations: {
+        type: Array,
+        default: () => [],
+    },
     roles: {
         type: Array,
         default: () => [],
@@ -1366,6 +1602,7 @@ const props = defineProps({
 const activeTab = ref(props.initialTab || 'social-media');
 const showAddModal = ref(false);
 const page = usePage();
+const isSuperAdmin = computed(() => (page.props.auth?.user?.roles || []).includes('super_admin'));
 const languages = computed(() => page.props.languages || []);
 const telegramGroupCategories = computed(() => page.props.telegramGroupCategories || []);
 
@@ -1456,6 +1693,23 @@ const testEmail = ref('');
 const showCreateUserModal = ref(false);
 const showEditUserModal = ref(false);
 const editingUser = ref(null);
+const editingOrganization = ref(null);
+const showMembersModal = ref(false);
+const selectedOrganizationForMembers = ref(null);
+const selectedOrganizationMembers = ref([]);
+
+const organizationForm = useForm({
+    name: '',
+    slug: '',
+    is_active: true,
+});
+
+const memberForm = useForm({
+    user_id: '',
+    role_in_org: 'org_agent',
+    status: 'active',
+    is_default: false,
+});
 
 const userForm = useForm({
     name: '',
@@ -2135,6 +2389,136 @@ const closeUserModal = () => {
     editingUser.value = null;
     userForm.reset();
     userForm.clearErrors();
+};
+
+const editOrganization = (organization) => {
+    editingOrganization.value = organization;
+    organizationForm.name = organization.name;
+    organizationForm.slug = organization.slug;
+    organizationForm.is_active = !!organization.is_active;
+};
+
+const resetOrganizationForm = () => {
+    editingOrganization.value = null;
+    organizationForm.reset();
+    organizationForm.is_active = true;
+    organizationForm.clearErrors();
+};
+
+const saveOrganization = () => {
+    if (editingOrganization.value) {
+        organizationForm.put(route('settings.organizations.update', editingOrganization.value.id), {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                resetOrganizationForm();
+            },
+        });
+        return;
+    }
+
+    organizationForm.post(route('settings.organizations.store'), {
+        preserveState: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            resetOrganizationForm();
+        },
+    });
+};
+
+const deleteOrganization = (organization) => {
+    if (organization.slug === 'roni-plus') {
+        return;
+    }
+
+    if (!confirm(`Delete organization "${organization.name}"?`)) {
+        return;
+    }
+
+    router.delete(route('settings.organizations.destroy', organization.id), {
+        preserveState: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            if (editingOrganization.value?.id === organization.id) {
+                resetOrganizationForm();
+            }
+        },
+    });
+};
+
+const openMembersModal = (organization) => {
+    selectedOrganizationForMembers.value = organization;
+    selectedOrganizationMembers.value = Array.isArray(organization.members)
+        ? organization.members.map((m) => ({ ...m }))
+        : [];
+    memberForm.reset();
+    memberForm.role_in_org = 'org_agent';
+    memberForm.status = 'active';
+    memberForm.is_default = false;
+    showMembersModal.value = true;
+};
+
+const closeMembersModal = () => {
+    showMembersModal.value = false;
+    selectedOrganizationForMembers.value = null;
+    selectedOrganizationMembers.value = [];
+    memberForm.reset();
+};
+
+const addOrganizationMember = () => {
+    const organizationId = selectedOrganizationForMembers.value?.id;
+    if (!organizationId) return;
+
+    memberForm.post(route('settings.organizations.members.store', organizationId), {
+        preserveScroll: true,
+        onSuccess: () => {
+            router.reload({
+                only: ['organizations', 'users', 'currentOrganization', 'currentOrganizationRole'],
+                preserveState: true,
+                onSuccess: () => {
+                    const refreshed = props.organizations.find((o) => o.id === organizationId);
+                    if (refreshed) {
+                        openMembersModal(refreshed);
+                    }
+                },
+            });
+        },
+    });
+};
+
+const updateOrganizationMember = (member) => {
+    const organizationId = selectedOrganizationForMembers.value?.id;
+    if (!organizationId) return;
+
+    router.put(
+        `/settings/organizations/${organizationId}/members/${member.id}`,
+        {
+            role_in_org: member.role_in_org,
+            status: member.status,
+            is_default: !!member.is_default,
+        },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                router.reload({ only: ['organizations', 'currentOrganization', 'currentOrganizationRole'], preserveState: true });
+            },
+        }
+    );
+};
+
+const removeOrganizationMember = (member) => {
+    const organizationId = selectedOrganizationForMembers.value?.id;
+    if (!organizationId) return;
+
+    if (!confirm(`Remove "${member.name}" from this organization?`)) return;
+
+    router.delete(`/settings/organizations/${organizationId}/members/${member.id}`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            selectedOrganizationMembers.value = selectedOrganizationMembers.value.filter((m) => m.id !== member.id);
+            router.reload({ only: ['organizations', 'currentOrganization', 'currentOrganizationRole'], preserveState: true });
+        },
+    });
 };
 
 const formatDate = (dateString) => {

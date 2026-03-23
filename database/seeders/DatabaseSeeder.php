@@ -28,7 +28,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@ronicrm.com',
             'password' => bcrypt('password'),
         ]);
-        $admin->assignRole('admin');
+        $admin->assignRole(['super_admin', 'admin']);
 
         // Create regular user
         $user = User::factory()->create([
