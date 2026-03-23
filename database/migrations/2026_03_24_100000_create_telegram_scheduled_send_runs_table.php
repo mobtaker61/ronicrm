@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('telegram_scheduled_send_runs')) {
+            return;
+        }
+
         Schema::dropIfExists('telegram_scheduled_send_items');
         Schema::dropIfExists('telegram_scheduled_send_runs');
         Schema::create('telegram_scheduled_send_runs', function (Blueprint $table) {

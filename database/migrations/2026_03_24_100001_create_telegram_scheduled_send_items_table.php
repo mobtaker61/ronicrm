@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('telegram_scheduled_send_items')) {
+            return;
+        }
+
         Schema::create('telegram_scheduled_send_items', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('telegram_scheduled_send_run_id');
