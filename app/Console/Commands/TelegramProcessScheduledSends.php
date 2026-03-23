@@ -25,7 +25,13 @@ class TelegramProcessScheduledSends extends Command
     {
         try {
             if (! Schema::hasTable('telegram_scheduled_send_runs')) {
-                Log::error('Telegram scheduled send: telegram_scheduled_send_runs table does not exist. Run migrations: php artisan migrate');
+                $dbName = DB::connection()->getDatabaseName();
+                Log::error('Telegram scheduled send: telegram_scheduled_send_runs table does not exist.', [
+                    'database' => $dbName,
+                    'connection' => config('database.default'),
+                    'cwd' => getcwd(),
+                    'hint' => 'Cron may be using wrong working directory. Ensure crontab runs: cd /path/to/project && php artisan schedule:run',
+                ]);
 
                 return 1;
             }
