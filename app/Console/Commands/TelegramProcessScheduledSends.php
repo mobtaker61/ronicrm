@@ -20,21 +20,38 @@ class TelegramProcessScheduledSends extends Command
 
     public function handle(): int
     {
-        $conn = TelegramUserConnection::getActive();
-        if (! $conn || ! $conn->isConnected()) {
+        try {
+            $conn = TelegramUserConnection::getActive();
+            if (! $conn || ! $conn->isConnected()) {
+                return 0;
+            }
+
+            $due = TelegramScheduledSend::dueNow()->get();
+            if ($due->isEmpty()) {
+                return 0;
+            }
+
+            foreach ($due as $schedule) {
+                try {
+                    $this->processOne($schedule, $conn);
+                } catch (\Throwable $e) {
+                    Log::error('Telegram scheduled send processOne failed', [
+                        'schedule_id' => $schedule->id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                }
+            }
+
             return 0;
-        }
+        } catch (\Throwable $e) {
+            Log::error('Telegram process-scheduled-sends command failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
 
-        $due = TelegramScheduledSend::dueNow()->get();
-        if ($due->isEmpty()) {
-            return 0;
+            return 1;
         }
-
-        foreach ($due as $schedule) {
-            $this->processOne($schedule, $conn);
-        }
-
-        return 0;
     }
 
     protected function processOne(TelegramScheduledSend $schedule, TelegramUserConnection $conn): void

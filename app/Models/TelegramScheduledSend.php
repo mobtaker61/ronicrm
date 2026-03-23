@@ -47,18 +47,22 @@ class TelegramScheduledSend extends Model
         return $query->where('status', 'active');
     }
 
+    /**
+     * Schedules that are due: scheduled time has passed today, not yet sent today, runs left.
+     * Uses app timezone (config app.timezone). Cron runs every minute; we match when current time >= send_at_time.
+     */
     public function scopeDueNow($query)
     {
         $now = now();
-        $currentTime = $now->format('H:i');
+        $currentTime = $now->format('H:i:s');
 
         return $query->where('status', 'active')
-            ->whereRaw('TIME_FORMAT(send_at_time, "%H:%i") = ?', [$currentTime])
+            ->whereColumn('runs_count', '<', 'days_count')
+            ->whereRaw('send_at_time <= ?', [$currentTime])
             ->where(function ($q) use ($now) {
                 $q->whereNull('last_sent_at')
                     ->orWhereRaw('DATE(last_sent_at) < ?', [$now->toDateString()]);
-            })
-            ->whereColumn('runs_count', '<', 'days_count');
+            });
     }
 
     public function stop(): void
@@ -70,6 +74,7 @@ class TelegramScheduledSend extends Model
     {
         $this->increment('runs_count');
         $this->update(['last_sent_at' => now()]);
+        $this->refresh();
         if ($this->runs_count >= $this->days_count) {
             $this->update(['status' => 'completed']);
         }
