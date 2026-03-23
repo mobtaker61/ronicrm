@@ -26,7 +26,7 @@ class TelegramScheduledSendController extends Controller
         $templates = CampaignTemplate::where('type', 'telegram')->orderBy('name')->get(['id', 'name']);
         $categories = TelegramGroupCategory::orderBy('sort_order')->orderBy('name')->get(['id', 'name']);
 
-        $schedules = TelegramScheduledSend::with(['template:id,name', 'category:id,name'])
+        $schedules = TelegramScheduledSend::with(['template:id,name', 'category:id,name', 'runs' => fn ($q) => $q->orderByDesc('run_date')->limit(5)->with('items')])
             ->where('user_id', $request->user()->id)
             ->orderByDesc('created_at')
             ->get()
@@ -43,6 +43,14 @@ class TelegramScheduledSendController extends Controller
                 'last_sent_at' => $s->last_sent_at?->toIso8601String(),
                 'status' => $s->status,
                 'created_at' => $s->created_at->toIso8601String(),
+                'runs' => $s->runs->map(fn ($r) => [
+                    'id' => $r->id,
+                    'run_date' => $r->run_date->toDateString(),
+                    'status' => $r->status,
+                    'sent_count' => $r->items->where('status', 'sent')->count(),
+                    'failed_count' => $r->items->where('status', 'failed')->count(),
+                    'pending_count' => $r->items->where('status', 'pending')->count(),
+                ])->values()->all(),
             ]);
 
         return Inertia::render('Telegram/ScheduledSends', [
@@ -113,6 +121,7 @@ class TelegramScheduledSendController extends Controller
                 'last_sent_at' => $schedule->last_sent_at?->toIso8601String(),
                 'status' => $schedule->status,
                 'created_at' => $schedule->created_at->toIso8601String(),
+                'runs' => [],
             ],
         ]);
     }

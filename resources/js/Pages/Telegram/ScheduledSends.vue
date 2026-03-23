@@ -120,39 +120,54 @@
                             <tr v-if="!schedules.length" class="text-center text-gray-500 py-8">
                                 <td colspan="7" class="px-4 py-6">No scheduled sends yet.</td>
                             </tr>
-                            <tr v-for="s in schedules" :key="s.id" class="hover:bg-gray-50">
-                                <td class="px-4 py-3 text-sm text-gray-900">{{ s.type_label }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-600 max-w-[200px] truncate" :title="s.template?.name || s.post_link">
-                                    {{ s.type === 'template' ? (s.template?.name || '—') : (s.post_link || '—') }}
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-600">{{ s.category?.name || '—' }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-600">{{ s.send_at_time }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-600">{{ s.runs_count }} / {{ s.days_count }}</td>
-                                <td class="px-4 py-3">
-                                    <span
-                                        :class="[
-                                            'inline-flex px-2 py-0.5 text-xs font-medium rounded-full',
-                                            s.status === 'active' ? 'bg-green-100 text-green-800' : '',
-                                            s.status === 'stopped' ? 'bg-gray-100 text-gray-800' : '',
-                                            s.status === 'completed' ? 'bg-blue-100 text-blue-800' : ''
-                                        ]"
-                                    >
-                                        {{ s.status }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <button
-                                        v-if="s.status === 'active'"
-                                        type="button"
-                                        @click="stop(s)"
-                                        :disabled="stoppingId === s.id"
-                                        class="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
-                                    >
-                                        {{ stoppingId === s.id ? '...' : 'Stop' }}
-                                    </button>
-                                    <span v-else class="text-gray-400 text-sm">—</span>
-                                </td>
-                            </tr>
+                            <template v-for="s in schedules" :key="s.id">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-sm text-gray-900">{{ s.type_label }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 max-w-[200px] truncate" :title="s.template?.name || s.post_link">
+                                        {{ s.type === 'template' ? (s.template?.name || '—') : (s.post_link || '—') }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">{{ s.category?.name || '—' }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">{{ s.send_at_time }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">{{ s.runs_count }} / {{ s.days_count }}</td>
+                                    <td class="px-4 py-3">
+                                        <span
+                                            :class="[
+                                                'inline-flex px-2 py-0.5 text-xs font-medium rounded-full',
+                                                s.status === 'active' ? 'bg-green-100 text-green-800' : '',
+                                                s.status === 'stopped' ? 'bg-gray-100 text-gray-800' : '',
+                                                s.status === 'completed' ? 'bg-blue-100 text-blue-800' : ''
+                                            ]"
+                                        >
+                                            {{ s.status }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <button
+                                            v-if="s.status === 'active'"
+                                            type="button"
+                                            @click="stop(s)"
+                                            :disabled="stoppingId === s.id"
+                                            class="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
+                                        >
+                                            {{ stoppingId === s.id ? '...' : 'Stop' }}
+                                        </button>
+                                        <span v-else class="text-gray-400 text-sm">—</span>
+                                    </td>
+                                </tr>
+                                <tr v-if="s.runs?.length" class="bg-gray-50/50">
+                                    <td colspan="7" class="px-4 py-2">
+                                        <div class="text-xs text-gray-600 space-y-1">
+                                            <div v-for="r in s.runs" :key="r.id" class="flex gap-4">
+                                                <span>{{ r.run_date }}</span>
+                                                <span :class="r.status === 'completed' ? 'text-green-700' : 'text-amber-700'">{{ r.status }}</span>
+                                                <span>✓ {{ r.sent_count }}</span>
+                                                <span v-if="r.failed_count" class="text-red-700">✗ {{ r.failed_count }}</span>
+                                                <span v-if="r.pending_count" class="text-gray-500">⏳ {{ r.pending_count }}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
                         </tbody>
                     </table>
                 </div>
