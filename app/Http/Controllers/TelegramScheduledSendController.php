@@ -50,6 +50,7 @@ class TelegramScheduledSendController extends Controller
             'templates' => $templates,
             'categories' => $categories,
             'schedules' => $schedules,
+            'timezone' => config('app.timezone', 'UTC'),
         ]);
     }
 

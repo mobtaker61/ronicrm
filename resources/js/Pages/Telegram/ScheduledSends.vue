@@ -31,7 +31,7 @@
             <div class="bg-white rounded-lg shadow p-6">
                 <h2 class="text-lg font-semibold text-gray-900 mb-4">Add Scheduled Send</h2>
                 <p class="text-sm text-gray-600 mb-4">
-                    Choose template or post link, select a category. Sends run daily at the specified time for the given number of days. Only groups with can_post are used.
+                    Choose template or post link, select a category. Sends run daily at the specified time for the given number of days. Only groups with can_post are used. Time uses server timezone ({{ timezone }}).
                 </p>
                 <form @submit.prevent="create" class="space-y-4">
                     <div class="flex flex-wrap gap-6">
@@ -172,6 +172,7 @@ const props = defineProps({
     templates: { type: Array, default: () => [] },
     categories: { type: Array, default: () => [] },
     schedules: { type: Array, default: () => [] },
+    timezone: { type: String, default: 'UTC' },
 });
 
 const error = ref('');
