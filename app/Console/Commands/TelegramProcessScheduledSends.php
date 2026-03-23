@@ -10,8 +10,10 @@ use App\Models\TelegramScheduledSendRun;
 use App\Models\TelegramUserConnection;
 use App\Services\MadelineProtoService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
 
 class TelegramProcessScheduledSends extends Command
 {
@@ -22,9 +24,10 @@ class TelegramProcessScheduledSends extends Command
     public function handle(): int
     {
         try {
-            $conn = TelegramUserConnection::getActive();
-            if (! $conn || ! $conn->isConnected()) {
-                return 0;
+            if (! Schema::hasTable('telegram_scheduled_send_runs')) {
+                Log::error('Telegram scheduled send: telegram_scheduled_send_runs table does not exist. Run migrations: php artisan migrate');
+
+                return 1;
             }
 
             $due = TelegramScheduledSend::dueNow()->get();
@@ -33,8 +36,12 @@ class TelegramProcessScheduledSends extends Command
             }
 
             foreach ($due as $schedule) {
+                $scheduleConn = TelegramUserConnection::where('user_id', $schedule->user_id)->where('status', 'connected')->first();
+                if (! $scheduleConn || ! $scheduleConn->isConnected()) {
+                    continue;
+                }
                 try {
-                    $this->processOne($schedule, $conn);
+                    $this->processOne($schedule, $scheduleConn);
                 } catch (\Throwable $e) {
                     Log::error('Telegram scheduled send processOne failed', [
                         'schedule_id' => $schedule->id,
@@ -57,6 +64,24 @@ class TelegramProcessScheduledSends extends Command
 
     protected function processOne(TelegramScheduledSend $schedule, TelegramUserConnection $conn): void
     {
+        $lockKey = 'telegram_scheduled_send_' . $schedule->id;
+        $lock = Cache::lock($lockKey, 120);
+
+        if (! $lock->get()) {
+            Log::info('Telegram scheduled send: skip, already processing', ['schedule_id' => $schedule->id]);
+
+            return;
+        }
+
+        try {
+            $this->processOneLocked($schedule, $conn);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    protected function processOneLocked(TelegramScheduledSend $schedule, TelegramUserConnection $conn): void
+    {
         $today = now()->toDateString();
 
         $run = TelegramScheduledSendRun::firstOrCreate(
@@ -66,6 +91,8 @@ class TelegramProcessScheduledSends extends Command
             ],
             ['status' => 'in_progress']
         );
+
+        $run->refresh();
 
         $groupIds = TelegramGroup::where('telegram_user_connection_id', $conn->id)
             ->active()
@@ -92,7 +119,7 @@ class TelegramProcessScheduledSends extends Command
             TelegramScheduledSendItem::firstOrCreate(
                 [
                     'telegram_scheduled_send_run_id' => $run->id,
-                    'telegram_group_id' => $groupId,
+                    'telegram_group_id' => (string) $groupId,
                 ],
                 ['status' => 'pending']
             );
@@ -196,10 +223,15 @@ class TelegramProcessScheduledSends extends Command
             }
         }
 
+        $runCount = DB::table('telegram_scheduled_send_runs')->where('telegram_scheduled_send_id', $schedule->id)->count();
+        $itemCount = DB::table('telegram_scheduled_send_items')->where('telegram_scheduled_send_run_id', $run->id)->count();
+
         Log::info('Telegram scheduled send processed', [
             'schedule_id' => $schedule->id,
             'run_id' => $run->id,
             'processed' => $pendingItems->count(),
+            'db_runs_total' => $runCount,
+            'db_items_in_run' => $itemCount,
         ]);
     }
 

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TelegramScheduledSendItem extends Model
 {
+    protected $table = 'telegram_scheduled_send_items';
+
     protected $fillable = [
         'telegram_scheduled_send_run_id',
         'telegram_group_id',

@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TelegramScheduledSendRun extends Model
 {
+    protected $table = 'telegram_scheduled_send_runs';
+
     protected $fillable = [
         'telegram_scheduled_send_id',
         'run_date',
