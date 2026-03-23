@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    public bool $withinTransaction = false;
+
     public function up(): void
     {
         if (Schema::hasTable('telegram_scheduled_send_runs')) {
