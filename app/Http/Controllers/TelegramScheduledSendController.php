@@ -60,6 +60,7 @@ class TelegramScheduledSendController extends Controller
             'categories' => $categories,
             'schedules' => $schedules,
             'timezone' => config('app.timezone', 'UTC'),
+            'currentTime' => now()->format('H:i'),
         ]);
     }
 
@@ -123,6 +124,79 @@ class TelegramScheduledSendController extends Controller
                 'status' => $schedule->status,
                 'created_at' => $schedule->created_at->toIso8601String(),
                 'runs' => [],
+            ],
+        ]);
+    }
+
+    public function update(Request $request, TelegramScheduledSend $schedule): JsonResponse
+    {
+        if ($schedule->user_id !== $request->user()->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'type' => ['required', 'string', Rule::in(['template', 'forward'])],
+            'campaign_template_id' => ['required_if:type,template', 'nullable', 'exists:campaign_templates,id'],
+            'post_link' => ['required_if:type,forward', 'nullable', 'string', 'max:500'],
+            'telegram_group_category_id' => ['required', 'exists:telegram_group_categories,id'],
+            'send_at_time' => ['required', 'string', 'regex:/^\d{1,2}:\d{2}$/'],
+            'days_count' => ['required', 'integer', 'min:1', 'max:365'],
+        ]);
+
+        if ($validated['type'] === 'forward') {
+            $parsed = MadelineProtoService::parseTelegramPostLink($validated['post_link'] ?? '');
+            if (! $parsed) {
+                return response()->json(['error' => 'Invalid Telegram post link.'], 422);
+            }
+        }
+
+        if ($validated['type'] === 'template') {
+            $tmpl = CampaignTemplate::find($validated['campaign_template_id']);
+            if (! $tmpl || $tmpl->type !== 'telegram') {
+                return response()->json(['error' => 'Invalid template.'], 422);
+            }
+        }
+
+        $time = $validated['send_at_time'];
+        if (preg_match('/^\d{1}:\d{2}$/', $time)) {
+            $time = '0' . $time;
+        }
+        $sendAtTime = \Carbon\Carbon::parse('2000-01-01 ' . $time)->format('H:i:s');
+
+        $schedule->update([
+            'type' => $validated['type'],
+            'campaign_template_id' => $validated['type'] === 'template' ? $validated['campaign_template_id'] : null,
+            'post_link' => $validated['type'] === 'forward' ? trim($validated['post_link']) : null,
+            'telegram_group_category_id' => $validated['telegram_group_category_id'],
+            'send_at_time' => $sendAtTime,
+            'days_count' => $validated['days_count'],
+        ]);
+
+        $schedule->load(['template:id,name', 'category:id,name', 'runs' => fn ($q) => $q->orderByDesc('run_date')->limit(5)->with('items')]);
+
+        return response()->json([
+            'success' => true,
+            'schedule' => [
+                'id' => $schedule->id,
+                'type' => $schedule->type,
+                'type_label' => $schedule->type === 'template' ? 'Template' : 'Forward',
+                'template' => $schedule->template ? ['id' => $schedule->template->id, 'name' => $schedule->template->name] : null,
+                'post_link' => $schedule->post_link,
+                'category' => $schedule->category ? ['id' => $schedule->category->id, 'name' => $schedule->category->name] : null,
+                'send_at_time' => $schedule->send_at_time ? (is_string($schedule->send_at_time) ? substr($schedule->send_at_time, 0, 5) : $schedule->send_at_time->format('H:i')) : null,
+                'days_count' => $schedule->days_count,
+                'runs_count' => $schedule->runs_count,
+                'last_sent_at' => $schedule->last_sent_at?->toIso8601String(),
+                'status' => $schedule->status,
+                'created_at' => $schedule->created_at->toIso8601String(),
+                'runs' => $schedule->runs->map(fn ($r) => [
+                    'id' => $r->id,
+                    'run_date' => $r->run_date->toDateString(),
+                    'status' => $r->status,
+                    'sent_count' => $r->items->where('status', 'sent')->count(),
+                    'failed_count' => $r->items->where('status', 'failed')->count(),
+                    'pending_count' => $r->items->where('status', 'pending')->count(),
+                ])->values()->all(),
             ],
         ]);
     }

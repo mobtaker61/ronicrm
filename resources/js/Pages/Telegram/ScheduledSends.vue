@@ -144,11 +144,19 @@
                                     <td class="px-4 py-3 flex items-center gap-2">
                                         <button
                                             type="button"
+                                            @click="openEdit(s)"
+                                            class="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                                            title="Edit"
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            type="button"
                                             @click="openReport(s)"
                                             class="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                            title="گزارش اجرا"
+                                            title="Execution report"
                                         >
-                                            گزارش
+                                            Report
                                         </button>
                                         <button
                                             v-if="s.status === 'active'"
@@ -195,7 +203,7 @@
                         <div class="relative bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
                             <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                                 <h3 class="text-lg font-semibold text-gray-900">
-                                    گزارش اجرا — {{ reportModal.schedule?.type_label }}: {{ reportModal.schedule?.content || '—' }}
+                                    Execution Report — {{ reportModal.schedule?.type_label }}: {{ reportModal.schedule?.content || '—' }}
                                 </h3>
                                 <button
                                     type="button"
@@ -208,9 +216,9 @@
                                 </button>
                             </div>
                             <div class="px-6 py-4 overflow-auto flex-1">
-                                <div v-if="reportModal.loading" class="text-center py-12 text-gray-500">در حال بارگذاری...</div>
+                                <div v-if="reportModal.loading" class="text-center py-12 text-gray-500">Loading...</div>
                                 <div v-else-if="reportModal.error" class="text-red-600 py-4">{{ reportModal.error }}</div>
-                                <div v-else-if="!reportModal.runs?.length" class="text-gray-500 py-8 text-center">هنوز اجرایی ثبت نشده است.</div>
+                                <div v-else-if="!reportModal.runs?.length" class="text-gray-500 py-8 text-center">No runs recorded yet.</div>
                                 <div v-else class="space-y-6">
                                     <div v-for="r in reportModal.runs" :key="r.id" class="border border-gray-200 rounded-lg overflow-hidden">
                                         <div class="px-4 py-2 bg-gray-50 flex items-center justify-between gap-4 flex-wrap">
@@ -238,7 +246,7 @@
                                                             item.status === 'pending' && 'bg-gray-100 text-gray-600'
                                                         ]"
                                                     >
-                                                        {{ item.status === 'sent' ? 'ارسال شد' : item.status === 'failed' ? 'خطا' : 'در انتظار' }}
+                                                        {{ item.status === 'sent' ? 'Sent' : item.status === 'failed' ? 'Failed' : 'Pending' }}
                                                     </span>
                                                     <span v-if="item.sent_at" class="text-xs text-gray-400 shrink-0">{{ formatDate(item.sent_at) }}</span>
                                                 </div>
@@ -248,6 +256,90 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </Teleport>
+
+            <!-- Edit Modal -->
+            <Teleport to="body">
+                <div
+                    v-if="editModal.show"
+                    class="fixed inset-0 z-50 overflow-y-auto"
+                    role="dialog"
+                    aria-modal="true"
+                >
+                    <div class="flex min-h-screen items-center justify-center p-4">
+                        <div class="fixed inset-0 bg-gray-500/75 transition-opacity" @click="closeEdit" />
+                        <div class="relative bg-white rounded-xl shadow-xl max-w-2xl w-full">
+                            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                                <h3 class="text-lg font-semibold text-gray-900">Edit Scheduled Send</h3>
+                                <button type="button" @click="closeEdit" class="text-gray-400 hover:text-gray-600 rounded-lg p-1">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <form @submit.prevent="update" class="p-6 space-y-4">
+                                <div class="flex flex-wrap gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                        <select v-model="editForm.type" class="rounded-md border-gray-300 text-sm py-2 min-w-[140px]">
+                                            <option value="template">Template</option>
+                                            <option value="forward">Forward Post</option>
+                                        </select>
+                                    </div>
+                                    <div v-if="editForm.type === 'template'" class="min-w-[200px] flex-1">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Template</label>
+                                        <select v-model="editForm.campaign_template_id" required class="w-full rounded-md border-gray-300 text-sm py-2">
+                                            <option value="">Select...</option>
+                                            <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
+                                        </select>
+                                    </div>
+                                    <div v-else class="min-w-[240px] flex-1">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Post link</label>
+                                        <input
+                                            v-model="editForm.post_link"
+                                            type="text"
+                                            placeholder="t.me/channel/123"
+                                            class="w-full rounded-md border-gray-300 text-sm py-2"
+                                        />
+                                    </div>
+                                    <div class="min-w-[160px]">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                                        <select v-model="editForm.telegram_group_category_id" required class="w-full rounded-md border-gray-300 text-sm py-2">
+                                            <option value="">Select...</option>
+                                            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Time (HH:MM)</label>
+                                        <input
+                                            v-model="editForm.send_at_time"
+                                            type="time"
+                                            required
+                                            class="rounded-md border-gray-300 text-sm py-2"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Days</label>
+                                        <input
+                                            v-model.number="editForm.days_count"
+                                            type="number"
+                                            min="1"
+                                            max="365"
+                                            required
+                                            class="rounded-md border-gray-300 text-sm py-2 w-20"
+                                        />
+                                    </div>
+                                </div>
+                                <div class="flex justify-end gap-2 pt-2">
+                                    <button type="button" @click="closeEdit" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm font-medium">Cancel</button>
+                                    <button type="submit" :disabled="editModal.loading" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium">
+                                        {{ editModal.loading ? 'Saving...' : 'Save' }}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -268,6 +360,7 @@ const props = defineProps({
     categories: { type: Array, default: () => [] },
     schedules: { type: Array, default: () => [] },
     timezone: { type: String, default: 'UTC' },
+    currentTime: { type: String, default: '09:00' },
 });
 
 const error = ref('');
@@ -279,11 +372,20 @@ const form = reactive({
     campaign_template_id: '',
     post_link: '',
     telegram_group_category_id: '',
-    send_at_time: '09:00',
+    send_at_time: props.currentTime || '09:00',
     days_count: 7,
 });
 
 const schedules = ref(props.schedules);
+
+const resetForm = () => {
+    form.type = 'template';
+    form.campaign_template_id = '';
+    form.post_link = '';
+    form.telegram_group_category_id = '';
+    form.send_at_time = props.currentTime || '09:00';
+    form.days_count = 7;
+};
 
 const create = async () => {
     if (form.type === 'template' && !form.campaign_template_id) {
@@ -308,8 +410,7 @@ const create = async () => {
         const { data } = await axios.post(route('telegram.scheduled-sends.store'), payload);
         if (data.schedule) {
             schedules.value = [data.schedule, ...schedules.value];
-            form.campaign_template_id = '';
-            form.post_link = '';
+            resetForm();
         }
     } catch (e) {
         error.value = e.response?.data?.error || e.message || 'Failed to add.';
@@ -352,7 +453,7 @@ const openReport = async (s) => {
         reportModal.schedule = data.schedule;
         reportModal.runs = data.runs;
     } catch (e) {
-        reportModal.error = e.response?.data?.error || e.message || 'خطا در بارگذاری گزارش.';
+        reportModal.error = e.response?.data?.error || e.message || 'Failed to load report.';
     } finally {
         reportModal.loading = false;
     }
@@ -366,9 +467,75 @@ const formatDate = (iso) => {
     if (!iso) return '';
     try {
         const d = new Date(iso);
-        return d.toLocaleDateString('fa-IR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     } catch {
         return iso;
+    }
+};
+
+const editModal = reactive({
+    show: false,
+    schedule: null,
+    loading: false,
+});
+
+const editForm = reactive({
+    type: 'template',
+    campaign_template_id: '',
+    post_link: '',
+    telegram_group_category_id: '',
+    send_at_time: '09:00',
+    days_count: 7,
+});
+
+const openEdit = (s) => {
+    editModal.schedule = s;
+    editForm.type = s.type;
+    editForm.campaign_template_id = s.type === 'template' ? String(s.template?.id || '') : '';
+    editForm.post_link = s.post_link || '';
+    editForm.telegram_group_category_id = String(s.category?.id || '');
+    editForm.send_at_time = s.send_at_time || props.currentTime || '09:00';
+    editForm.days_count = s.days_count || 7;
+    editModal.show = true;
+};
+
+const closeEdit = () => {
+    editModal.show = false;
+    editModal.schedule = null;
+};
+
+const update = async () => {
+    const s = editModal.schedule;
+    if (!s) return;
+    if (editForm.type === 'template' && !editForm.campaign_template_id) {
+        error.value = 'Select a template.';
+        return;
+    }
+    if (editForm.type === 'forward' && !editForm.post_link?.trim()) {
+        error.value = 'Enter post link.';
+        return;
+    }
+    error.value = '';
+    editModal.loading = true;
+    try {
+        const payload = {
+            type: editForm.type,
+            campaign_template_id: editForm.type === 'template' ? editForm.campaign_template_id : null,
+            post_link: editForm.type === 'forward' ? editForm.post_link : null,
+            telegram_group_category_id: editForm.telegram_group_category_id,
+            send_at_time: editForm.send_at_time,
+            days_count: editForm.days_count,
+        };
+        const { data } = await axios.put(route('telegram.scheduled-sends.update', { schedule: s.id }), payload);
+        if (data.schedule) {
+            const idx = schedules.value.findIndex(x => x.id === s.id);
+            if (idx >= 0) schedules.value[idx] = data.schedule;
+            closeEdit();
+        }
+    } catch (e) {
+        error.value = e.response?.data?.error || e.message || 'Failed to update.';
+    } finally {
+        editModal.loading = false;
     }
 };
 </script>

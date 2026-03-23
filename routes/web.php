@@ -75,6 +75,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/telegram-crawler/queue-status', [\App\Http\Controllers\TelegramCrawlerController::class, 'queueStatus'])->name('telegram-crawler.queue-status');
     Route::get('/telegram/scheduled-sends', [\App\Http\Controllers\TelegramScheduledSendController::class, 'index'])->name('telegram.scheduled-sends.index');
     Route::post('/telegram/scheduled-sends', [\App\Http\Controllers\TelegramScheduledSendController::class, 'store'])->name('telegram.scheduled-sends.store');
+    Route::put('/telegram/scheduled-sends/{schedule}', [\App\Http\Controllers\TelegramScheduledSendController::class, 'update'])->name('telegram.scheduled-sends.update');
     Route::get('/telegram/scheduled-sends/{schedule}/report', [\App\Http\Controllers\TelegramScheduledSendController::class, 'report'])->name('telegram.scheduled-sends.report');
     Route::post('/telegram/scheduled-sends/{schedule}/stop', [\App\Http\Controllers\TelegramScheduledSendController::class, 'stop'])->name('telegram.scheduled-sends.stop');
 
