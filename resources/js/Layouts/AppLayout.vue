@@ -120,6 +120,73 @@
                     <div>
                         <button
                             type="button"
+                            @click="toggleMenu('commerce')"
+                            :class="[
+                                'w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                                isCommerceSectionActive
+                                    ? 'bg-blue-50 text-blue-700'
+                                    : 'text-gray-700 hover:bg-gray-100'
+                            ]"
+                        >
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m1.6 8L5.4 5M7 13l-1.2 6.5a1 1 0 001 1.2h12.4a1 1 0 001-1.2L19 13M9 19.5a.5.5 0 11-1 0 .5.5 0 011 0zm8 0a.5.5 0 11-1 0 .5.5 0 011 0z" />
+                                </svg>
+                                Commerce
+                            </span>
+                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': openMenus.commerce }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div v-if="openMenus.commerce" class="mt-1 space-y-1">
+                            <Link
+                                :href="getRoute('invoices.index')"
+                                :class="[
+                                    'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
+                                    isCurrentRoute('/invoices')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l2 2 4-4m2 7H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Invoices
+                            </Link>
+                            <Link
+                                :href="getRoute('products.index')"
+                                :class="[
+                                    'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
+                                    isCurrentRoute('/products')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0v10l-8 4m8-14l-8 4m0 10l-8-4V7m8 14V11m0 0L4 7m8 4l8-4" />
+                                </svg>
+                                Products
+                            </Link>
+                            <Link
+                                :href="getRoute('services.index')"
+                                :class="[
+                                    'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
+                                    isCurrentRoute('/services')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-1.414-1.414a2 2 0 00-2.828 0l-8.486 8.486a2 2 0 00-.586 1.414V18h3.878a2 2 0 001.414-.586l8.486-8.486a2 2 0 000-2.828z" />
+                                </svg>
+                                Services
+                            </Link>
+                        </div>
+                    </div>
+
+                    <div>
+                        <button
+                            type="button"
                             @click="toggleMenu('campaigns')"
                             :class="[
                                 'w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors',
@@ -400,6 +467,7 @@ const organizations = computed(() => page.props.organizations || []);
 const selectedOrganizationId = ref(page.props.auth?.user?.current_organization_id || null);
 const openMenus = ref({
     coreData: false,
+    commerce: false,
     campaigns: false,
     telegram: false,
 });
@@ -415,6 +483,11 @@ const isCoreDataSectionActive = computed(() => {
     return isCurrentRoute('/customers')
         || isCurrentRoute('/projects')
         || isCurrentRoute('/industries');
+});
+const isCommerceSectionActive = computed(() => {
+    return isCurrentRoute('/invoices')
+        || isCurrentRoute('/products')
+        || isCurrentRoute('/services');
 });
 const isTelegramSectionActive = computed(() => {
     return isCurrentRoute('/telegram-crawler')
@@ -446,6 +519,9 @@ const getRoute = (name) => {
         'media.index': '/media',
         'industries.index': '/industries',
         'projects.index': '/projects',
+        'invoices.index': '/invoices',
+        'products.index': '/products',
+        'services.index': '/services',
         'reports.index': '/reports',
         'settings.index': '/settings',
     };
