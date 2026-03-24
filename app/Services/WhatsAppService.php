@@ -15,7 +15,7 @@ class WhatsAppService
 
     public function __construct()
     {
-        $settings = Setting::getScoped('ronibot', []);
+        $settings = Setting::getForOrganization('ronibot', []);
         $this->appKey = $settings['appkey'] ?? '';
         $this->authKey = $settings['authkey'] ?? '';
         $this->apiUrl = $settings['api_url'] ?? 'https://ronibot.com/api/create-message';

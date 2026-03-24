@@ -90,7 +90,7 @@ class SettingsController extends Controller
             'roles' => $roles,
             'organizations' => $organizations,
             'socialMediaTypes' => SocialMediaType::orderBy('sort_order')->get(),
-            'smtpSettings' => Setting::getScoped('smtp', [
+            'smtpSettings' => Setting::getForOrganization('smtp', [
                 'host' => '',
                 'port' => '587',
                 'username' => '',
@@ -104,7 +104,7 @@ class SettingsController extends Controller
                 'imap_port' => '993',
                 'imap_encryption' => 'ssl',
             ]),
-            'ronibotSettings' => Setting::getScoped('ronibot', [
+            'ronibotSettings' => Setting::getForOrganization('ronibot', [
                 'api_url' => 'https://ronibot.com/api/create-message',
                 'appkey' => '',
                 'authkey' => '',
@@ -223,7 +223,7 @@ class SettingsController extends Controller
 
         // Don't update password if it's empty (keep existing)
         if (empty($validated['password'])) {
-            $existing = Setting::getScoped('smtp', []);
+            $existing = Setting::getForOrganization('smtp', []);
             if (isset($existing['password'])) {
                 $validated['password'] = $existing['password'];
             }
@@ -262,7 +262,7 @@ class SettingsController extends Controller
         ]);
 
         try {
-            $ronibotSettings = Setting::getScoped('ronibot', []);
+            $ronibotSettings = Setting::getForOrganization('ronibot', []);
 
             if (empty($ronibotSettings['appkey']) || empty($ronibotSettings['authkey'])) {
                 return redirect()->back()
@@ -443,7 +443,7 @@ class SettingsController extends Controller
         ]);
 
         try {
-            $smtpSettings = Setting::getScoped('smtp', []);
+            $smtpSettings = Setting::getForOrganization('smtp', []);
 
             if (empty($smtpSettings['host']) || empty($smtpSettings['username'])) {
                 return redirect()->back()
