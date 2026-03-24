@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\ScrapTask;
 use App\Models\ScrapTaskResult;
 use App\Services\WebScraperService;
+use App\Support\OrganizationContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -20,7 +21,12 @@ class RunScrapTaskJob implements ShouldQueue
 
     public function handle(): void
     {
+        OrganizationContext::setOrganizationId($this->scrapTask->organization_id);
+
         $task = $this->scrapTask->fresh(['urls', 'extractParams', 'listConfig']);
+        if (! $task) {
+            return;
+        }
         if (! in_array($task->status, ['running'], true)) {
             return;
         }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\Project;
+use App\Support\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -15,9 +16,11 @@ class PublicProjectShareController extends Controller
 {
     public function show(string $shareToken): Response|JsonResponse
     {
-        $project = Project::where('share_token', $shareToken)
+        $project = Project::withoutGlobalScope('organization')
+            ->where('share_token', $shareToken)
             ->where('is_share_enabled', true)
             ->firstOrFail();
+        OrganizationContext::setOrganizationId($project->organization_id);
 
         $customers = $project->customers()
             ->with('industry')
@@ -55,9 +58,11 @@ class PublicProjectShareController extends Controller
      */
     public function exportExcel(string $shareToken): StreamedResponse
     {
-        $project = Project::where('share_token', $shareToken)
+        $project = Project::withoutGlobalScope('organization')
+            ->where('share_token', $shareToken)
             ->where('is_share_enabled', true)
             ->firstOrFail();
+        OrganizationContext::setOrganizationId($project->organization_id);
 
         if (!$project->allow_excel_export) {
             throw new NotFoundHttpException('Excel export is not enabled for this project.');
@@ -114,9 +119,11 @@ class PublicProjectShareController extends Controller
      */
     public function getCustomer(string $shareToken, string $shareKey): JsonResponse
     {
-        $project = Project::where('share_token', $shareToken)
+        $project = Project::withoutGlobalScope('organization')
+            ->where('share_token', $shareToken)
             ->where('is_share_enabled', true)
             ->firstOrFail();
+        OrganizationContext::setOrganizationId($project->organization_id);
 
         $customer = Customer::where('share_key', $shareKey)
             ->where('project_id', $project->id)
