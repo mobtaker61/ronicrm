@@ -21,7 +21,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                             </svg>
                         </div>
-                        <h1 class="text-xl font-bold text-white">Roni Plus CRM</h1>
+                        <h1 class="text-xl font-bold text-white truncate max-w-[170px]">{{ currentOrganizationName }}</h1>
                     </div>
                     <button
                         @click="sidebarOpen = false"
@@ -50,50 +50,124 @@
                         Dashboard
                     </Link>
 
-                    <Link
-                        :href="getRoute('customers.index')"
-                        :class="[
-                            'flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
-                            isCurrentRoute('/customers')
-                                ? 'bg-blue-50 text-blue-700' 
-                                : 'text-gray-700 hover:bg-gray-100'
-                        ]"
-                    >
-                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                        Customers
-                    </Link>
+                    <div>
+                        <button
+                            type="button"
+                            @click="toggleMenu('coreData')"
+                            :class="[
+                                'w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                                isCoreDataSectionActive
+                                    ? 'bg-blue-50 text-blue-700'
+                                    : 'text-gray-700 hover:bg-gray-100'
+                            ]"
+                        >
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18" />
+                                </svg>
+                                Clients
+                            </span>
+                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': openMenus.coreData }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div v-if="openMenus.coreData" class="mt-1 space-y-1">
+                            <Link
+                                :href="getRoute('customers.index')"
+                                :class="[
+                                    'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
+                                    isCurrentRoute('/customers')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                Customers
+                            </Link>
+                            <Link
+                                :href="getRoute('projects.index')"
+                                :class="[
+                                    'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
+                                    isCurrentRoute('/projects')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                </svg>
+                                Projects
+                            </Link>
+                            <Link
+                                :href="getRoute('industries.index')"
+                                :class="[
+                                    'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
+                                    isCurrentRoute('/industries')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                </svg>
+                                Industries
+                            </Link>
+                        </div>
+                    </div>
 
                     <div>
-                        <Link
-                            :href="getRoute('campaigns.index')"
+                        <button
+                            type="button"
+                            @click="toggleMenu('campaigns')"
                             :class="[
-                                'flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
-                                isCurrentRoute('/campaigns')
-                                    ? 'bg-blue-50 text-blue-700' 
+                                'w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                                isCampaignsSectionActive
+                                    ? 'bg-blue-50 text-blue-700'
                                     : 'text-gray-700 hover:bg-gray-100'
                             ]"
                         >
-                            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
+                                Campaigns
+                            </span>
+                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': openMenus.campaigns }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
-                            Campaigns
-                        </Link>
-                        <Link
-                            :href="getRoute('campaign-templates.index')"
-                            :class="[
-                                'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
-                                isCurrentRoute('/campaign-templates')
-                                    ? 'bg-blue-50 text-blue-700' 
-                                    : 'text-gray-700 hover:bg-gray-100'
-                            ]"
-                        >
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            Templates
-                        </Link>
+                        </button>
+                        <div v-if="openMenus.campaigns" class="mt-1 space-y-1">
+                            <Link
+                                :href="getRoute('campaigns.index')"
+                                :class="[
+                                    'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
+                                    isCurrentRoute('/campaigns')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h10M7 16h6" />
+                                </svg>
+                                Campaign List
+                            </Link>
+                            <Link
+                                :href="getRoute('campaign-templates.index')"
+                                :class="[
+                                    'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
+                                    isCurrentRoute('/campaign-templates')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Templates
+                            </Link>
+                        </div>
                     </div>
 
                     <Link
@@ -112,42 +186,64 @@
                     </Link>
 
                     <div>
-                        <Link
-                            :href="getRoute('telegram-crawler.index')"
+                        <button
+                            type="button"
+                            @click="toggleMenu('telegram')"
                             :class="[
-                                'flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
-                                isCurrentRoute('/telegram-crawler')
+                                'w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                                isTelegramSectionActive
                                     ? 'bg-blue-50 text-blue-700'
                                     : 'text-gray-700 hover:bg-gray-100'
                             ]"
                         >
-                            <svg class="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
-                            Telegram
-                        </Link>
-                        <Link
-                            :href="getRoute('telegram-groups.index')"
-                            :class="[
-                                'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
-                                isCurrentRoute('/telegram-groups')
-                                    ? 'bg-blue-50 text-blue-700'
-                                    : 'text-gray-700 hover:bg-gray-100'
-                            ]"
-                        >
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                            Groups
-                        </Link>
-                        <Link
-                            :href="getRoute('telegram.scheduled-sends.index')"
-                            :class="[
-                                'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
-                                isCurrentRoute('/telegram/scheduled-sends')
-                                    ? 'bg-blue-50 text-blue-700'
-                                    : 'text-gray-700 hover:bg-gray-100'
-                            ]"
-                        >
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            Scheduled Sends
-                        </Link>
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
+                                Telegram
+                            </span>
+                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': openMenus.telegram }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div v-if="openMenus.telegram" class="mt-1 space-y-1">
+                            <Link
+                                :href="getRoute('telegram-crawler.index')"
+                                :class="[
+                                    'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
+                                    isCurrentRoute('/telegram-crawler')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h8M8 14h5m-7 7h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                Crawler
+                            </Link>
+                            <Link
+                                :href="getRoute('telegram-groups.index')"
+                                :class="[
+                                    'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
+                                    isCurrentRoute('/telegram-groups')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                Groups
+                            </Link>
+                            <Link
+                                :href="getRoute('telegram.scheduled-sends.index')"
+                                :class="[
+                                    'flex items-center px-4 py-3 pl-12 text-sm font-medium rounded-lg transition-colors',
+                                    isCurrentRoute('/telegram/scheduled-sends')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                Scheduled Sends
+                            </Link>
+                        </div>
                     </div>
 
                     <Link
@@ -165,35 +261,6 @@
                         Media
                     </Link>
 
-                    <Link
-                        :href="getRoute('industries.index')"
-                        :class="[
-                            'flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
-                            isCurrentRoute('/industries')
-                                ? 'bg-blue-50 text-blue-700' 
-                                : 'text-gray-700 hover:bg-gray-100'
-                        ]"
-                    >
-                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                        Industries
-                    </Link>
-
-                    <Link
-                        :href="getRoute('projects.index')"
-                        :class="[
-                            'flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
-                            isCurrentRoute('/projects')
-                                ? 'bg-blue-50 text-blue-700' 
-                                : 'text-gray-700 hover:bg-gray-100'
-                        ]"
-                    >
-                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                        </svg>
-                        Projects
-                    </Link>
 
                     <Link
                         :href="getRoute('reports.index')"
@@ -331,6 +398,29 @@ const sidebarOpen = ref(true);
 const page = usePage();
 const organizations = computed(() => page.props.organizations || []);
 const selectedOrganizationId = ref(page.props.auth?.user?.current_organization_id || null);
+const openMenus = ref({
+    coreData: false,
+    campaigns: false,
+    telegram: false,
+});
+const currentOrganizationName = computed(() => {
+    const orgId = page.props.auth?.user?.current_organization_id;
+    const current = organizations.value.find((organization) => String(organization.id) === String(orgId));
+    return current?.name || 'RoniCRM';
+});
+const isCampaignsSectionActive = computed(() => {
+    return isCurrentRoute('/campaigns') || isCurrentRoute('/campaign-templates');
+});
+const isCoreDataSectionActive = computed(() => {
+    return isCurrentRoute('/customers')
+        || isCurrentRoute('/projects')
+        || isCurrentRoute('/industries');
+});
+const isTelegramSectionActive = computed(() => {
+    return isCurrentRoute('/telegram-crawler')
+        || isCurrentRoute('/telegram-groups')
+        || isCurrentRoute('/telegram/scheduled-sends');
+});
 const canAccessSettings = computed(() => {
     const roles = page.props.auth?.user?.roles || [];
     const currentOrganizationRole = page.props.currentOrganizationRole || null;
@@ -373,6 +463,10 @@ const isCurrentRoute = (pattern) => {
 
 const logout = () => {
     router.post('/logout');
+};
+
+const toggleMenu = (menuKey) => {
+    openMenus.value[menuKey] = !openMenus.value[menuKey];
 };
 
 const switchOrganization = () => {
