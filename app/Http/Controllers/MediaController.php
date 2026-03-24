@@ -14,11 +14,25 @@ class MediaController extends Controller
 {
     public function index(Request $request): Response
     {
+        $this->authorize('viewAny', MediaFolder::class);
+
         $folderId = $request->get('folder_id');
+        $currentFolder = $folderId ? $this->resolveVisibleFolder((int) $folderId) : null;
+        if ($folderId && ! $currentFolder) {
+            abort(404);
+        }
+
         $foldersTree = $this->getFoldersTree(null);
-        $currentFolder = $folderId ? MediaFolder::withCount(['files', 'children'])->find($folderId) : null;
-        $childFolders = MediaFolder::where('parent_id', $folderId)->withCount(['files', 'children'])->orderBy('name')->get();
-        $files = MediaFile::where('folder_id', $folderId)->orderBy('name')->get()->map(fn ($f) => $this->formatFile($f));
+        $childFolders = $this->visibleFoldersQuery()
+            ->where('parent_id', $currentFolder?->id)
+            ->withCount(['files', 'children'])
+            ->orderBy('name')
+            ->get();
+        $files = $this->visibleFilesQuery()
+            ->where('folder_id', $currentFolder?->id)
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($f) => $this->formatFile($f));
 
         return Inertia::render('Media/Index', [
             'foldersTree' => $foldersTree,
@@ -26,6 +40,8 @@ class MediaController extends Controller
             'childFolders' => $childFolders,
             'files' => $files,
             'breadcrumbs' => $this->breadcrumbs($folderId),
+            'canCreateSystemScope' => Auth::user()?->hasRole('super_admin') ?? false,
+            'defaultScopeType' => MediaFolder::SCOPE_ORGANIZATION,
         ]);
     }
 
@@ -34,8 +50,27 @@ class MediaController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'parent_id' => 'nullable|exists:media_folders,id',
+            'scope_type' => 'nullable|in:organization,system',
         ]);
+
+        $parent = null;
+        $scopeType = $validated['scope_type'] ?? MediaFolder::SCOPE_ORGANIZATION;
+        $organizationId = Auth::user()?->current_organization_id;
+
+        if (! empty($validated['parent_id'])) {
+            $parent = $this->resolveVisibleFolder((int) $validated['parent_id']);
+            if (! $parent) {
+                abort(404);
+            }
+            $scopeType = $parent->scope_type;
+            $organizationId = $parent->organization_id;
+        }
+
+        $this->authorize('createForScope', [MediaFolder::class, $scopeType, $organizationId]);
+
         MediaFolder::create([
+            'organization_id' => $scopeType === MediaFolder::SCOPE_SYSTEM ? null : $organizationId,
+            'scope_type' => $scopeType,
             'name' => $validated['name'],
             'parent_id' => $validated['parent_id'] ?? null,
             'created_by' => Auth::id(),
@@ -45,6 +80,12 @@ class MediaController extends Controller
 
     public function updateFolder(Request $request, MediaFolder $folder)
     {
+        $folder = $this->resolveVisibleFolder($folder->id);
+        if (! $folder) {
+            abort(404);
+        }
+        $this->authorize('update', $folder);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
         ]);
@@ -59,31 +100,50 @@ class MediaController extends Controller
             'files' => 'nullable|array',
             'files.*' => 'nullable|file|max:51200',
             'folder_id' => 'nullable|exists:media_folders,id',
+            'scope_type' => 'nullable|in:organization,system',
         ], [
             'file.file' => 'فایل به سرور نرسید. در سرور: php.ini را بررسی کنید (upload_max_filesize و post_max_size) و در Nginx مقدار client_max_body_size را افزایش دهید.',
             'files.*.file' => 'فایل به سرور نرسید. در سرور: php.ini را بررسی کنید (upload_max_filesize و post_max_size) و در Nginx مقدار client_max_body_size را افزایش دهید.',
             'file.max' => 'حجم فایل نباید بیشتر از ۵۰ مگابایت باشد.',
             'files.*.max' => 'حجم هر فایل نباید بیشتر از ۵۰ مگابایت باشد.',
         ]);
-        $folderId = $request->input('folder_id') ?: null;
+
+        $folder = null;
+        $scopeType = $request->input('scope_type', MediaFile::SCOPE_ORGANIZATION);
+        $organizationId = Auth::user()?->current_organization_id;
+
+        if ($request->filled('folder_id')) {
+            $folder = $this->resolveVisibleFolder((int) $request->input('folder_id'));
+            if (! $folder) {
+                abort(404);
+            }
+            $scopeType = $folder->scope_type;
+            $organizationId = $folder->organization_id;
+        }
+
+        $this->authorize('createForScope', [MediaFile::class, $scopeType, $organizationId]);
+
+        $folderId = $folder?->id;
         $uploaded = 0;
         if ($request->hasFile('file')) {
-            $uploaded = $this->storeOneFile($request->file('file'), $folderId);
+            $uploaded = $this->storeOneFile($request->file('file'), $folderId, $scopeType, $organizationId);
         }
         if ($request->hasFile('files')) {
             foreach ($request->file('files') as $file) {
                 if ($file && $file->isValid()) {
-                    $uploaded += $this->storeOneFile($file, $folderId);
+                    $uploaded += $this->storeOneFile($file, $folderId, $scopeType, $organizationId);
                 }
             }
         }
         return redirect()->back()->with('success', $uploaded ? "{$uploaded} فایل آپلود شد." : 'فایلی انتخاب نشد.');
     }
 
-    private function storeOneFile($file, ?int $folderId): int
+    private function storeOneFile($file, ?int $folderId, string $scopeType, ?int $organizationId): int
     {
         $path = $file->store('media/' . date('Y/m'), 'public');
         MediaFile::create([
+            'organization_id' => $scopeType === MediaFile::SCOPE_SYSTEM ? null : $organizationId,
+            'scope_type' => $scopeType,
             'folder_id' => $folderId,
             'name' => $file->getClientOriginalName(),
             'path' => $path,
@@ -97,6 +157,12 @@ class MediaController extends Controller
 
     public function destroyFolder(Request $request, MediaFolder $folder)
     {
+        $folder = $this->resolveVisibleFolder($folder->id);
+        if (! $folder) {
+            abort(404);
+        }
+        $this->authorize('delete', $folder);
+
         $action = $request->input('action', 'empty'); // 'empty' | 'with_contents' | 'move_to_parent'
 
         $hasFiles = $folder->files()->exists();
@@ -137,6 +203,12 @@ class MediaController extends Controller
 
     public function destroyFile(MediaFile $mediaFile)
     {
+        $mediaFile = $this->resolveVisibleFile($mediaFile->id);
+        if (! $mediaFile) {
+            abort(404);
+        }
+        $this->authorize('delete', $mediaFile);
+
         Storage::disk($mediaFile->disk)->delete($mediaFile->path);
         $mediaFile->delete();
         return redirect()->back()->with('success', 'File deleted.');
@@ -147,10 +219,24 @@ class MediaController extends Controller
      */
     public function list(Request $request)
     {
-        $folderId = $request->get('folder_id');
-        $childFolders = MediaFolder::where('parent_id', $folderId)->orderBy('name')->get(['id', 'name', 'parent_id']);
-        $files = MediaFile::where('folder_id', $folderId)->orderBy('name')->get()->map(fn ($f) => $this->formatFile($f));
-        $breadcrumbs = $this->breadcrumbs($folderId);
+        $this->authorize('viewAny', MediaFolder::class);
+
+        $folderId = $request->get('folder_id') ? (int) $request->get('folder_id') : null;
+        $currentFolder = $folderId ? $this->resolveVisibleFolder($folderId) : null;
+        if ($folderId && ! $currentFolder) {
+            abort(404);
+        }
+
+        $childFolders = $this->visibleFoldersQuery()
+            ->where('parent_id', $currentFolder?->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'parent_id', 'scope_type', 'organization_id']);
+        $files = $this->visibleFilesQuery()
+            ->where('folder_id', $currentFolder?->id)
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($f) => $this->formatFile($f));
+        $breadcrumbs = $this->breadcrumbs($currentFolder?->id);
         return response()->json([
             'folders' => $childFolders,
             'files' => $files,
@@ -160,12 +246,18 @@ class MediaController extends Controller
 
     private function getFoldersTree(?int $parentId): array
     {
-        $folders = MediaFolder::where('parent_id', $parentId)->withCount(['files', 'children'])->orderBy('name')->get();
+        $folders = $this->visibleFoldersQuery()
+            ->where('parent_id', $parentId)
+            ->withCount(['files', 'children'])
+            ->orderBy('name')
+            ->get();
         return $folders->map(function ($f) {
             return [
                 'id' => $f->id,
                 'name' => $f->name,
                 'parent_id' => $f->parent_id,
+                'scope_type' => $f->scope_type,
+                'organization_id' => $f->organization_id,
                 'files_count' => $f->files_count,
                 'children_count' => $f->children_count,
                 'children' => $this->getFoldersTree($f->id),
@@ -179,17 +271,19 @@ class MediaController extends Controller
             'id' => $f->id,
             'name' => $f->name,
             'path' => $f->path,
-            'url' => $f->url,
+            'url' => $f->getUrlAttribute(),
             'mime_type' => $f->mime_type,
             'size' => $f->size,
             'is_image' => $f->isImage(),
+            'scope_type' => $f->scope_type,
+            'organization_id' => $f->organization_id,
         ];
     }
 
     private function breadcrumbs(?int $folderId): array
     {
         $crumbs = [['id' => null, 'name' => 'همه فایل‌ها']];
-        $current = $folderId ? MediaFolder::find($folderId) : null;
+        $current = $folderId ? $this->resolveVisibleFolder($folderId) : null;
         $chain = [];
         $visited = [];
         $maxDepth = 50;
@@ -202,5 +296,25 @@ class MediaController extends Controller
             $current = $current->parent;
         }
         return array_merge($crumbs, $chain);
+    }
+
+    private function visibleFoldersQuery()
+    {
+        return MediaFolder::query()->visibleTo(Auth::user());
+    }
+
+    private function visibleFilesQuery()
+    {
+        return MediaFile::query()->visibleTo(Auth::user());
+    }
+
+    private function resolveVisibleFolder(int $folderId): ?MediaFolder
+    {
+        return $this->visibleFoldersQuery()->withCount(['files', 'children'])->find($folderId);
+    }
+
+    private function resolveVisibleFile(int $fileId): ?MediaFile
+    {
+        return $this->visibleFilesQuery()->find($fileId);
     }
 }

@@ -2,7 +2,14 @@
 
 namespace App\Providers;
 
+use App\Models\MediaFile;
+use App\Models\MediaFolder;
+use App\Models\Organization;
+use App\Policies\MediaFilePolicy;
+use App\Policies\MediaFolderPolicy;
+use App\Policies\OrganizationPolicy;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -21,6 +28,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->stabilizeMysqlPdoSession();
+        Gate::policy(Organization::class, OrganizationPolicy::class);
+        Gate::policy(MediaFolder::class, MediaFolderPolicy::class);
+        Gate::policy(MediaFile::class, MediaFilePolicy::class);
     }
 
     /**

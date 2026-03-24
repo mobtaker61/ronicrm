@@ -40,6 +40,12 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                         </svg>
                         <span class="truncate">{{ f.name }}</span>
+                        <span
+                            class="text-[10px] px-1.5 py-0.5 rounded-full"
+                            :class="f.scope_type === 'system' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'"
+                        >
+                            {{ f.scope_type === 'system' ? 'System' : 'Org' }}
+                        </span>
                     </Link>
                     <div class="opacity-0 group-hover:opacity-100 flex-shrink-0">
                         <button type="button" @click.prevent="openRenameFolder(f)" class="p-1 text-gray-500 hover:text-gray-700" title="تغییر نام">✎</button>
@@ -60,10 +66,20 @@
 
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="font-medium text-gray-900">{{ currentFolder?.name || 'همه فایل‌ها' }}</h3>
-                        <label class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 text-sm font-medium">
-                            <input type="file" class="hidden" @change="handleUpload" multiple accept="*" />
-                            آپلود فایل (همه انواع: تصویر، PDF، ورد، …)
-                        </label>
+                        <div class="flex items-center gap-2">
+                            <select
+                                v-if="!currentFolderId"
+                                v-model="uploadScopeType"
+                                class="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            >
+                                <option value="organization">Organization scope</option>
+                                <option v-if="canCreateSystemScope" value="system">System scope</option>
+                            </select>
+                            <label class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 text-sm font-medium">
+                                <input type="file" class="hidden" @change="handleUpload" multiple accept="*" />
+                                آپلود فایل (همه انواع: تصویر، PDF، ورد، …)
+                            </label>
+                        </div>
                     </div>
 
                     <!-- Child folders -->
@@ -80,6 +96,12 @@
                                     </svg>
                                 </div>
                                 <span class="text-sm font-medium text-gray-900 truncate w-full text-center">{{ f.name }}</span>
+                                <span
+                                    class="mt-1 text-[10px] px-1.5 py-0.5 rounded-full"
+                                    :class="f.scope_type === 'system' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'"
+                                >
+                                    {{ f.scope_type === 'system' ? 'System' : 'Org' }}
+                                </span>
                             </Link>
                             <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                                 <button type="button" @click.prevent="openRenameFolder(f)" class="p-1.5 bg-gray-600 text-white rounded hover:bg-gray-700" title="تغییر نام">✎</button>
@@ -104,6 +126,14 @@
                                 </div>
                             </a>
                             <p class="p-2 text-xs text-gray-700 truncate" :title="file.name">{{ file.name }}</p>
+                            <p class="px-2 pb-2">
+                                <span
+                                    class="text-[10px] px-1.5 py-0.5 rounded-full"
+                                    :class="file.scope_type === 'system' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'"
+                                >
+                                    {{ file.scope_type === 'system' ? 'System' : 'Org' }}
+                                </span>
+                            </p>
                             <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     type="button"
@@ -129,6 +159,14 @@
                 <h3 class="text-lg font-semibold mb-4">پوشه جدید</h3>
                 <form @submit.prevent="createFolder">
                     <input v-model="newFolderName" type="text" required placeholder="نام پوشه" class="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4" />
+                    <select
+                        v-if="!currentFolderId"
+                        v-model="newFolderScopeType"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 text-sm"
+                    >
+                        <option value="organization">Organization scope</option>
+                        <option v-if="canCreateSystemScope" value="system">System scope</option>
+                    </select>
                     <div class="flex justify-end gap-2">
                         <button type="button" @click="showNewFolderModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">انصراف</button>
                         <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">ایجاد</button>
@@ -191,6 +229,8 @@ const props = defineProps({
     childFolders: { type: Array, default: () => [] },
     files: { type: Array, default: () => [] },
     breadcrumbs: { type: Array, default: () => [] },
+    canCreateSystemScope: { type: Boolean, default: false },
+    defaultScopeType: { type: String, default: 'organization' },
 });
 
 const showNewFolderModal = ref(false);
@@ -200,6 +240,8 @@ const renameFolderId = ref(null);
 const renameFolderName = ref('');
 const showDeleteFolderModal = ref(false);
 const folderToDelete = ref(null);
+const uploadScopeType = ref(props.defaultScopeType || 'organization');
+const newFolderScopeType = ref(props.defaultScopeType || 'organization');
 
 const currentFolderId = computed(() => props.currentFolder?.id ?? null);
 const folderHasContents = computed(() => {
@@ -214,11 +256,13 @@ function createFolder() {
     router.post(route('media.folders.store'), {
         name: newFolderName.value,
         parent_id: currentFolderId.value,
+        scope_type: currentFolderId.value ? undefined : newFolderScopeType.value,
     }, {
         preserveScroll: true,
         onSuccess: () => {
             showNewFolderModal.value = false;
             newFolderName.value = '';
+            newFolderScopeType.value = props.defaultScopeType || 'organization';
         },
     });
 }
@@ -230,6 +274,9 @@ function handleUpload(e) {
     const token = typeof document !== 'undefined' && document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     if (token) formData.append('_token', token);
     formData.append('folder_id', currentFolderId.value ?? '');
+    if (!currentFolderId.value) {
+        formData.append('scope_type', uploadScopeType.value);
+    }
     for (let i = 0; i < list.length; i++) {
         formData.append('files[]', list[i]);
     }

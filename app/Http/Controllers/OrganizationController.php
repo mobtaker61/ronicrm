@@ -29,6 +29,8 @@ class OrganizationController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('manage', Organization::class);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255', 'unique:organizations,slug'],
@@ -47,6 +49,8 @@ class OrganizationController extends Controller
 
     public function update(Request $request, Organization $organization)
     {
+        $this->authorize('manage', Organization::class);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:organizations,slug,'.$organization->getKey()],
@@ -64,6 +68,8 @@ class OrganizationController extends Controller
 
     public function destroy(Organization $organization)
     {
+        $this->authorize('manage', Organization::class);
+
         if ($organization->slug === 'roni-plus') {
             return redirect()->back()->with('error', 'Default organization cannot be deleted.');
         }
@@ -75,6 +81,8 @@ class OrganizationController extends Controller
 
     public function addMember(Request $request, Organization $organization)
     {
+        $this->authorize('manageMembers', $organization);
+
         $validated = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
             'role_in_org' => ['required', 'string', 'in:'.implode(',', $this->organizationRoles)],
@@ -108,6 +116,8 @@ class OrganizationController extends Controller
 
     public function updateMember(Request $request, Organization $organization, User $user)
     {
+        $this->authorize('manageMembers', $organization);
+
         $validated = $request->validate([
             'role_in_org' => ['required', 'string', 'in:'.implode(',', $this->organizationRoles)],
             'status' => ['required', 'string', 'in:active,inactive'],
@@ -147,6 +157,8 @@ class OrganizationController extends Controller
 
     public function removeMember(Organization $organization, User $user)
     {
+        $this->authorize('manageMembers', $organization);
+
         $exists = $organization->users()->where('users.id', $user->id)->exists();
         if (! $exists) {
             abort(404, 'Member not found in organization.');
