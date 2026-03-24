@@ -4,11 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Models\SocialMediaType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class SocialMediaTypeController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            if (! Auth::check() || ! Auth::user()->isSuperAdmin()) {
+                abort(403, 'Unauthorized action.');
+            }
+
+            return $next($request);
+        });
+    }
+
     public function index(): Response
     {
         $socialMediaTypes = SocialMediaType::orderBy('sort_order')->get();

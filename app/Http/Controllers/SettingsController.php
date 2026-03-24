@@ -15,10 +15,9 @@ class SettingsController extends Controller
 {
     public function __construct()
     {
-        // Check if user is admin for all methods
         $this->middleware(function ($request, $next) {
-            if (! Auth::check() || ! Auth::user()->hasGlobalAdminAccess()) {
-                abort(403, 'Unauthorized action. Only administrators can access settings.');
+            if (! Auth::check() || ! Auth::user()->canAccessSettings()) {
+                abort(403, 'Unauthorized action. You do not have access to settings.');
             }
 
             return $next($request);
@@ -27,13 +26,14 @@ class SettingsController extends Controller
 
     public function index(): Response
     {
-        $isAdmin = Auth::user()->hasGlobalAdminAccess();
-        $isSuperAdmin = Auth::user()->hasRole('super_admin');
+        $canManageOrganizationSettings = Auth::user()->canManageOrganizationSettings();
+        $canManageSystemSettings = Auth::user()->isSuperAdmin();
+        $isSuperAdmin = Auth::user()->isSuperAdmin();
 
         $users = [];
         $roles = [];
         $organizations = [];
-        if ($isAdmin) {
+        if ($canManageSystemSettings) {
             $users = \App\Models\User::with('roles')->orderBy('name')->get()->map(function ($user) {
                 return [
                     'id' => $user->id,
@@ -74,11 +74,18 @@ class SettingsController extends Controller
             }
         }
 
+        $allowedTabs = $canManageSystemSettings
+            ? ['social-media', 'smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts', 'languages', 'users', 'organizations']
+            : ['smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts'];
+        $initialTab = in_array(request()->query('tab'), $allowedTabs, true)
+            ? request()->query('tab')
+            : ($canManageSystemSettings ? 'social-media' : 'smtp');
+
         return Inertia::render('Settings/Index', [
-            'initialTab' => in_array(request()->query('tab'), ['social-media', 'smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts', 'languages', 'users', 'organizations'], true)
-                ? request()->query('tab')
-                : 'social-media',
-            'isAdmin' => $isAdmin,
+            'initialTab' => $initialTab,
+            'isAdmin' => $canManageSystemSettings,
+            'canManageOrganizationSettings' => $canManageOrganizationSettings,
+            'canManageSystemSettings' => $canManageSystemSettings,
             'users' => $users,
             'roles' => $roles,
             'organizations' => $organizations,
@@ -124,7 +131,7 @@ class SettingsController extends Controller
             'googleContactsIntegration' => $this->getGoogleContactsIntegrationForFront(),
             'googleContactsRedirectUri' => config('services.google_contacts.redirect_uri'),
             'telegramConnection' => $this->getTelegramConnectionForFront(),
-            'instagramWebhookEvents' => $isAdmin ? $this->getInstagramWebhookEventsLast20() : [],
+            'instagramWebhookEvents' => $canManageSystemSettings ? $this->getInstagramWebhookEventsLast20() : [],
         ]);
     }
 

@@ -8,12 +8,13 @@ use App\Services\MadelineProtoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 class TelegramConnectionController extends Controller
 {
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            if (!\Illuminate\Support\Facades\Auth::check() || !\Illuminate\Support\Facades\Auth::user()->hasRole('admin')) {
+            if (! Auth::check() || ! Auth::user()->canManageOrganizationSettings()) {
                 abort(403, 'Unauthorized action.');
             }
             return $next($request);

@@ -5,13 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\TelegramGroupCategory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class TelegramGroupCategoryController extends Controller
 {
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            if (! auth()->check() || ! auth()->user()->hasRole('admin')) {
+            if (! Auth::check() || ! Auth::user()->canManageOrganizationSettings()) {
                 abort(403);
             }
             return $next($request);

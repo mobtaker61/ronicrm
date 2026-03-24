@@ -19,8 +19,8 @@ class GoogleContactsController extends Controller
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            if (! Auth::check() || ! Auth::user()->hasRole('admin')) {
-                abort(403, 'Unauthorized action. Only administrators can manage Google Contacts sync.');
+            if (! Auth::check() || ! Auth::user()->canManageOrganizationSettings()) {
+                abort(403, 'Unauthorized action. Only organization admins can manage Google Contacts sync.');
             }
 
             return $next($request);

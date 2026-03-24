@@ -333,7 +333,8 @@ const organizations = computed(() => page.props.organizations || []);
 const selectedOrganizationId = ref(page.props.auth?.user?.current_organization_id || null);
 const canAccessSettings = computed(() => {
     const roles = page.props.auth?.user?.roles || [];
-    return roles.includes('admin') || roles.includes('super_admin');
+    const currentOrganizationRole = page.props.currentOrganizationRole || null;
+    return roles.includes('admin') || roles.includes('super_admin') || currentOrganizationRole === 'org_admin';
 });
 
 // Route helper function

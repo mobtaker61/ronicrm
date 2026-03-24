@@ -68,6 +68,11 @@ class User extends Authenticatable
         return $this->hasRole('super_admin') || $this->hasRole('admin');
     }
 
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('super_admin') || $this->hasRole('admin');
+    }
+
     public function hasOrganizationRole(string $role, ?int $organizationId = null): bool
     {
         $orgId = $organizationId ?? $this->current_organization_id;
@@ -79,5 +84,28 @@ class User extends Authenticatable
             ->where('organizations.id', $orgId)
             ->wherePivot('role_in_org', $role)
             ->exists();
+    }
+
+    public function canManageOrganizationSettings(?int $organizationId = null): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        $orgId = $organizationId ?? $this->current_organization_id;
+        if (! $orgId) {
+            return false;
+        }
+
+        return $this->organizations()
+            ->where('organizations.id', $orgId)
+            ->wherePivot('role_in_org', 'org_admin')
+            ->wherePivot('status', 'active')
+            ->exists();
+    }
+
+    public function canAccessSettings(?int $organizationId = null): bool
+    {
+        return $this->canManageOrganizationSettings($organizationId);
     }
 }

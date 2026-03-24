@@ -27,6 +27,7 @@
                 <div class="border-b border-gray-200">
                     <nav class="flex -mb-px">
                         <button
+                            v-if="isAdmin"
                             @click="activeTab = 'social-media'"
                             :class="[
                                 'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
@@ -38,6 +39,7 @@
                             Social Media Platforms
                         </button>
                         <button
+                            v-if="canManageOrganizationSettings"
                             @click="activeTab = 'smtp'"
                             :class="[
                                 'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
@@ -49,6 +51,7 @@
                             SMTP Settings
                         </button>
                         <button
+                            v-if="canManageOrganizationSettings"
                             @click="activeTab = 'ronibot'"
                             :class="[
                                 'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
@@ -60,6 +63,7 @@
                             Ronibot Settings
                         </button>
                         <button
+                            v-if="canManageOrganizationSettings"
                             @click="activeTab = 'telegram'"
                             :class="[
                                 'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
@@ -71,6 +75,7 @@
                             Telegram (Inbox)
                         </button>
                         <button
+                            v-if="canManageOrganizationSettings"
                             @click="activeTab = 'instagram'"
                             :class="[
                                 'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
@@ -82,6 +87,7 @@
                             Instagram (Inbox)
                         </button>
                         <button
+                            v-if="canManageOrganizationSettings"
                             @click="activeTab = 'google-contacts'"
                             :class="[
                                 'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
@@ -132,7 +138,7 @@
                 </div>
 
                 <!-- Social Media Tab -->
-                <div v-if="activeTab === 'social-media'" class="p-6">
+                <div v-if="activeTab === 'social-media' && isAdmin" class="p-6">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-xl font-bold text-gray-900">Social Media Platforms</h2>
                         <button
@@ -208,7 +214,7 @@
                 </div>
 
                 <!-- SMTP Settings Tab -->
-                <div v-if="activeTab === 'smtp'" class="p-6">
+                <div v-if="activeTab === 'smtp' && canManageOrganizationSettings" class="p-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-6">SMTP Email Settings</h2>
                     
                     <form @submit.prevent="saveSmtpSettings" class="space-y-6">
@@ -887,7 +893,7 @@
                 </div>
 
                 <!-- Ronibot Settings Tab -->
-                <div v-if="activeTab === 'ronibot'" class="p-6">
+                <div v-if="activeTab === 'ronibot' && canManageOrganizationSettings" class="p-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-6">Ronibot Settings</h2>
                     
                     <form @submit.prevent="saveRonibotSettings" class="space-y-6">
@@ -990,7 +996,7 @@
                 </div>
 
                 <!-- Telegram Settings Tab -->
-                <div v-if="activeTab === 'telegram'" class="p-6">
+                <div v-if="activeTab === 'telegram' && canManageOrganizationSettings" class="p-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-6">Telegram (Inbox)</h2>
 
                     <!-- User Account Connection (for Inbox + Group Crawler) -->
@@ -1248,7 +1254,7 @@
                 </div>
 
                 <!-- Instagram Settings Tab -->
-                <div v-if="activeTab === 'instagram'" class="p-6">
+                <div v-if="activeTab === 'instagram' && canManageOrganizationSettings" class="p-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-6">Instagram (Inbox)</h2>
 
                     <!-- Not Connected -->
@@ -1355,7 +1361,7 @@
                 </div>
 
                 <!-- Google Contacts (CRM → Google, one-way) -->
-                <div v-if="activeTab === 'google-contacts'" class="p-6">
+                <div v-if="activeTab === 'google-contacts' && canManageOrganizationSettings" class="p-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-2">همگام‌سازی مخاطبین با Google Contacts</h2>
                     <p class="text-sm text-gray-600 mb-6 max-w-3xl">
                         اتصال یک‌طرفه از CRM به مخاطبین همان حساب Google که با آن OAuth می‌زنید.
@@ -1545,6 +1551,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    canManageOrganizationSettings: {
+        type: Boolean,
+        default: false,
+    },
     users: {
         type: Array,
         default: () => [],
@@ -1602,7 +1612,10 @@ const props = defineProps({
 const activeTab = ref(props.initialTab || 'social-media');
 const showAddModal = ref(false);
 const page = usePage();
-const isSuperAdmin = computed(() => (page.props.auth?.user?.roles || []).includes('super_admin'));
+const isSuperAdmin = computed(() => {
+    const roles = page.props.auth?.user?.roles || [];
+    return roles.includes('super_admin') || roles.includes('admin');
+});
 const languages = computed(() => page.props.languages || []);
 const telegramGroupCategories = computed(() => page.props.telegramGroupCategories || []);
 

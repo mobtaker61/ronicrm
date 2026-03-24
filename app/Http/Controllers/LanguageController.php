@@ -5,13 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\Language;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class LanguageController extends Controller
 {
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            if (! auth()->check() || ! auth()->user()->hasRole('admin')) {
+            if (! Auth::check() || ! Auth::user()->isSuperAdmin()) {
                 abort(403);
             }
             return $next($request);

@@ -13,6 +13,17 @@ use Illuminate\Support\Str;
 
 class InstagramConnectionController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            if (! Auth::check() || ! Auth::user()->canManageOrganizationSettings()) {
+                abort(403, 'Unauthorized action.');
+            }
+
+            return $next($request);
+        });
+    }
+
     public function connect(Request $request): RedirectResponse
     {
         $service = app(MetaInstagramService::class);
