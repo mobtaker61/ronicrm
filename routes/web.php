@@ -36,6 +36,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/organizations/current', [\App\Http\Controllers\CurrentOrganizationController::class, 'update'])->name('organizations.current.update');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'index'])->name('profile.index');
+    Route::put('/profile', [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [\App\Http\Controllers\ProfileController::class, 'updatePassword'])->name('profile.password.update');
 
     // Industries
     Route::resource('industries', \App\Http\Controllers\IndustryController::class)->except(['show', 'create', 'edit']);

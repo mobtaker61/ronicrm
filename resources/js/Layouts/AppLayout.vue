@@ -67,11 +67,11 @@
                                 </svg>
                                 Clients
                             </span>
-                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': openMenus.coreData }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': isMenuOpen('coreData') }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
-                        <div v-if="openMenus.coreData" class="mt-1 space-y-1">
+                        <div v-if="isMenuOpen('coreData')" class="mt-1 space-y-1">
                             <Link
                                 :href="getRoute('customers.index')"
                                 :class="[
@@ -134,11 +134,11 @@
                                 </svg>
                                 Commerce
                             </span>
-                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': openMenus.commerce }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': isMenuOpen('commerce') }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
-                        <div v-if="openMenus.commerce" class="mt-1 space-y-1">
+                        <div v-if="isMenuOpen('commerce')" class="mt-1 space-y-1">
                             <Link
                                 :href="getRoute('invoices.index')"
                                 :class="[
@@ -201,11 +201,11 @@
                                 </svg>
                                 Campaigns
                             </span>
-                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': openMenus.campaigns }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': isMenuOpen('campaigns') }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
-                        <div v-if="openMenus.campaigns" class="mt-1 space-y-1">
+                        <div v-if="isMenuOpen('campaigns')" class="mt-1 space-y-1">
                             <Link
                                 :href="getRoute('campaigns.index')"
                                 :class="[
@@ -267,11 +267,11 @@
                                 <svg class="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
                                 Telegram
                             </span>
-                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': openMenus.telegram }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': isMenuOpen('telegram') }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
-                        <div v-if="openMenus.telegram" class="mt-1 space-y-1">
+                        <div v-if="isMenuOpen('telegram')" class="mt-1 space-y-1">
                             <Link
                                 :href="getRoute('telegram-crawler.index')"
                                 :class="[
@@ -376,30 +376,6 @@
                         Settings
                     </Link>
                 </nav>
-
-                <!-- User Section -->
-                <div class="p-4 border-t border-gray-200">
-                    <div class="flex items-center px-4 py-3">
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-900 truncate">{{ $page.props.auth.user?.name }}</p>
-                            <p class="text-xs text-gray-500 truncate">{{ $page.props.auth.user?.email }}</p>
-                            <p v-if="$page.props.currentOrganizationRole" class="text-xs text-blue-600 truncate">
-                                Role: {{ $page.props.currentOrganizationRole }}
-                            </p>
-                        </div>
-                    </div>
-                    <form @submit.prevent="logout" class="mt-2">
-                        <button
-                            type="submit"
-                            class="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-                        >
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
-                            Logout
-                        </button>
-                    </form>
-                </div>
             </div>
         </aside>
 
@@ -438,12 +414,56 @@
                                 </option>
                             </select>
                         </div>
-                        <div class="hidden md:flex items-center space-x-2 text-sm text-gray-500">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span>Dubai, UAE</span>
+                        <div class="relative" ref="userMenuRef">
+                            <button
+                                type="button"
+                                @click="userMenuOpen = !userMenuOpen"
+                                class="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                            >
+                                <div class="w-9 h-9 rounded-full bg-blue-600 text-white text-sm font-semibold flex items-center justify-center overflow-hidden">
+                                    <img v-if="userAvatarUrl" :src="userAvatarUrl" alt="Avatar" class="w-full h-full object-cover" />
+                                    <span v-else>{{ userInitials }}</span>
+                                </div>
+                            </button>
+
+                            <div
+                                v-if="userMenuOpen"
+                                class="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
+                            >
+                                <div class="px-4 py-3 border-b border-gray-100">
+                                    <p class="text-sm font-semibold text-gray-900 truncate">{{ $page.props.auth.user?.name }}</p>
+                                    <p class="text-xs text-gray-500 truncate">{{ $page.props.auth.user?.email }}</p>
+                                    <span
+                                        v-if="$page.props.currentOrganizationRole"
+                                        class="inline-block mt-2 px-2 py-0.5 text-[11px] font-medium rounded-full bg-blue-100 text-blue-700"
+                                    >
+                                        {{ formattedCurrentOrganizationRole }}
+                                    </span>
+                                </div>
+
+                                <div class="p-2">
+                                    <Link
+                                        :href="getRoute('profile.index')"
+                                        class="w-full flex items-center px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-gray-100"
+                                        @click="userMenuOpen = false"
+                                    >
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A9 9 0 1118.88 17.804M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        Profile
+                                    </Link>
+                                    <button
+                                        type="button"
+                                        class="w-full flex items-center px-3 py-2 text-sm text-red-700 rounded-md hover:bg-red-50"
+                                        @click="logoutFromMenu"
+                                    >
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                        </svg>
+                                        Logout
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -458,13 +478,15 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 
 const sidebarOpen = ref(true);
 const page = usePage();
 const organizations = computed(() => page.props.organizations || []);
 const selectedOrganizationId = ref(page.props.auth?.user?.current_organization_id || null);
+const userMenuOpen = ref(false);
+const userMenuRef = ref(null);
 const openMenus = ref({
     coreData: false,
     commerce: false,
@@ -499,6 +521,28 @@ const canAccessSettings = computed(() => {
     const currentOrganizationRole = page.props.currentOrganizationRole || null;
     return roles.includes('admin') || roles.includes('super_admin') || currentOrganizationRole === 'org_admin';
 });
+const userAvatarUrl = computed(() => page.props.auth?.user?.avatar_url || null);
+const formattedCurrentOrganizationRole = computed(() => {
+    const raw = page.props.currentOrganizationRole;
+    if (!raw) {
+        return '';
+    }
+
+    return String(raw)
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, (ch) => ch.toUpperCase());
+});
+const userInitials = computed(() => {
+    const name = (page.props.auth?.user?.name || '').trim();
+    if (!name) {
+        return 'U';
+    }
+
+    const parts = name.split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] || '';
+    const second = parts.length > 1 ? (parts[1]?.[0] || '') : '';
+    return (first + second).toUpperCase() || 'U';
+});
 
 // Route helper function
 const getRoute = (name) => {
@@ -523,7 +567,9 @@ const getRoute = (name) => {
         'products.index': '/products',
         'services.index': '/services',
         'reports.index': '/reports',
+        'scrap-tasks.index': '/scrap-tasks',
         'settings.index': '/settings',
+        'profile.index': '/profile',
     };
     return routes[name] || '/';
 };
@@ -540,9 +586,36 @@ const isCurrentRoute = (pattern) => {
 const logout = () => {
     router.post('/logout');
 };
+const logoutFromMenu = () => {
+    userMenuOpen.value = false;
+    logout();
+};
 
 const toggleMenu = (menuKey) => {
+    if (isMenuOpen(menuKey) && isMenuRouteActive(menuKey)) {
+        return;
+    }
+
     openMenus.value[menuKey] = !openMenus.value[menuKey];
+};
+
+const isMenuRouteActive = (menuKey) => {
+    switch (menuKey) {
+        case 'coreData':
+            return isCoreDataSectionActive.value;
+        case 'commerce':
+            return isCommerceSectionActive.value;
+        case 'campaigns':
+            return isCampaignsSectionActive.value;
+        case 'telegram':
+            return isTelegramSectionActive.value;
+        default:
+            return false;
+    }
+};
+
+const isMenuOpen = (menuKey) => {
+    return Boolean(openMenus.value[menuKey]) || isMenuRouteActive(menuKey);
 };
 
 const switchOrganization = () => {
@@ -558,10 +631,28 @@ const switchOrganization = () => {
     });
 };
 
+const handleDocumentClick = (event) => {
+    if (!userMenuOpen.value) {
+        return;
+    }
+
+    if (userMenuRef.value && !userMenuRef.value.contains(event.target)) {
+        userMenuOpen.value = false;
+    }
+};
+
 watch(
     () => page.props.auth?.user?.current_organization_id,
     (newValue) => {
         selectedOrganizationId.value = newValue || null;
     }
 );
+
+onMounted(() => {
+    document.addEventListener('click', handleDocumentClick);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener('click', handleDocumentClick);
+});
 </script>

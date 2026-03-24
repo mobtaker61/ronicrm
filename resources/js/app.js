@@ -94,6 +94,9 @@ const routeHelper = (name, params = null, absolute = false) => {
         'settings.organizations.members.update': (organizationId, userId) => `/settings/organizations/${organizationId}/members/${userId}`,
         'settings.organizations.members.destroy': (organizationId, userId) => `/settings/organizations/${organizationId}/members/${userId}`,
         'settings.telegram.register-webhook': '/settings/telegram/register-webhook',
+        'profile.index': '/profile',
+        'profile.update': '/profile',
+        'profile.password.update': '/profile/password',
     };
     
     if (typeof routes[name] === 'function') {
