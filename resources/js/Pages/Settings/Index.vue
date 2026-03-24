@@ -500,7 +500,18 @@
                                 <tbody class="bg-white divide-y divide-gray-200">
                                     <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50">
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm font-medium text-gray-900">{{ user.name }}</div>
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-9 h-9 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
+                                                    <img
+                                                        v-if="user.avatar_url"
+                                                        :src="user.avatar_url"
+                                                        alt="Avatar"
+                                                        class="w-full h-full object-cover"
+                                                    />
+                                                    <span v-else class="text-xs font-semibold text-gray-500">{{ getInitials(user.name) }}</span>
+                                                </div>
+                                                <div class="text-sm font-medium text-gray-900">{{ user.name }}</div>
+                                            </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-gray-500">{{ user.username || '-' }}</div>
@@ -858,7 +869,20 @@
                                         </thead>
                                         <tbody class="divide-y divide-gray-100 bg-white">
                                             <tr v-for="member in selectedOrganizationMembers" :key="member.id">
-                                                <td class="px-4 py-2 text-sm text-gray-900">{{ member.name }}</td>
+                                                <td class="px-4 py-2 text-sm text-gray-900">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="w-7 h-7 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
+                                                            <img
+                                                                v-if="member.avatar_url"
+                                                                :src="member.avatar_url"
+                                                                alt="Avatar"
+                                                                class="w-full h-full object-cover"
+                                                            />
+                                                            <span v-else class="text-[10px] font-semibold text-gray-500">{{ getInitials(member.name) }}</span>
+                                                        </div>
+                                                        <span>{{ member.name }}</span>
+                                                    </div>
+                                                </td>
                                                 <td class="px-4 py-2 text-sm text-gray-500">{{ member.email }}</td>
                                                 <td class="px-4 py-2">
                                                     <select v-model="member.role_in_org" class="px-2 py-1 border border-gray-300 rounded text-sm">
@@ -2542,5 +2566,13 @@ const formatDate = (dateString) => {
         month: 'short',
         day: 'numeric',
     });
+};
+
+const getInitials = (name) => {
+    if (!name || typeof name !== 'string') return 'U';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] || '';
+    const second = parts.length > 1 ? (parts[1]?.[0] || '') : '';
+    return (first + second).toUpperCase() || 'U';
 };
 </script>

@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -40,6 +41,7 @@ class SettingsController extends Controller
                     'name' => $user->name,
                     'username' => $user->username,
                     'email' => $user->email,
+                    'avatar_url' => $user->avatar_path ? Storage::url($user->avatar_path) : null,
                     'roles' => $user->roles->pluck('name')->toArray(),
                     'created_at' => $user->created_at,
                 ];
@@ -66,6 +68,7 @@ class SettingsController extends Controller
                             'id' => $member->id,
                             'name' => $member->name,
                             'email' => $member->email,
+                            'avatar_url' => $member->avatar_path ? Storage::url($member->avatar_path) : null,
                             'role_in_org' => $member->pivot?->role_in_org,
                             'status' => $member->pivot?->status,
                             'is_default' => (bool) ($member->pivot?->is_default ?? false),

@@ -575,12 +575,13 @@ const getRoute = (name) => {
 };
 
 const isCurrentRoute = (pattern) => {
-    const current = page.url;
+    const current = String(page.url || '').split('?')[0];
+    const normalizedPattern = String(pattern || '');
     if (pattern.includes('*')) {
-        const base = pattern.replace('*', '');
+        const base = normalizedPattern.replace('*', '');
         return current.startsWith(base);
     }
-    return current === pattern;
+    return current === normalizedPattern || current.startsWith(`${normalizedPattern}/`);
 };
 
 const logout = () => {
