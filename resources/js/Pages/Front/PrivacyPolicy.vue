@@ -46,7 +46,7 @@
                 <section>
                     <h2 class="text-xl font-semibold text-gray-900 mt-8 mb-3">7. Contact us</h2>
                     <p class="leading-relaxed">
-                        For questions about this Privacy Policy or your personal data, contact us at <a href="mailto:support@roniplus.ae" class="text-blue-600 hover:underline">support@roniplus.ae</a>. RoniCRM is provided by Roni Plus. You can also reach us through the contact details published on the RoniCRM website (e.g. crm.roniplus.ae).
+                        For questions about this Privacy Policy or your personal data, contact us at <a href="mailto:support@ronicrm.com" class="text-blue-600 hover:underline">support@ronicrm.com</a>. RoniCRM is provided by Roni Plus. You can also reach us through the contact details published on the RoniCRM website (e.g. ronicrm.com).
                     </p>
                 </section>
             </div>

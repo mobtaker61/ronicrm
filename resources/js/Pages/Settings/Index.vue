@@ -976,7 +976,7 @@
                                 <input
                                     v-model="ronibotForm.webhook_url"
                                     type="url"
-                                    placeholder="https://crm.roniplus.ae/wpwebhook"
+                                    placeholder="https://ronicrm.com/wpwebhook"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 <p class="mt-1 text-xs text-gray-500">Webhook URL for receiving incoming WhatsApp messages from Ronibot</p>
@@ -1784,7 +1784,7 @@ const ronibotForm = useForm({
     api_url: props.ronibotSettings.api_url || 'https://ronibot.com/api/create-message',
     appkey: props.ronibotSettings.appkey || '',
     authkey: props.ronibotSettings.authkey || '',
-    webhook_url: props.ronibotSettings.webhook_url || 'https://crm.roniplus.ae/wpwebhook',
+    webhook_url: props.ronibotSettings.webhook_url || 'https://ronicrm.com/wpwebhook',
     enabled: props.ronibotSettings.enabled || false,
 });
 

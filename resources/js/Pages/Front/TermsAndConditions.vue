@@ -60,7 +60,7 @@
                 <section>
                     <h2 class="text-xl font-semibold text-gray-900 mt-8 mb-3">8. Contact</h2>
                     <p class="leading-relaxed">
-                        For questions about these Terms and Conditions, contact us at <a href="mailto:support@roniplus.ae" class="text-blue-600 hover:underline">support@roniplus.ae</a>. RoniCRM is operated by Roni Plus. You can also use the contact information provided on the RoniCRM website (e.g. crm.roniplus.ae).
+                        For questions about these Terms and Conditions, contact us at <a href="mailto:support@ronicrm.com" class="text-blue-600 hover:underline">support@ronicrm.com</a>. RoniCRM is operated by Roni Plus. You can also use the contact information provided on the RoniCRM website (e.g. ronicrm.com).
                     </p>
                 </section>
             </div>

@@ -111,7 +111,7 @@ class SettingsController extends Controller
                 'api_url' => 'https://ronibot.com/api/create-message',
                 'appkey' => '',
                 'authkey' => '',
-                'webhook_url' => 'https://crm.roniplus.ae/wpwebhook',
+                'webhook_url' => 'https://ronicrm.com/wpwebhook',
                 'enabled' => false,
             ]),
             'telegramSettings' => array_merge(Setting::getScoped('telegram', [
