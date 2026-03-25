@@ -27,17 +27,18 @@ class MetaInstagramService
 
     public function isConfigured(): bool
     {
-        return $this->appId !== '' && $this->appSecret !== '' && $this->redirectUri !== '';
+        return $this->appId !== '' && $this->appSecret !== '';
     }
 
     /**
      * Build Instagram OAuth authorization URL (Business Login).
      */
-    public function getAuthorizationUrl(string $state): string
+    public function getAuthorizationUrl(string $state, ?string $redirectUri = null): string
     {
+        $effectiveRedirectUri = $this->resolveRedirectUri($redirectUri);
         $params = http_build_query([
             'client_id' => $this->appId,
-            'redirect_uri' => $this->redirectUri,
+            'redirect_uri' => $effectiveRedirectUri,
             'response_type' => 'code',
             'scope' => 'instagram_business_basic,instagram_business_manage_messages',
             'state' => $state,
@@ -48,9 +49,10 @@ class MetaInstagramService
     /**
      * Exchange authorization code for short-lived token, then long-lived token and profile.
      */
-    public function exchangeCodeForConnection(string $code, ?int $userId = null): array
+    public function exchangeCodeForConnection(string $code, ?int $userId = null, ?string $redirectUri = null): array
     {
-        $shortLived = $this->exchangeCodeForShortLivedToken($code);
+        $effectiveRedirectUri = $this->resolveRedirectUri($redirectUri);
+        $shortLived = $this->exchangeCodeForShortLivedToken($code, $effectiveRedirectUri);
         if (isset($shortLived['error'])) {
             return $shortLived;
         }
@@ -80,13 +82,13 @@ class MetaInstagramService
         return ['success' => true, 'connection' => $connection];
     }
 
-    protected function exchangeCodeForShortLivedToken(string $code): array
+    protected function exchangeCodeForShortLivedToken(string $code, string $redirectUri): array
     {
         $response = Http::asForm()->post('https://api.instagram.com/oauth/access_token', [
             'client_id' => $this->appId,
             'client_secret' => $this->appSecret,
             'grant_type' => 'authorization_code',
-            'redirect_uri' => $this->redirectUri,
+            'redirect_uri' => $redirectUri,
             'code' => $code,
         ]);
         $data = $response->json();
@@ -209,11 +211,36 @@ class MetaInstagramService
             return ['success' => true, 'message_id' => $data['message_id'] ?? null];
         }
         $errMsg = $data['error']['message'] ?? $data['error_message'] ?? 'Unknown error';
+        $errMsg = $this->normalizeSendErrorMessage($errMsg);
         Log::channel('instagram')->warning('Instagram send failed', [
             'connection_id' => $connection->id,
             'recipient_id' => $recipientId,
             'error' => $errMsg,
         ]);
         return ['success' => false, 'error' => $errMsg];
+    }
+
+    protected function resolveRedirectUri(?string $redirectUri = null): string
+    {
+        $resolved = trim((string) ($redirectUri ?? $this->redirectUri));
+        if ($resolved !== '') {
+            return $resolved;
+        }
+
+        return rtrim((string) config('app.url', ''), '/') . '/settings/instagram/callback';
+    }
+
+    protected function normalizeSendErrorMessage(string $error): string
+    {
+        $lowered = mb_strtolower($error, 'UTF-8');
+        if (
+            str_contains($lowered, 'допустимого окна') ||
+            str_contains($lowered, 'outside of allowed window') ||
+            str_contains($lowered, 'outside the allowed window')
+        ) {
+            return 'ارسال خارج از بازه مجاز اینستاگرام است. فقط تا ۲۴ ساعت بعد از آخرین پیام کاربر می‌توانید پاسخ دهید.';
+        }
+
+        return $error;
     }
 }

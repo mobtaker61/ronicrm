@@ -58,7 +58,17 @@ class InstagramMessagingService
             if ($response->successful() && empty($data['error'])) {
                 return ['success' => true, 'message_id' => $data['message_id'] ?? null];
             }
-            return ['success' => false, 'error' => $data['error']['message'] ?? 'Unknown error'];
+            $error = $data['error']['message'] ?? 'Unknown error';
+            $lowered = mb_strtolower((string) $error, 'UTF-8');
+            if (
+                str_contains($lowered, 'допустимого окна') ||
+                str_contains($lowered, 'outside of allowed window') ||
+                str_contains($lowered, 'outside the allowed window')
+            ) {
+                $error = 'ارسال خارج از بازه مجاز اینستاگرام است. فقط تا ۲۴ ساعت بعد از آخرین پیام کاربر می‌توانید پاسخ دهید.';
+            }
+
+            return ['success' => false, 'error' => $error];
         } catch (\Exception $e) {
             Log::channel('instagram')->error('Instagram sendMessage error: ' . $e->getMessage());
             return ['success' => false, 'error' => $e->getMessage()];

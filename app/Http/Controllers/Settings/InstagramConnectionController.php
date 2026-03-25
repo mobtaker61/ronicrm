@@ -28,11 +28,12 @@ class InstagramConnectionController extends Controller
     {
         $service = app(MetaInstagramService::class);
         if (!$service->isConfigured()) {
-            return redirect()->route('settings.index')->with('error', 'Instagram app is not configured. Set META_APP_ID, META_APP_SECRET, and META_REDIRECT_URI in .env.');
+            return redirect()->route('settings.index')->with('error', 'Instagram app is not configured. Set META_APP_ID and META_APP_SECRET in .env.');
         }
         $state = Str::random(40);
         $request->session()->put('instagram_oauth_state', $state);
-        $url = $service->getAuthorizationUrl($state);
+        $redirectUri = route('settings.instagram.callback');
+        $url = $service->getAuthorizationUrl($state, $redirectUri);
         return redirect()->away($url);
     }
 
@@ -50,7 +51,8 @@ class InstagramConnectionController extends Controller
             return redirect()->route('settings.index')->with('error', 'No authorization code received.');
         }
         $service = app(MetaInstagramService::class);
-        $result = $service->exchangeCodeForConnection($code, Auth::id());
+        $redirectUri = route('settings.instagram.callback');
+        $result = $service->exchangeCodeForConnection($code, Auth::id(), $redirectUri);
         if (isset($result['error'])) {
             return redirect()->route('settings.index')->with('error', 'Connection failed: ' . $result['error']);
         }
