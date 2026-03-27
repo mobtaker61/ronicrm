@@ -30,11 +30,15 @@ class SettingsController extends Controller
         $canManageOrganizationSettings = Auth::user()->canManageOrganizationSettings();
         $canManageSystemSettings = Auth::user()->isSuperAdmin();
         $isSuperAdmin = Auth::user()->isSuperAdmin();
+        $authUser = Auth::user();
 
+        $userManagementScope = 'none';
         $users = [];
         $roles = [];
         $organizations = [];
-        if ($canManageSystemSettings) {
+
+        if ($authUser->hasGlobalAdminAccess()) {
+            $userManagementScope = 'global';
             $users = \App\Models\User::with('roles')->orderBy('name')->get()->map(function ($user) {
                 return [
                     'id' => $user->id,
@@ -52,46 +56,98 @@ class SettingsController extends Controller
                     'name' => $role->name,
                 ];
             });
-            if ($isSuperAdmin) {
-                $organizations = \App\Models\Organization::query()
-                    ->with(['users' => fn ($q) => $q->orderBy('name')])
-                    ->withCount('users')
-                    ->orderBy('name')
-                    ->get()
-                    ->map(fn ($organization) => [
-                        'id' => $organization->id,
-                        'name' => $organization->name,
-                        'slug' => $organization->slug,
-                        'is_active' => (bool) $organization->is_active,
-                        'users_count' => $organization->users_count,
-                        'members' => $organization->users->map(fn ($member) => [
-                            'id' => $member->id,
-                            'name' => $member->name,
-                            'email' => $member->email,
-                            'avatar_url' => $member->avatar_path ? Storage::url($member->avatar_path) : null,
-                            'role_in_org' => $member->pivot?->role_in_org,
-                            'status' => $member->pivot?->status,
-                            'is_default' => (bool) ($member->pivot?->is_default ?? false),
-                        ])->values(),
-                    ]);
+        } elseif ($canManageOrganizationSettings && $authUser->current_organization_id) {
+            $userManagementScope = 'organization';
+            $org = \App\Models\Organization::query()
+                ->with(['users' => fn ($q) => $q->orderBy('name')])
+                ->find($authUser->current_organization_id);
+            if ($org) {
+                $users = $org->users->map(function ($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'username' => $user->username,
+                        'email' => $user->email,
+                        'avatar_url' => $user->avatar_path ? Storage::url($user->avatar_path) : null,
+                        'roles' => [],
+                        'role_in_org' => $user->pivot?->role_in_org,
+                        'status' => $user->pivot?->status,
+                        'is_default' => (bool) ($user->pivot?->is_default ?? false),
+                        'created_at' => $user->created_at,
+                    ];
+                });
             }
         }
 
-        $allowedTabs = $canManageSystemSettings
-            ? ['smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts', 'subscription', 'users']
-            : ['smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts', 'subscription'];
+        if ($canManageSystemSettings && $isSuperAdmin) {
+            $organizations = \App\Models\Organization::query()
+                ->with(['users' => fn ($q) => $q->orderBy('name')])
+                ->withCount('users')
+                ->orderBy('name')
+                ->get()
+                ->map(fn ($organization) => [
+                    'id' => $organization->id,
+                    'name' => $organization->name,
+                    'slug' => $organization->slug,
+                    'is_active' => (bool) $organization->is_active,
+                    'users_count' => $organization->users_count,
+                    'members' => $organization->users->map(fn ($member) => [
+                        'id' => $member->id,
+                        'name' => $member->name,
+                        'email' => $member->email,
+                        'avatar_url' => $member->avatar_path ? Storage::url($member->avatar_path) : null,
+                        'role_in_org' => $member->pivot?->role_in_org,
+                        'status' => $member->pivot?->status,
+                        'is_default' => (bool) ($member->pivot?->is_default ?? false),
+                    ])->values(),
+                ]);
+        }
+
+        $organizationProfile = null;
+        if ($canManageOrganizationSettings && $authUser->current_organization_id) {
+            $o = \App\Models\Organization::query()->find($authUser->current_organization_id);
+            if ($o) {
+                $organizationProfile = [
+                    'id' => $o->id,
+                    'name' => $o->name,
+                    'slug' => $o->slug,
+                    'legal_name' => $o->legal_name,
+                    'address_line1' => $o->address_line1,
+                    'address_line2' => $o->address_line2,
+                    'city' => $o->city,
+                    'region' => $o->region,
+                    'postal_code' => $o->postal_code,
+                    'country' => $o->country,
+                    'phone' => $o->phone,
+                    'public_email' => $o->public_email,
+                    'website' => $o->website,
+                    'logo_url' => $o->logo_path ? Storage::url($o->logo_path) : null,
+                ];
+            }
+        }
+
+        $allowedTabs = ['smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts'];
+        if ($canManageOrganizationSettings) {
+            $allowedTabs = array_merge(['organization', 'subscription'], $allowedTabs);
+        }
+        if ($userManagementScope !== 'none') {
+            $allowedTabs[] = 'users';
+        }
+        $defaultTab = $canManageOrganizationSettings ? 'organization' : 'smtp';
         $initialTab = in_array(request()->query('tab'), $allowedTabs, true)
             ? request()->query('tab')
-            : 'smtp';
+            : $defaultTab;
 
         return Inertia::render('Settings/Index', [
             'initialTab' => $initialTab,
             'isAdmin' => $canManageSystemSettings,
+            'userManagementScope' => $userManagementScope,
             'canManageOrganizationSettings' => $canManageOrganizationSettings,
             'canManageSystemSettings' => $canManageSystemSettings,
             'users' => $users,
             'roles' => $roles,
             'organizations' => $organizations,
+            'organizationProfile' => $organizationProfile,
             'socialMediaTypes' => SocialMediaType::orderBy('sort_order')->get(),
             'smtpSettings' => Setting::getForOrganization('smtp', [
                 'host' => '',

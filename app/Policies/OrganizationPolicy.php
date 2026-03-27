@@ -14,6 +14,10 @@ class OrganizationPolicy
 
     public function manageMembers(User $user, Organization $organization): bool
     {
-        return $this->manage($user);
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        return $user->canManageOrganizationSettings((int) $organization->id);
     }
 }

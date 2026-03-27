@@ -83,7 +83,20 @@ class HandleInertiaRequests extends Middleware
                     ])
                     ->values()
                 : [],
-            'currentOrganization' => fn () => $request->user()?->currentOrganization?->only(['id', 'name', 'slug']),
+            'currentOrganization' => fn () => (function () use ($request) {
+                $org = $request->user()?->currentOrganization;
+                if (! $org) {
+                    return null;
+                }
+
+                return [
+                    'id' => $org->id,
+                    'name' => $org->name,
+                    'slug' => $org->slug,
+                    'legal_name' => $org->legal_name,
+                    'logo_url' => $org->logo_path ? \Illuminate\Support\Facades\Storage::url($org->logo_path) : null,
+                ];
+            })(),
             'currentOrganizationRole' => fn () => $request->user()
                 ? $request->user()->organizations()
                     ->where('organizations.id', $request->user()->current_organization_id)

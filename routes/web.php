@@ -155,6 +155,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/telegram/reset-session', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'resetSession'])->name('settings.telegram.reset-session');
     Route::post('/settings/instagram/revalidate', [\App\Http\Controllers\SettingsController::class, 'revalidateInstagramToken'])->name('settings.instagram.revalidate');
     Route::post('/settings/subscription/renew', [\App\Http\Controllers\SettingsController::class, 'renewSubscription'])->name('settings.subscription.renew');
+    Route::post('/settings/organization-profile', [\App\Http\Controllers\OrganizationProfileController::class, 'update'])->name('settings.organization-profile.update');
 
     // Users Management (Admin Only)
     Route::get('/settings/users', [\App\Http\Controllers\UserController::class, 'index'])->name('settings.users.index');

@@ -15,6 +15,17 @@ class Organization extends Model
         'slug',
         'is_active',
         'owner_user_id',
+        'logo_path',
+        'legal_name',
+        'address_line1',
+        'address_line2',
+        'city',
+        'region',
+        'postal_code',
+        'country',
+        'phone',
+        'public_email',
+        'website',
     ];
 
     protected function casts(): array

@@ -2,7 +2,10 @@
     <AppLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <h2 class="text-2xl font-bold text-gray-900">{{ t('settings.users_management') }}</h2>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">{{ t('settings.users_management') }}</h2>
+                    <p v-if="userManagementScope === 'organization'" class="text-sm text-gray-500 mt-1">{{ t('settings.users_org_scope_hint') }}</p>
+                </div>
                 <Link
                     :href="route('settings.index')"
                     class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -24,7 +27,9 @@
             <!-- Users List -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-gray-900">{{ t('settings.all_users') }}</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">
+                        {{ userManagementScope === 'organization' ? t('settings.org_members') : t('settings.all_users') }}
+                    </h3>
                     <button
                         @click="showCreateModal = true"
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
@@ -40,7 +45,16 @@
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.name') }}</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.username') }}</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.email') }}</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.roles') }}</th>
+                                <th
+                                    v-if="userManagementScope === 'global'"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                >
+                                    {{ t('common.roles') }}
+                                </th>
+                                <template v-else>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('settings.org_role') }}</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.status') }}</th>
+                                </template>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.created') }}</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.actions') }}</th>
                             </tr>
@@ -56,7 +70,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-500">{{ user.email }}</div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td v-if="userManagementScope === 'global'" class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex flex-wrap gap-1">
                                         <span
                                             v-for="role in user.roles"
@@ -65,16 +79,29 @@
                                         >
                                             {{ role }}
                                         </span>
-                                        <span v-if="user.roles.length === 0" class="text-sm text-gray-400">{{ t('settings.no_roles') }}</span>
+                                        <span v-if="!user.roles || user.roles.length === 0" class="text-sm text-gray-400">{{ t('settings.no_roles') }}</span>
                                     </div>
                                 </td>
+                                <template v-else>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm text-gray-900">{{ formatOrgRole(user.role_in_org) }}</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span
+                                            class="px-2 py-1 text-xs rounded-full"
+                                            :class="user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'"
+                                        >
+                                            {{ user.status === 'active' ? t('common.active') : t('common.inactive') }}
+                                        </span>
+                                    </td>
+                                </template>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-500">{{ formatDate(user.created_at) }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <button
                                         @click="editUser(user)"
-                                        class="text-blue-600 hover:text-blue-900 mr-4"
+                                        class="text-blue-600 hover:text-blue-900 ltr:mr-4 rtl:ml-4"
                                     >
                                         {{ t('common.edit') }}
                                     </button>
@@ -86,7 +113,7 @@
                                             user.id === $page.props.auth?.user?.id ? 'opacity-50 cursor-not-allowed' : ''
                                         ]"
                                     >
-                                        {{ t('common.delete') }}
+                                        {{ userManagementScope === 'organization' ? t('settings.remove_from_organization') : t('common.delete') }}
                                     </button>
                                 </td>
                             </tr>
@@ -168,22 +195,24 @@
                         <div v-if="userForm.errors.password" class="mt-1 text-sm text-red-600">{{ userForm.errors.password }}</div>
                     </div>
 
-                    <div v-if="showEditModal">
+                    <div v-if="!showEditModal || userForm.password">
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.confirm_password_required') }}</label>
                         <input
                             v-model="userForm.password_confirmation"
                             type="password"
+                            :required="!showEditModal || !!userForm.password"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
+                        <div v-if="userForm.errors.password_confirmation" class="mt-1 text-sm text-red-600">{{ userForm.errors.password_confirmation }}</div>
                     </div>
 
-                    <div>
+                    <div v-if="userManagementScope === 'global'">
                         <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.roles') }}</label>
                         <div class="space-y-2">
                             <label
                                 v-for="role in roles"
                                 :key="role.id"
-                                class="flex items-center space-x-2"
+                                class="flex items-center space-x-2 rtl:space-x-reverse"
                             >
                                 <input
                                     v-model="userForm.roles"
@@ -196,8 +225,31 @@
                         </div>
                         <div v-if="userForm.errors.roles" class="mt-1 text-sm text-red-600">{{ userForm.errors.roles }}</div>
                     </div>
+                    <div v-else class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.org_role') }} *</label>
+                            <select v-model="userForm.role_in_org" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                <option value="org_admin">{{ t('settings.org_admin') }}</option>
+                                <option value="org_manager">{{ t('settings.org_manager') }}</option>
+                                <option value="org_agent">{{ t('settings.org_agent') }}</option>
+                            </select>
+                            <div v-if="userForm.errors.role_in_org" class="mt-1 text-sm text-red-600">{{ userForm.errors.role_in_org }}</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.status') }} *</label>
+                            <select v-model="userForm.status" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                <option value="active">{{ t('common.active') }}</option>
+                                <option value="inactive">{{ t('common.inactive') }}</option>
+                            </select>
+                            <div v-if="userForm.errors.status" class="mt-1 text-sm text-red-600">{{ userForm.errors.status }}</div>
+                        </div>
+                        <label class="flex items-center gap-2">
+                            <input v-model="userForm.is_default" type="checkbox" class="rounded border-gray-300 text-blue-600" />
+                            <span class="text-sm text-gray-700">{{ t('settings.default_organization_for_user') }}</span>
+                        </label>
+                    </div>
 
-                    <div class="flex justify-end space-x-3 pt-4">
+                    <div class="flex justify-end space-x-3 rtl:space-x-reverse pt-4">
                         <button
                             type="button"
                             @click="closeModal"
@@ -220,7 +272,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { useForm, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useI18n } from '@/composables/useI18n';
@@ -236,6 +288,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    userManagementScope: {
+        type: String,
+        default: 'global',
+    },
 });
 
 const showCreateModal = ref(false);
@@ -249,7 +305,23 @@ const userForm = useForm({
     password: '',
     password_confirmation: '',
     roles: [],
+    role_in_org: 'org_agent',
+    status: 'active',
+    is_default: false,
 });
+
+const formatOrgRole = (role) => {
+    if (role === 'org_admin') {
+        return t('settings.org_admin');
+    }
+    if (role === 'org_manager') {
+        return t('settings.org_manager');
+    }
+    if (role === 'org_agent') {
+        return t('settings.org_agent');
+    }
+    return role || '—';
+};
 
 const editUser = (user) => {
     editingUser.value = user;
@@ -258,12 +330,23 @@ const editUser = (user) => {
     userForm.email = user.email;
     userForm.password = '';
     userForm.password_confirmation = '';
-    userForm.roles = user.roles || [];
+    if (props.userManagementScope === 'organization') {
+        userForm.roles = [];
+        userForm.role_in_org = user.role_in_org || 'org_agent';
+        userForm.status = user.status || 'active';
+        userForm.is_default = !!user.is_default;
+    } else {
+        userForm.roles = user.roles || [];
+    }
     showEditModal.value = true;
 };
 
 const deleteUser = (user) => {
-    if (confirm(t('settings.confirm_delete_user').replace(':name', user.name))) {
+    const msg =
+        props.userManagementScope === 'organization'
+            ? t('settings.confirm_remove_user_from_org').replace(':name', user.name)
+            : t('settings.confirm_delete_user').replace(':name', user.name);
+    if (confirm(msg)) {
         router.delete(route('settings.users.destroy', user.id), {
             preserveState: true,
             preserveScroll: true,
@@ -296,6 +379,9 @@ const closeModal = () => {
     showEditModal.value = false;
     editingUser.value = null;
     userForm.reset();
+    userForm.role_in_org = 'org_agent';
+    userForm.status = 'active';
+    userForm.is_default = false;
     userForm.clearErrors();
 };
 

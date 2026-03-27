@@ -25,7 +25,43 @@
             <!-- Tabs -->
             <div class="bg-white rounded-lg shadow">
                 <div class="border-b border-gray-200">
-                    <nav class="flex -mb-px">
+                    <nav class="flex flex-wrap -mb-px">
+                        <button
+                            v-if="canManageOrganizationSettings"
+                            @click="activeTab = 'organization'"
+                            :class="[
+                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
+                                activeTab === 'organization'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ]"
+                        >
+                            {{ t('settings.tabs.organization') }}
+                        </button>
+                        <button
+                            v-if="canManageOrganizationSettings"
+                            @click="activeTab = 'subscription'"
+                            :class="[
+                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
+                                activeTab === 'subscription'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ]"
+                        >
+                            {{ t('settings.tabs.subscription') }}
+                        </button>
+                        <button
+                            v-if="userManagementScope !== 'none'"
+                            @click="activeTab = 'users'"
+                            :class="[
+                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
+                                activeTab === 'users'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ]"
+                        >
+                            {{ t('settings.tabs.users') }}
+                        </button>
                         <button
                             v-if="canManageOrganizationSettings"
                             @click="activeTab = 'smtp'"
@@ -85,30 +121,6 @@
                             ]"
                         >
                             {{ t('settings.tabs.google_contacts') }}
-                        </button>
-                        <button
-                            v-if="canManageOrganizationSettings"
-                            @click="activeTab = 'subscription'"
-                            :class="[
-                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-                                activeTab === 'subscription'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            ]"
-                        >
-                            {{ t('settings.tabs.subscription') }}
-                        </button>
-                        <button
-                            v-if="isAdmin"
-                            @click="activeTab = 'users'"
-                            :class="[
-                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-                                activeTab === 'users'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            ]"
-                        >
-                            {{ t('settings.tabs.users') }}
                         </button>
                     </nav>
                 </div>
@@ -447,10 +459,13 @@
                     </div>
                 </div>
 
-                <!-- Users Management Tab (Admin Only) -->
-                <div v-if="activeTab === 'users' && isAdmin" class="p-6">
+                <!-- Users Management Tab -->
+                <div v-if="activeTab === 'users' && userManagementScope !== 'none'" class="p-6">
                     <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xl font-bold text-gray-900">{{ t('settings.users_management') }}</h2>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900">{{ t('settings.users_management') }}</h2>
+                            <p v-if="userManagementScope === 'organization'" class="text-sm text-gray-500 mt-1">{{ t('settings.users_org_scope_hint') }}</p>
+                        </div>
                         <button
                             @click="showCreateUserModal = true"
                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
@@ -468,7 +483,16 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.name') }}</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.username') }}</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.email') }}</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.roles') }}</th>
+                                        <th
+                                            v-if="userManagementScope === 'global'"
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                        >
+                                            {{ t('common.roles') }}
+                                        </th>
+                                        <template v-else>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('settings.org_role') }}</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.status') }}</th>
+                                        </template>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.created') }}</th>
                                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.actions') }}</th>
                                     </tr>
@@ -495,7 +519,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-gray-500">{{ user.email }}</div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
+                                        <td v-if="userManagementScope === 'global'" class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex flex-wrap gap-1">
                                                 <span
                                                     v-for="role in user.roles"
@@ -504,9 +528,22 @@
                                                 >
                                                     {{ role }}
                                                 </span>
-                                                <span v-if="user.roles.length === 0" class="text-sm text-gray-400">{{ t('settings.no_roles') }}</span>
+                                                <span v-if="!user.roles || user.roles.length === 0" class="text-sm text-gray-400">{{ t('settings.no_roles') }}</span>
                                             </div>
                                         </td>
+                                        <template v-else>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="text-sm text-gray-900">{{ formatOrgRole(user.role_in_org) }}</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span
+                                                    class="px-2 py-1 text-xs rounded-full"
+                                                    :class="user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'"
+                                                >
+                                                    {{ user.status === 'active' ? t('common.active') : t('common.inactive') }}
+                                                </span>
+                                            </td>
+                                        </template>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="text-sm text-gray-500">{{ formatDate(user.created_at) }}</div>
                                         </td>
@@ -525,7 +562,7 @@
                                                     user.id === $page.props.auth?.user?.id ? 'opacity-50 cursor-not-allowed' : ''
                                                 ]"
                                             >
-                                                {{ t('common.delete') }}
+                                                {{ userManagementScope === 'organization' ? t('settings.remove_from_organization') : t('common.delete') }}
                                             </button>
                                         </td>
                                     </tr>
@@ -617,7 +654,7 @@
                                     <div v-if="userForm.errors.password_confirmation" class="mt-1 text-sm text-red-600">{{ userForm.errors.password_confirmation }}</div>
                                 </div>
 
-                                <div>
+                                <div v-if="userManagementScope === 'global'">
                                     <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.roles') }}</label>
                                     <div v-if="roles && roles.length > 0" class="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-40 overflow-y-auto">
                                         <label
@@ -636,6 +673,29 @@
                                     </div>
                                     <div v-else class="text-sm text-gray-500 italic">{{ t('settings.no_roles_available') }}</div>
                                     <div v-if="userForm.errors.roles" class="mt-1 text-sm text-red-600">{{ userForm.errors.roles }}</div>
+                                </div>
+                                <div v-else class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.org_role') }} *</label>
+                                        <select v-model="userForm.role_in_org" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                            <option value="org_admin">{{ t('settings.org_admin') }}</option>
+                                            <option value="org_manager">{{ t('settings.org_manager') }}</option>
+                                            <option value="org_agent">{{ t('settings.org_agent') }}</option>
+                                        </select>
+                                        <div v-if="userForm.errors.role_in_org" class="mt-1 text-sm text-red-600">{{ userForm.errors.role_in_org }}</div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.status') }} *</label>
+                                        <select v-model="userForm.status" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                            <option value="active">{{ t('common.active') }}</option>
+                                            <option value="inactive">{{ t('common.inactive') }}</option>
+                                        </select>
+                                        <div v-if="userForm.errors.status" class="mt-1 text-sm text-red-600">{{ userForm.errors.status }}</div>
+                                    </div>
+                                    <label class="flex items-center gap-2">
+                                        <input v-model="userForm.is_default" type="checkbox" class="rounded border-gray-300 text-blue-600" />
+                                        <span class="text-sm text-gray-700">{{ t('settings.default_organization_for_user') }}</span>
+                                    </label>
                                 </div>
 
                                 <div class="flex justify-end space-x-3 rtl:space-x-reverse pt-4">
@@ -1483,6 +1543,106 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Organization profile tab -->
+                <div v-if="activeTab === 'organization' && canManageOrganizationSettings && organizationProfile" class="p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">{{ t('settings.organization_profile') }}</h2>
+                    <p class="text-sm text-gray-500 mb-6">{{ t('settings.organization_profile_help') }}</p>
+
+                    <form @submit.prevent="saveOrganizationProfile" class="space-y-6 max-w-3xl">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.name') }} *</label>
+                                <input v-model="organizationProfileForm.name" type="text" required class="w-full px-3 py-2 border rounded-md" />
+                                <div v-if="organizationProfileForm.errors.name" class="mt-1 text-sm text-red-600">{{ organizationProfileForm.errors.name }}</div>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.legal_name') }}</label>
+                                <input v-model="organizationProfileForm.legal_name" type="text" class="w-full px-3 py-2 border rounded-md" />
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.slug') }}</label>
+                                <input :value="organizationProfile.slug" type="text" readonly class="w-full px-3 py-2 border rounded-md bg-gray-50 text-gray-600" />
+                                <p class="text-xs text-gray-500 mt-1">{{ t('settings.organization_slug_readonly') }}</p>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-gray-100 pt-4">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3">{{ t('settings.organization_logo') }}</h3>
+                            <div class="flex flex-wrap items-end gap-4">
+                                <div v-if="organizationProfile.logo_url && !organizationProfileForm.remove_logo" class="h-16 w-16 rounded border border-gray-200 overflow-hidden bg-gray-50">
+                                    <img :src="organizationProfile.logo_url" alt="" class="h-full w-full object-contain" />
+                                </div>
+                                <div>
+                                    <input type="file" accept="image/*" class="text-sm" @change="onOrganizationLogoChange" />
+                                </div>
+                                <label v-if="organizationProfile.logo_url" class="flex items-center gap-2 text-sm text-gray-700">
+                                    <input v-model="organizationProfileForm.remove_logo" type="checkbox" />
+                                    {{ t('settings.remove_logo') }}
+                                </label>
+                            </div>
+                            <div v-if="organizationProfileForm.errors.logo" class="mt-1 text-sm text-red-600">{{ organizationProfileForm.errors.logo }}</div>
+                        </div>
+
+                        <div class="border-t border-gray-100 pt-4 space-y-4">
+                            <h3 class="text-sm font-semibold text-gray-800">{{ t('settings.organization_address') }}</h3>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.address_line1') }}</label>
+                                <textarea v-model="organizationProfileForm.address_line1" rows="2" class="w-full px-3 py-2 border rounded-md"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.address_line2') }}</label>
+                                <input v-model="organizationProfileForm.address_line2" type="text" class="w-full px-3 py-2 border rounded-md" />
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.city') }}</label>
+                                    <input v-model="organizationProfileForm.city" type="text" class="w-full px-3 py-2 border rounded-md" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.region') }}</label>
+                                    <input v-model="organizationProfileForm.region" type="text" class="w-full px-3 py-2 border rounded-md" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.postal_code') }}</label>
+                                    <input v-model="organizationProfileForm.postal_code" type="text" class="w-full px-3 py-2 border rounded-md" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.country') }}</label>
+                                    <input v-model="organizationProfileForm.country" type="text" maxlength="2" class="w-full px-3 py-2 border rounded-md uppercase" placeholder="e.g. AE" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-gray-100 pt-4">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3">{{ t('settings.organization_contact') }}</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.phone') }}</label>
+                                    <input v-model="organizationProfileForm.phone" type="text" class="w-full px-3 py-2 border rounded-md" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.public_email') }}</label>
+                                    <input v-model="organizationProfileForm.public_email" type="email" class="w-full px-3 py-2 border rounded-md" />
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.website') }}</label>
+                                    <input v-model="organizationProfileForm.website" type="url" class="w-full px-3 py-2 border rounded-md" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-2">
+                            <button
+                                type="submit"
+                                :disabled="organizationProfileForm.processing"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {{ organizationProfileForm.processing ? t('settings.saving') : t('common.save') }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -1653,6 +1813,14 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    userManagementScope: {
+        type: String,
+        default: 'none',
+    },
+    organizationProfile: {
+        type: Object,
+        default: null,
+    },
 });
 
 const activeTab = ref(props.initialTab || 'smtp');
@@ -1806,7 +1974,50 @@ const userForm = useForm({
     password: '',
     password_confirmation: '',
     roles: [],
+    role_in_org: 'org_agent',
+    status: 'active',
+    is_default: false,
 });
+
+const organizationProfileForm = useForm({
+    name: props.organizationProfile?.name ?? '',
+    legal_name: props.organizationProfile?.legal_name ?? '',
+    address_line1: props.organizationProfile?.address_line1 ?? '',
+    address_line2: props.organizationProfile?.address_line2 ?? '',
+    city: props.organizationProfile?.city ?? '',
+    region: props.organizationProfile?.region ?? '',
+    postal_code: props.organizationProfile?.postal_code ?? '',
+    country: props.organizationProfile?.country ?? '',
+    phone: props.organizationProfile?.phone ?? '',
+    public_email: props.organizationProfile?.public_email ?? '',
+    website: props.organizationProfile?.website ?? '',
+    logo: null,
+    remove_logo: false,
+});
+
+watch(
+    () => props.organizationProfile,
+    (p) => {
+        if (!p) {
+            return;
+        }
+        organizationProfileForm.name = p.name ?? '';
+        organizationProfileForm.legal_name = p.legal_name ?? '';
+        organizationProfileForm.address_line1 = p.address_line1 ?? '';
+        organizationProfileForm.address_line2 = p.address_line2 ?? '';
+        organizationProfileForm.city = p.city ?? '';
+        organizationProfileForm.region = p.region ?? '';
+        organizationProfileForm.postal_code = p.postal_code ?? '';
+        organizationProfileForm.country = p.country ?? '';
+        organizationProfileForm.phone = p.phone ?? '';
+        organizationProfileForm.public_email = p.public_email ?? '';
+        organizationProfileForm.website = p.website ?? '';
+        organizationProfileForm.logo = null;
+        organizationProfileForm.remove_logo = false;
+        organizationProfileForm.clearErrors();
+    },
+    { deep: true }
+);
 
 const form = useForm({
     name: '',
@@ -2431,6 +2642,32 @@ const testRonibot = () => {
 };
 
 // User Management Functions
+const formatOrgRole = (role) => {
+    if (role === 'org_admin') {
+        return t('settings.org_admin');
+    }
+    if (role === 'org_manager') {
+        return t('settings.org_manager');
+    }
+    if (role === 'org_agent') {
+        return t('settings.org_agent');
+    }
+    return role || '—';
+};
+
+function saveOrganizationProfile() {
+    organizationProfileForm.post(route('settings.organization-profile.update'), {
+        forceFormData: true,
+        preserveScroll: true,
+    });
+}
+
+function onOrganizationLogoChange(e) {
+    const f = e.target.files?.[0];
+    organizationProfileForm.logo = f || null;
+    organizationProfileForm.remove_logo = false;
+}
+
 const editUser = (user) => {
     editingUser.value = user;
     userForm.name = user.name;
@@ -2438,12 +2675,23 @@ const editUser = (user) => {
     userForm.email = user.email;
     userForm.password = '';
     userForm.password_confirmation = '';
-    userForm.roles = user.roles || [];
+    if (props.userManagementScope === 'organization') {
+        userForm.roles = [];
+        userForm.role_in_org = user.role_in_org || 'org_agent';
+        userForm.status = user.status || 'active';
+        userForm.is_default = !!user.is_default;
+    } else {
+        userForm.roles = user.roles || [];
+    }
     showEditUserModal.value = true;
 };
 
 const deleteUser = (user) => {
-    if (confirm(t('settings.confirm_delete_user').replace(':name', user.name))) {
+    const msg =
+        props.userManagementScope === 'organization'
+            ? t('settings.confirm_remove_user_from_org').replace(':name', user.name)
+            : t('settings.confirm_delete_user').replace(':name', user.name);
+    if (confirm(msg)) {
         router.delete(route('settings.users.destroy', user.id), {
             preserveState: true,
             preserveScroll: true,
@@ -2476,6 +2724,9 @@ const closeUserModal = () => {
     showEditUserModal.value = false;
     editingUser.value = null;
     userForm.reset();
+    userForm.role_in_org = 'org_agent';
+    userForm.status = 'active';
+    userForm.is_default = false;
     userForm.clearErrors();
 };
 
