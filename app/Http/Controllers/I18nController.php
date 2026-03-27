@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Language;
 use App\Services\I18nService;
+use App\Services\OrganizationLanguageScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -17,12 +18,13 @@ class I18nController extends Controller
             return response()->json([], 404);
         }
 
-        $isAllowed = Language::query()
+        $orgId = $request->user()?->current_organization_id;
+        $q = Language::query()
             ->where('code', $locale)
-            ->where('is_active', true)
-            ->exists();
+            ->where('is_active', true);
+        OrganizationLanguageScope::restrictQuery($q, $orgId ? (int) $orgId : null);
 
-        if (! $isAllowed) {
+        if (! $q->exists()) {
             return response()->json([], 404);
         }
 
@@ -42,12 +44,8 @@ class I18nController extends Controller
 
         $locale = trim((string) $validated['locale']);
 
-        $isAllowed = Language::query()
-            ->where('code', $locale)
-            ->where('is_active', true)
-            ->exists();
-
-        if (! $isAllowed) {
+        $orgId = $request->user()?->current_organization_id;
+        if (! OrganizationLanguageScope::isCodeAllowedForOrganization($locale, $orgId ? (int) $orgId : null)) {
             return response()->json(['success' => false, 'error' => 'invalid_locale'], 422);
         }
 

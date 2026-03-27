@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Language;
+use App\Services\OrganizationLanguageScope;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -11,9 +12,14 @@ class SetLocale
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $available = Language::query()
+        $orgId = $request->user()?->current_organization_id;
+
+        $availableQuery = Language::query()
             ->where('is_active', true)
-            ->orderBy('sort_order')
+            ->orderBy('sort_order');
+        OrganizationLanguageScope::restrictQuery($availableQuery, $orgId ? (int) $orgId : null);
+
+        $available = $availableQuery
             ->pluck('code')
             ->map(fn ($c) => (string) $c)
             ->values()
@@ -24,7 +30,15 @@ class SetLocale
             ->where('is_default', true)
             ->value('code');
 
-        $fallback = $default ?: (string) config('app.locale', 'en');
+        $defaultStr = $default ? (string) $default : '';
+        $configFallback = (string) config('app.locale', 'en');
+        if ($defaultStr !== '' && in_array($defaultStr, $available, true)) {
+            $fallback = $defaultStr;
+        } elseif ($available !== []) {
+            $fallback = $available[0];
+        } else {
+            $fallback = $configFallback;
+        }
 
         $candidate = trim((string) $request->header('X-Locale', ''));
         if ($candidate === '') {

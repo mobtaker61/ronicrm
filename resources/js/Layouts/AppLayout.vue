@@ -600,7 +600,8 @@ const isRtl = computed(() => currentDir.value === 'rtl');
 const currentFontStyle = computed(() => {
     const f = currentLanguage.value?.font_family;
     if (!f) return {};
-    return { fontFamily: String(f) };
+    const stack = `${String(f).trim()}, ui-sans-serif, system-ui, sans-serif`;
+    return { fontFamily: stack };
 });
 const formattedCurrentOrganizationRole = computed(() => {
     const raw = page.props.currentOrganizationRole;
@@ -757,6 +758,21 @@ watch(
     (newValue) => {
         selectedLocale.value = newValue || null;
     }
+);
+
+watch(
+    () => languages.value,
+    (langs) => {
+        const codes = (langs || []).map((l) => String(l.code));
+        if (!codes.length) {
+            return;
+        }
+        const cur = String(selectedLocale.value || '');
+        if (cur && !codes.includes(cur)) {
+            selectedLocale.value = codes[0];
+        }
+    },
+    { deep: true }
 );
 
 onMounted(() => {

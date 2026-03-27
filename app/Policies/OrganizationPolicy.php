@@ -9,7 +9,7 @@ class OrganizationPolicy
 {
     public function manage(User $user): bool
     {
-        return $user->hasRole('super_admin');
+        return $user->isSuperAdmin();
     }
 
     public function manageMembers(User $user, Organization $organization): bool

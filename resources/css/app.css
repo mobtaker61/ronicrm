@@ -1,6 +1,59 @@
 @import 'tailwindcss';
 
 /*
+ * Local webfonts (place files in public/fonts — served as /fonts/...)
+ * Set the same name in Superadmin → Languages → Font family, e.g. "Ramis Arabic".
+ */
+@font-face {
+    font-family: 'Ramis Arabic';
+    src: url('/fonts/ramis-arabic.otf') format('opentype');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Zahir Arabic';
+    src: url('/fonts/zahir-arabic.otf') format('opentype');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* Turkish (Latin): use font-family "Berylium" in Languages admin */
+@font-face {
+    font-family: 'Berylium';
+    src: url('/fonts/berylium-rg.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Berylium';
+    src: url('/fonts/berylium-rg-it.otf') format('opentype');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Berylium';
+    src: url('/fonts/berylium-bd.otf') format('opentype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Berylium';
+    src: url('/fonts/berylium-bd-it.otf') format('opentype');
+    font-weight: 700;
+    font-style: italic;
+    font-display: swap;
+}
+
+/*
  * RTL compatibility layer
  * We prefer Tailwind's official `rtl:`/`ltr:` variants for new code.
  * This block provides safe fallbacks for legacy `left/right` and `ml/mr/pl/pr`

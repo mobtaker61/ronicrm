@@ -29,6 +29,12 @@ class Organization extends Model
         return $this->belongsTo(User::class, 'owner_user_id');
     }
 
+    public function languages(): BelongsToMany
+    {
+        return $this->belongsToMany(Language::class, 'language_organization')
+            ->withTimestamps();
+    }
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'organization_user')

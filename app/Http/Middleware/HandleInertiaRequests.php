@@ -90,11 +90,16 @@ class HandleInertiaRequests extends Middleware
                     ->first()?->pivot?->role_in_org
                 : null,
             'languages' => fn () => $request->user()
-                ? \App\Models\Language::query()
-                    ->where('is_active', true)
-                    ->orderBy('sort_order')
-                    ->orderBy('name')
-                    ->get(['id', 'code', 'name', 'is_default', 'direction', 'font_family'])
+                ? (function () use ($request) {
+                    $q = \App\Models\Language::query()
+                        ->where('is_active', true)
+                        ->orderBy('sort_order')
+                        ->orderBy('name');
+                    $orgId = $request->user()?->current_organization_id;
+                    \App\Services\OrganizationLanguageScope::restrictQuery($q, $orgId ? (int) $orgId : null);
+
+                    return $q->get(['id', 'code', 'name', 'is_default', 'direction', 'font_family']);
+                })()
                 : [],
             'telegramGroupCategories' => fn () => $request->user() ? \App\Models\TelegramGroupCategory::orderBy('sort_order')->orderBy('name')->get(['id', 'name']) : [],
             'csrf_token' => csrf_token(),
