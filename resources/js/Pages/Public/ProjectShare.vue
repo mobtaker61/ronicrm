@@ -9,7 +9,7 @@
                 <div class="flex flex-wrap gap-4 text-sm text-gray-500">
                     <span v-if="project.start_date" class="flex items-center gap-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        {{ formatDate(project.start_date) }} <template v-if="project.end_date"> to {{ formatDate(project.end_date) }}</template>
+                        {{ formatDate(project.start_date) }} <template v-if="project.end_date"> {{ t('public_share.to') }} {{ formatDate(project.end_date) }}</template>
                     </span>
                     <span v-if="project.location" class="flex items-center gap-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
@@ -21,7 +21,7 @@
             <!-- Customers List -->
             <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
                 <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex flex-wrap items-center justify-between gap-3">
-                    <h2 class="text-lg font-semibold text-gray-900">Contacts in this project ({{ customers.length }})</h2>
+                    <h2 class="text-lg font-semibold text-gray-900">{{ t('public_share.contacts_in_project').replace(':count', String(customers.length)) }}</h2>
                     <a
                         v-if="project.allow_excel_export && customers.length > 0"
                         :href="exportExcelUrl"
@@ -30,18 +30,18 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        Export to Excel
+                        {{ t('public_share.export_to_excel') }}
                     </a>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Industry</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.name') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.company') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('public_share.contact') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('customers.industry') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -54,20 +54,20 @@
                                 <td class="px-6 py-4">
                                     <span class="font-medium text-gray-900">{{ c.name }}</span>
                                 </td>
-                                <td class="px-6 py-4 text-sm text-gray-500">{{ c.company_name || '—' }}</td>
+                                <td class="px-6 py-4 text-sm text-gray-500">{{ c.company_name || t('common.dash') }}</td>
                                 <td class="px-6 py-4 text-sm">
                                     <span v-if="c.phone">{{ c.phone }}</span>
                                     <span v-else-if="c.email">{{ c.email }}</span>
-                                    <span v-else>—</span>
+                                    <span v-else>{{ t('common.dash') }}</span>
                                 </td>
-                                <td class="px-6 py-4 text-sm text-gray-500">{{ c.industry?.name || '—' }}</td>
+                                <td class="px-6 py-4 text-sm text-gray-500">{{ c.industry?.name || t('common.dash') }}</td>
                                 <td class="px-6 py-4">
                                     <button
                                         type="button"
                                         @click.stop="openCustomerCard(c)"
                                         class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                                     >
-                                        View card
+                                        {{ t('public_share.view_card') }}
                                     </button>
                                 </td>
                             </tr>
@@ -75,12 +75,12 @@
                     </table>
                 </div>
                 <div v-if="!customers || customers.length === 0" class="text-center py-12 text-gray-500">
-                    No contacts in this project yet.
+                    {{ t('public_share.no_contacts_in_project') }}
                 </div>
             </div>
 
             <div class="mt-6 text-center text-sm text-gray-500">
-                    <p>RoniCRM – Project Share</p>
+                    <p>{{ t('public_share.footer_title') }}</p>
                 </div>
             </div>
         </div>
@@ -93,7 +93,7 @@
         >
             <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" @click.stop>
                 <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-                    <h3 class="text-lg font-semibold text-gray-900">Contact Card</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">{{ t('public_share.contact_card') }}</h3>
                     <button
                         type="button"
                         @click="closeCardModal"
@@ -103,7 +103,7 @@
                     </button>
                 </div>
                 <div v-if="cardLoading" class="p-12 text-center text-gray-500">
-                    Loading...
+                    {{ t('common.loading') }}
                 </div>
                 <div v-else-if="cardCustomer" class="p-6 overflow-y-auto flex-1">
                     <!-- Avatar & Name -->
@@ -137,22 +137,22 @@
                     <!-- Language, Gender (person), Contact Person (company) -->
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                         <div v-if="cardCustomer.languages && cardCustomer.languages.length">
-                            <h5 class="text-sm font-semibold text-gray-700 mb-1">Languages</h5>
+                            <h5 class="text-sm font-semibold text-gray-700 mb-1">{{ t('common.language') }}</h5>
                             <p class="text-gray-600 text-sm">{{ cardCustomer.languages.join(', ') }}</p>
                         </div>
                         <div v-if="cardCustomer.type === 'person' && cardCustomer.gender">
-                            <h5 class="text-sm font-semibold text-gray-700 mb-1">Gender</h5>
+                            <h5 class="text-sm font-semibold text-gray-700 mb-1">{{ t('customers.gender') }}</h5>
                             <p class="text-gray-600 text-sm capitalize">{{ cardCustomer.gender }}</p>
                         </div>
                         <div v-if="cardCustomer.type === 'company' && cardCustomer.contact_person">
-                            <h5 class="text-sm font-semibold text-gray-700 mb-1">Contact Person</h5>
+                            <h5 class="text-sm font-semibold text-gray-700 mb-1">{{ t('customers.contact_person') }}</h5>
                             <p class="text-gray-600 text-sm">{{ cardCustomer.contact_person }}</p>
                         </div>
                     </div>
 
                     <!-- Contacts -->
                     <div v-if="cardCustomer.contacts && cardCustomer.contacts.length" class="mb-4">
-                        <h5 class="text-sm font-semibold text-gray-700 mb-2">Contact Information</h5>
+                        <h5 class="text-sm font-semibold text-gray-700 mb-2">{{ t('public_share.contact_information') }}</h5>
                         <div class="space-y-2">
                             <div
                                 v-for="contact in cardCustomer.contacts"
@@ -178,7 +178,7 @@
 
                     <!-- Social Media -->
                     <div v-if="cardCustomer.social_media && cardCustomer.social_media.length" class="mb-4">
-                        <h5 class="text-sm font-semibold text-gray-700 mb-2">Social Media</h5>
+                        <h5 class="text-sm font-semibold text-gray-700 mb-2">{{ t('customers.social_media') }}</h5>
                         <div class="flex flex-wrap gap-2">
                             <a
                                 v-for="sm in cardCustomer.social_media"
@@ -195,13 +195,13 @@
 
                     <!-- Address -->
                     <div v-if="cardCustomer.address" class="mb-4">
-                        <h5 class="text-sm font-semibold text-gray-700 mb-1">Address</h5>
+                        <h5 class="text-sm font-semibold text-gray-700 mb-1">{{ t('customers.address') }}</h5>
                         <p class="text-gray-600 text-sm">{{ cardCustomer.address }}</p>
                     </div>
 
                     <!-- Notes -->
                     <div v-if="cardCustomer.notes" class="text-sm text-gray-500">
-                        <h5 class="font-semibold text-gray-700 mb-1">Notes</h5>
+                        <h5 class="font-semibold text-gray-700 mb-1">{{ t('customers.notes') }}</h5>
                         <p class="text-gray-600">{{ cardCustomer.notes }}</p>
                     </div>
 </div>
@@ -213,6 +213,9 @@
 <script setup>
 import { ref, computed } from 'vue';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     project: Object,
@@ -265,12 +268,12 @@ async function openCustomerCard(c) {
     try {
         const url = `/p/${props.project.share_token}/customer/${c.share_key}`;
         const res = await fetch(url, { headers: { Accept: 'application/json' } });
-        if (!res.ok) throw new Error('Failed to load');
+        if (!res.ok) throw new Error(t('public_share.failed_to_load'));
         const data = await res.json();
         cardCustomer.value = data.customer;
     } catch (e) {
         console.error(e);
-        alert('Failed to load contact.');
+        alert(t('public_share.failed_to_load_contact'));
         closeCardModal();
     } finally {
         cardLoading.value = false;

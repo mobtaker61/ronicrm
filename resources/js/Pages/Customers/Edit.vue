@@ -1,13 +1,13 @@
 <template>
     <AppLayout>
         <template #header>
-            Edit Customer
+            {{ t('customers.edit_customer') }}
         </template>
 
         <div class="max-w-4xl mx-auto">
             <form @submit.prevent="submit" class="bg-white rounded-lg shadow p-6 space-y-6" enctype="multipart/form-data">
                 <!-- Avatar Upload -->
-                <div class="flex items-center space-x-6">
+                <div class="flex items-center space-x-6 rtl:space-x-reverse">
                     <div class="flex-shrink-0">
                         <img
                             v-if="avatarPreview || customer.avatar"
@@ -25,12 +25,12 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.profile_picture') }}</label>
                         <input
                             type="file"
                             accept="image/*"
                             @change="handleAvatarChange"
-                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                            class="block w-full text-sm text-gray-500 file:ltr:mr-4 file:rtl:ml-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                         />
                     </div>
                 </div>
@@ -38,15 +38,15 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <!-- Row 1: Contact Type 1/4 + Company Name 3/4 -->
                     <div class="md:col-span-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Contact Type *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.contact_type_required') }}</label>
                         <select
                             v-model="form.type"
                             required
                             @change="handleTypeChange"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            <option value="person">Person</option>
-                            <option value="company">Company</option>
+                            <option value="person">{{ t('customers.person') }}</option>
+                            <option value="company">{{ t('customers.company') }}</option>
                         </select>
                         <div v-if="form.errors.type" class="mt-1 text-sm text-red-600">
                             {{ form.errors.type }}
@@ -54,7 +54,7 @@
                     </div>
 
                     <div class="md:col-span-3">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.company_name') }}</label>
                         <input
                             v-model="form.company_name"
                             type="text"
@@ -64,15 +64,15 @@
 
                     <!-- Row 2: Gender 1/4 (person only) + Name 3/4 (or Name full width for company) -->
                     <div v-if="form.type === 'person'" class="md:col-span-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.gender') }}</label>
                         <select
                             v-model="form.gender"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            <option :value="null">Select Gender</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                            <option value="other">Other</option>
+                            <option :value="null">{{ t('customers.select_gender') }}</option>
+                            <option value="male">{{ t('customers.gender_male') }}</option>
+                            <option value="female">{{ t('customers.gender_female') }}</option>
+                            <option value="other">{{ t('customers.gender_other') }}</option>
                         </select>
                     </div>
 
@@ -80,7 +80,7 @@
                         class="md:col-span-3"
                         :class="{ 'md:col-span-4': form.type === 'company' }"
                     >
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.name_required') }}</label>
                         <input
                             v-model="form.name"
                             type="text"
@@ -93,8 +93,8 @@
                     </div>
 
                     <div class="md:col-span-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Languages</label>
-                        <p class="text-xs text-gray-500 mb-3">Select all that apply (multilingual customers)</p>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('superadmin.languages') }}</label>
+                        <p class="text-xs text-gray-500 mb-3">{{ t('customers.select_languages_help') }}</p>
                         <div class="flex flex-wrap gap-x-6 gap-y-2">
                             <label
                                 v-for="lang in languageOptions"
@@ -116,7 +116,7 @@
                     </div>
 
                     <div class="md:col-span-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.address') }}</label>
                         <textarea
                             v-model="form.address"
                             rows="3"
@@ -125,21 +125,21 @@
                     </div>
 
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('sidebar.industries') }}</label>
                         <IndustrySelect
                             v-model="form.industry_id"
                             :industries="industries"
-                            placeholder="Choose category..."
+                            :placeholder="t('customers.choose_category')"
                         />
                     </div>
 
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Project</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('sidebar.projects') }}</label>
                         <select
                             v-model="form.project_id"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            <option :value="null">No project</option>
+                            <option :value="null">{{ t('customers.no_project') }}</option>
                             <option v-for="project in projects" :key="project.id" :value="project.id">
                                 {{ project.name }}
                             </option>
@@ -147,16 +147,16 @@
                     </div>
 
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Status *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.status_required') }}</label>
                         <select
                             v-model="form.status"
                             required
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            <option value="lead">Lead</option>
-                            <option value="prospect">Prospect</option>
-                            <option value="customer">Customer</option>
-                            <option value="inactive">Inactive</option>
+                            <option value="lead">{{ t('customers.lead') }}</option>
+                            <option value="prospect">{{ t('customers.prospect') }}</option>
+                            <option value="customer">{{ t('customers.customer') }}</option>
+                            <option value="inactive">{{ t('customers.inactive') }}</option>
                         </select>
                         <div v-if="form.errors.status" class="mt-1 text-sm text-red-600">
                             {{ form.errors.status }}
@@ -164,24 +164,24 @@
                     </div>
 
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Source *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.source_required') }}</label>
                         <select
                             v-model="form.source"
                             required
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            <option value="website">Website</option>
-                            <option value="referral">Referral</option>
-                            <option value="advertisement">Advertisement</option>
-                            <option value="social_media">Social Media</option>
-                            <option value="crawl">Crawl</option>
-                            <option value="exhibition">Exhibition</option>
-                            <option value="direct">Direct</option>
+                            <option value="website">{{ t('customers.source_website') }}</option>
+                            <option value="referral">{{ t('customers.source_referral') }}</option>
+                            <option value="advertisement">{{ t('customers.source_advertisement') }}</option>
+                            <option value="social_media">{{ t('customers.source_social_media') }}</option>
+                            <option value="crawl">{{ t('customers.source_crawl') }}</option>
+                            <option value="exhibition">{{ t('customers.source_exhibition') }}</option>
+                            <option value="direct">{{ t('customers.source_direct') }}</option>
                             <option value="whatsapp">WhatsApp</option>
                             <option value="telegram">Telegram</option>
                             <option value="instagram">Instagram</option>
-                            <option value="telegram_group_crawl">Telegram Group Crawl</option>
-                            <option value="other">Other</option>
+                            <option value="telegram_group_crawl">{{ t('customers.source_telegram_group_crawl') }}</option>
+                            <option value="other">{{ t('customers.source_other') }}</option>
                         </select>
                         <div v-if="form.errors.source" class="mt-1 text-sm text-red-600">
                             {{ form.errors.source }}
@@ -189,7 +189,7 @@
                     </div>
 
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Contact Person</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.contact_person') }}</label>
                         <input
                             v-model="form.contact_person"
                             type="text"
@@ -198,7 +198,7 @@
                     </div>
 
                     <div class="md:col-span-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.notes') }}</label>
                         <textarea
                             v-model="form.notes"
                             rows="4"
@@ -210,29 +210,29 @@
                 <!-- Contact Methods -->
                 <div class="border-t pt-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-gray-900">Contact Methods</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ t('customers.contact_methods') }}</h3>
                         <button
                             type="button"
                             @click="addContact"
                             class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
                         >
-                            Add Contact
+                            {{ t('customers.add_contact') }}
                         </button>
                     </div>
 
                     <div v-if="form.contacts.length === 0" class="text-sm text-gray-500 text-center py-4">
-                        No contact methods added. Click "Add Contact" to add one.
+                        {{ t('customers.no_contact_methods') }}
                     </div>
 
                     <div v-for="(contact, index) in form.contacts" :key="index" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Type *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.type_required') }}</label>
                             <select
                                 v-model="contact.type"
                                 required
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value="phone">Phone</option>
+                                <option value="phone">{{ t('customers.phone') }}</option>
                                 <option value="email">Email</option>
                                 <option value="whatsapp">WhatsApp</option>
                                 <option value="telegram">Telegram</option>
@@ -241,7 +241,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Value *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.value_required') }}</label>
                             <input
                                 v-model="contact.value"
                                 type="text"
@@ -251,13 +251,13 @@
                         </div>
 
                         <div class="flex items-end">
-                            <label class="flex items-center space-x-2">
+                            <label class="flex items-center space-x-2 rtl:space-x-reverse">
                                 <input
                                     v-model="contact.is_primary"
                                     type="checkbox"
                                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
-                                <span class="text-sm text-gray-700">Primary</span>
+                                <span class="text-sm text-gray-700">{{ t('customers.primary') }}</span>
                             </label>
                         </div>
 
@@ -267,7 +267,7 @@
                                 @click="removeContact(index)"
                                 class="w-full px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
                             >
-                                Remove
+                                {{ t('customers.remove') }}
                             </button>
                         </div>
                     </div>
@@ -276,29 +276,29 @@
                 <!-- Social Media & Websites -->
                 <div class="border-t pt-6">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-gray-900">Social Media & Websites</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ t('customers.social_media_websites') }}</h3>
                         <button
                             type="button"
                             @click="addSocialMedia"
                             class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
                         >
-                            Add Social Media
+                            {{ t('customers.add_social_media') }}
                         </button>
                     </div>
 
                     <div v-if="form.social_media.length === 0" class="text-sm text-gray-500 text-center py-4">
-                        No social media added. Click "Add Social Media" to add one.
+                        {{ t('customers.no_social_media') }}
                     </div>
 
                     <div v-for="(sm, index) in form.social_media" :key="index" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Platform *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.platform_required') }}</label>
                             <select
                                 v-model="sm.social_media_type_id"
                                 required
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                <option :value="null">Select Platform</option>
+                                <option :value="null">{{ t('customers.select_platform') }}</option>
                                 <option v-for="type in socialMediaTypes" :key="type.id" :value="type.id">
                                     {{ type.name }}
                                 </option>
@@ -306,24 +306,24 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Handle/Username *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.handle_required') }}</label>
                             <input
                                 v-model="sm.handle"
                                 type="text"
                                 required
-                                placeholder="@username or handle"
+                                :placeholder="t('customers.handle_placeholder')"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
 
                         <div class="flex items-end">
-                            <label class="flex items-center space-x-2">
+                            <label class="flex items-center space-x-2 rtl:space-x-reverse">
                                 <input
                                     v-model="sm.is_primary"
                                     type="checkbox"
                                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
-                                <span class="text-sm text-gray-700">Primary</span>
+                                <span class="text-sm text-gray-700">{{ t('customers.primary') }}</span>
                             </label>
                         </div>
 
@@ -333,25 +333,25 @@
                                 @click="removeSocialMedia(index)"
                                 class="w-full px-3 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
                             >
-                                Remove
+                                {{ t('customers.remove') }}
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <div class="flex justify-end space-x-3">
+                <div class="flex justify-end space-x-3 rtl:space-x-reverse">
                     <Link
                         :href="route('customers.show', customer.id)"
                         class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                     >
-                        Cancel
+                        {{ t('common.cancel') }}
                     </Link>
                     <button
                         type="submit"
                         :disabled="form.processing"
                         class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                     >
-                        {{ form.processing ? 'Updating...' : 'Update Customer' }}
+                        {{ form.processing ? t('customers.updating') : t('customers.update_customer') }}
                     </button>
                 </div>
             </form>
@@ -365,6 +365,9 @@ import { useForm, Link, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import IndustrySelect from '@/Components/IndustrySelect.vue';
 import { CUSTOMER_LANGUAGE_OPTIONS } from '@/constants/customerLanguages.js';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const page = usePage();
 const languageOptions = computed(() => {

@@ -2,7 +2,7 @@
     <AppLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <span>Telegram Groups</span>
+                <span>{{ t('telegram_groups.title') }}</span>
             </div>
         </template>
 
@@ -20,9 +20,9 @@
 
         <!-- Not Connected -->
         <div v-if="!telegramConnected" class="p-6 border border-amber-200 rounded-lg bg-amber-50">
-            <p class="text-gray-800 mb-4">Connect your Telegram account in Settings to view groups.</p>
+            <p class="text-gray-800 mb-4">{{ t('telegram_groups.connect_telegram_first') }}</p>
             <Link :href="route('settings.index')" class="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">
-                Go to Telegram Settings
+                {{ t('telegram_groups.go_to_telegram_settings') }}
             </Link>
         </div>
 
@@ -31,28 +31,28 @@
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
                     <p class="text-sm text-gray-600 mb-4">
-                        Groups you're a member of. Use Refresh to sync from Telegram. Groups you've left are removed from the table.
+                        {{ t('telegram_groups.groups_help_text') }}
                     </p>
                     <div class="flex flex-wrap gap-4 items-center">
                         <div class="flex items-center gap-2">
-                            <label class="text-sm font-medium text-gray-700">Category:</label>
+                            <label class="text-sm font-medium text-gray-700">{{ t('telegram_groups.category_label') }}:</label>
                             <select
                                 v-model="filterCategory"
                                 @change="applyFilters"
                                 class="rounded-md border-gray-300 text-sm py-1.5"
                             >
-                                <option value="">All</option>
+                                <option value="">{{ t('telegram_crawler.all') }}</option>
                                 <option v-for="c in telegramGroupCategories" :key="c.id" :value="c.id">{{ c.name }}</option>
                             </select>
                         </div>
                         <div class="flex items-center gap-2">
-                            <label class="text-sm font-medium text-gray-700">Language:</label>
+                            <label class="text-sm font-medium text-gray-700">{{ t('telegram_groups.language_label') }}:</label>
                             <select
                                 v-model="filterLanguage"
                                 @change="applyFilters"
                                 class="rounded-md border-gray-300 text-sm py-1.5"
                             >
-                                <option value="">All</option>
+                                <option value="">{{ t('telegram_crawler.all') }}</option>
                                 <option v-for="lang in languages" :key="lang.id" :value="lang.code">{{ lang.name }}</option>
                             </select>
                         </div>
@@ -62,7 +62,7 @@
                                 :href="route('telegram-groups.index')"
                                 class="text-sm text-blue-600 hover:text-blue-800"
                             >
-                                پاک کردن فیلتر
+                                {{ t('telegram_groups.clear_filters') }}
                             </Link>
                             <button
                                 type="button"
@@ -70,13 +70,13 @@
                                 :disabled="refreshing"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
                             >
-                                {{ refreshing ? 'Refreshing...' : 'Refresh' }}
+                                {{ refreshing ? t('telegram_groups.refreshing') : t('telegram_groups.refresh') }}
                             </button>
                             <Link
                                 :href="route('telegram-crawler.index')"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
                             >
-                                Crawl
+                                {{ t('telegram_groups.crawl') }}
                             </Link>
                         </div>
                     </div>
@@ -85,25 +85,25 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Language</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Can Post</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Synced</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_title') }}</th>
+                                <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_type') }}</th>
+                                <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.category') }}</th>
+                                <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_language') }}</th>
+                                <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_id') }}</th>
+                                <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_can_post') }}</th>
+                                <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_last_synced') }}</th>
+                                <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <tr v-if="!groups.data?.length" class="text-center text-gray-500 py-8">
                                 <td colspan="8" class="px-4 py-6">
-                                    No groups found. Click Refresh on the Crawl page to fetch groups.
+                                    {{ t('telegram_groups.no_groups_found') }}
                                 </td>
                             </tr>
                             <tr v-for="g in groups.data" :key="g.id" class="hover:bg-gray-50">
-                                <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ g.title || '—' }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-500">{{ g.type || '—' }}</td>
+                                <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ g.title || t('common.dash') }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">{{ g.type || t('common.dash') }}</td>
                                 <td class="px-4 py-3">
                                     <select
                                         :value="g.category?.id || ''"
@@ -111,7 +111,7 @@
                                         :disabled="updatingGroupId === g.id"
                                         class="text-sm rounded border-gray-300 py-1 min-w-[100px] disabled:opacity-50"
                                     >
-                                        <option value="">—</option>
+                                        <option value="">{{ t('common.dash') }}</option>
                                         <option v-for="c in telegramGroupCategories" :key="c.id" :value="c.id">{{ c.name }}</option>
                                     </select>
                                 </td>
@@ -122,7 +122,7 @@
                                         :disabled="updatingGroupId === g.id"
                                         class="text-sm rounded border-gray-300 py-1 min-w-[100px] disabled:opacity-50"
                                     >
-                                        <option value="">—</option>
+                                        <option value="">{{ t('common.dash') }}</option>
                                         <option v-for="lang in languages" :key="lang.id" :value="lang.code">{{ lang.name }}</option>
                                     </select>
                                 </td>
@@ -132,14 +132,14 @@
                                         v-if="g.can_post"
                                         class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800"
                                     >
-                                        Yes
+                                        {{ t('common.yes') }}
                                     </span>
                                     <span
                                         v-else
                                         class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800"
                                         :title="g.last_error"
                                     >
-                                        No
+                                        {{ t('common.no') }}
                                     </span>
                                     <span v-if="g.last_error" class="text-xs text-amber-600 block mt-0.5 truncate max-w-[12rem]" :title="g.last_error">{{ g.last_error }}</span>
                                 </td>
@@ -149,7 +149,7 @@
                                         :href="route('telegram-crawler.index')"
                                         class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                                     >
-                                        Crawl / Send
+                                        {{ t('telegram_groups.crawl_send') }}
                                     </Link>
                                 </td>
                             </tr>
@@ -159,7 +159,7 @@
                 <!-- Pagination -->
                 <div v-if="groups.data?.length && groups.last_page > 1" class="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
                     <p class="text-sm text-gray-600">
-                        Page {{ groups.current_page }} of {{ groups.last_page }} ({{ groups.total }} groups)
+                        {{ t('telegram_groups.pagination_page_of').replace(':current', String(groups.current_page)).replace(':last', String(groups.last_page)).replace(':total', String(groups.total)) }}
                     </p>
                     <div class="flex gap-2">
                         <Link
@@ -167,14 +167,14 @@
                             :href="groups.prev_page_url"
                             class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
                         >
-                            Previous
+                            {{ t('common.previous') }}
                         </Link>
                         <Link
                             v-if="groups.next_page_url"
                             :href="groups.next_page_url"
                             class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
                         >
-                            Next
+                            {{ t('common.next') }}
                         </Link>
                     </div>
                 </div>
@@ -188,6 +188,9 @@ import { ref, computed, onMounted } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     telegramConnected: { type: Boolean, default: false },
@@ -245,14 +248,14 @@ const refreshGroups = async () => {
         });
         applyFilters();
     } catch (e) {
-        refreshError.value = e.response?.data?.error || e.message || 'Refresh failed.';
+        refreshError.value = e.response?.data?.error || e.message || t('telegram_groups.refresh_failed');
     } finally {
         refreshing.value = false;
     }
 };
 
 const formatDate = (v) => {
-    if (!v) return '—';
+    if (!v) return t('common.dash');
     try {
         const d = new Date(v);
         return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });

@@ -19,7 +19,9 @@
 /storage/*.key
 /storage/pail
 /storage/app/telegram-user-sessions
+/storage/app/i18n
 /vendor
 Homestead.json
 Homestead.yaml
 Thumbs.db
+lang/*.json

@@ -2,7 +2,7 @@
     <AppLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <span>INBOX</span>
+                <span>{{ t('sidebar.inbox') }}</span>
                 <div class="flex rounded-lg border border-gray-200 overflow-hidden">
                     <a
                         :href="route('inbox.index', { channel: 'whatsapp' })"
@@ -13,29 +13,29 @@
                                 : 'bg-white text-gray-700 hover:bg-gray-50'
                         ]"
                     >
-                        WhatsApp
+                        {{ t('inbox.whatsapp') }}
                     </a>
                     <a
                         :href="route('inbox.index', { channel: 'telegram' })"
                         :class="[
-                            'px-4 py-2 text-sm font-medium border-l border-gray-200',
+                            'px-4 py-2 text-sm font-medium border-l border-gray-200 rtl:border-l-0 rtl:border-r',
                             channel === 'telegram'
                                 ? 'bg-blue-600 text-white'
                                 : 'bg-white text-gray-700 hover:bg-gray-50'
                         ]"
                     >
-                        Telegram
+                        {{ t('sidebar.telegram') }}
                     </a>
                     <a
                         :href="route('inbox.index', { channel: 'instagram' })"
                         :class="[
-                            'px-4 py-2 text-sm font-medium border-l border-gray-200',
+                            'px-4 py-2 text-sm font-medium border-l border-gray-200 rtl:border-l-0 rtl:border-r',
                             channel === 'instagram'
                                 ? 'bg-blue-600 text-white'
                                 : 'bg-white text-gray-700 hover:bg-gray-50'
                         ]"
                     >
-                        Instagram
+                        {{ t('settings.tabs.instagram_inbox') }}
                     </a>
                 </div>
             </div>
@@ -55,7 +55,7 @@
         <div class="-m-4 lg:-m-8 h-[calc(100vh-64px)] flex flex-col bg-white overflow-hidden">
             <div class="flex flex-1 overflow-hidden">
                 <!-- Conversations List (Left Sidebar) -->
-                <div class="w-[26%] min-w-[220px] max-w-[320px] bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+                <div class="w-[26%] min-w-[220px] max-w-[320px] bg-white border-r border-gray-200 rtl:border-r-0 rtl:border-l flex flex-col flex-shrink-0">
                     <!-- Instagram: درخواست اجازه نوتیفیکیشن (مرورگر فقط با کلیک کاربر اجازه می‌دهد) -->
                     <div
                         v-if="channel === 'instagram' && notificationPermission === 'default'"
@@ -64,9 +64,9 @@
                         <button
                             type="button"
                             @click="requestNotificationPermission"
-                            class="w-full text-left text-sm text-amber-800 hover:text-amber-900 py-1"
+                            class="w-full text-left rtl:text-right text-sm text-amber-800 hover:text-amber-900 py-1"
                         >
-                            🔔 Click here to enable new message notifications
+                            🔔 {{ t('inbox.click_to_enable_notifications') }}
                         </button>
                     </div>
                     <!-- Search Header (Sticky) -->
@@ -77,7 +77,7 @@
                                 @input="searchCustomers"
                                 @focus="showSearchResults = true"
                                 type="text"
-                                :placeholder="channel === 'telegram' ? 'Search by name or Telegram...' : (channel === 'instagram' ? 'Search by name or Instagram...' : 'Search or enter phone number...')"
+                                :placeholder="channel === 'telegram' ? t('inbox.search_name_or_telegram') : (channel === 'instagram' ? t('inbox.search_name_or_instagram') : t('inbox.search_or_phone'))"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                             
@@ -91,7 +91,7 @@
                                     v-for="result in searchResults"
                                     :key="result.id"
                                     @click="selectCustomerFromSearch(result)"
-                                    class="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 flex items-center space-x-3"
+                                    class="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 flex items-center space-x-3 rtl:space-x-reverse"
                                 >
                                     <div
                                         v-if="result.avatar"
@@ -117,12 +117,12 @@
                                 >
                                     <button
                                         @click="startNewConversation(searchPhone)"
-                                        class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                                        class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2 rtl:space-x-reverse"
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                                         </svg>
-                                        <span>Send to {{ searchPhone }}</span>
+                                        <span>{{ t('inbox.send_to').replace(':value', searchPhone) }}</span>
                                     </button>
                                 </div>
                             </div>
@@ -137,10 +137,10 @@
                             @click="selectConversation(conv.phone || conv.chat_id || conv.ig_user_id)"
                             :class="[
                                 'px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors',
-                                selectedContact === (conv.phone || conv.chat_id || conv.ig_user_id) ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
+                                selectedContact === (conv.phone || conv.chat_id || conv.ig_user_id) ? 'bg-blue-50 border-l-4 border-l-blue-600 rtl:border-l-0 rtl:border-r-4 rtl:border-r-blue-600' : ''
                             ]"
                         >
-                            <div class="flex items-center space-x-3">
+                            <div class="flex items-center space-x-3 rtl:space-x-reverse">
                                 <!-- Avatar -->
                                 <div class="flex-shrink-0">
                                     <div
@@ -164,18 +164,18 @@
                                         </h3>
                                         <span
                                             v-if="conv.last_message_at"
-                                            class="text-xs text-gray-500 flex-shrink-0 ml-2"
+                                            class="text-xs text-gray-500 flex-shrink-0 ltr:ml-2 rtl:mr-2"
                                         >
                                             {{ formatTime(conv.last_message_at) }}
                                         </span>
                                     </div>
                                     <div class="flex items-center justify-between">
                                         <p class="text-sm text-gray-600 truncate">
-                                            {{ conv.last_message || 'No messages' }}
+                                            {{ conv.last_message || t('inbox.no_messages') }}
                                         </p>
                                         <span
                                             v-if="conv.unread_count > 0"
-                                            class="bg-blue-600 text-white text-xs font-semibold px-2 py-1 rounded-full flex-shrink-0 ml-2"
+                                            class="bg-blue-600 text-white text-xs font-semibold px-2 py-1 rounded-full flex-shrink-0 ltr:ml-2 rtl:mr-2"
                                         >
                                             {{ conv.unread_count }}
                                         </span>
@@ -188,7 +188,7 @@
                             v-if="filteredConversations.length === 0"
                             class="px-4 py-8 text-center text-gray-500"
                         >
-                            <p>No conversations found</p>
+                            <p>{{ t('inbox.no_conversations_found') }}</p>
                         </div>
                     </div>
                 </div>
@@ -198,7 +198,7 @@
                     <div v-if="selectedContact || (channel === 'instagram' && selectedCustomer && !selectedIgUserId)" class="flex-1 flex flex-col min-h-0">
                         <!-- Conversation Header (Sticky) -->
                         <div class="flex-shrink-0 bg-white px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                            <div class="flex items-center space-x-3 min-w-0">
+                            <div class="flex items-center space-x-3 rtl:space-x-reverse min-w-0">
                                 <div
                                     v-if="(selectedConversation?.avatar || selectedCustomer?.avatar)"
                                     class="w-10 h-10 rounded-full bg-cover bg-center border-2 border-gray-200 flex-shrink-0"
@@ -217,13 +217,13 @@
                                     <p v-if="!hasCustomer && !noConversationYet" class="text-sm text-gray-500 truncate">{{ channel === 'instagram' ? selectedIgUserId : (channel === 'telegram' ? selectedChatId : selectedPhone) }}</p>
                                 </div>
                             </div>
-                            <div class="flex items-center space-x-2 flex-shrink-0">
+                            <div class="flex items-center space-x-2 rtl:space-x-reverse flex-shrink-0">
                                 <template v-if="noConversationYet">
                                     <Link
                                         :href="route('customers.show', selectedCustomer.id)"
                                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors whitespace-nowrap"
                                     >
-                                        View Customer
+                                        {{ t('inbox.view_customer') }}
                                     </Link>
                                 </template>
                                 <template v-else-if="!hasCustomer">
@@ -231,13 +231,13 @@
                                         @click="showAssignCustomerModal = true"
                                         class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap"
                                     >
-                                        Assign to Customer
+                                        {{ t('inbox.assign_to_customer') }}
                                     </button>
                                     <button
                                         @click="showCreateCustomerModal = true"
                                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors whitespace-nowrap"
                                     >
-                                        Add as Customer
+                                        {{ t('inbox.add_as_customer') }}
                                     </button>
                                 </template>
                                 <Link
@@ -245,7 +245,7 @@
                                     :href="route('customers.show', selectedConversation.customer_id)"
                                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors whitespace-nowrap"
                                 >
-                                    View Customer
+                                    {{ t('inbox.view_customer') }}
                                 </Link>
                             </div>
                         </div>
@@ -253,10 +253,10 @@
                         <!-- No conversation yet (Instagram: customer has handle but no messages) -->
                         <div v-if="noConversationYet" class="flex-1 flex items-center justify-center p-8 bg-gray-50">
                             <div class="text-center max-w-md">
-                                <p class="text-gray-600 mb-2">This contact has not messaged you on Instagram yet.</p>
-                                <p class="text-sm text-gray-500 mb-2">When they send a message on Instagram, it will appear here and their numeric ID will be automatically saved to the contact so you can reply from this inbox.</p>
-                                <p class="text-xs text-gray-400 mb-4">The Meta API provides the numeric ID only after interaction (e.g. first message); it cannot be obtained from username alone.</p>
-                                <Link :href="route('customers.show', selectedCustomer.id)" class="text-blue-600 hover:underline font-medium">View customer card</Link>
+                                <p class="text-gray-600 mb-2">{{ t('inbox.instagram_no_message_yet') }}</p>
+                                <p class="text-sm text-gray-500 mb-2">{{ t('inbox.instagram_no_message_help_1') }}</p>
+                                <p class="text-xs text-gray-400 mb-4">{{ t('inbox.instagram_no_message_help_2') }}</p>
+                                <Link :href="route('customers.show', selectedCustomer.id)" class="text-blue-600 hover:underline font-medium">{{ t('inbox.view_customer_card') }}</Link>
                             </div>
                         </div>
 
@@ -286,7 +286,7 @@
                                         <img
                                             v-if="isImageFile(msg.message_type, msg.media_url)"
                                             :src="msg.media_url"
-                                            alt="Media"
+                                            :alt="t('common.media')"
                                             class="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
                                             @click="openFileModal(msg.media_url)"
                                             @error="(e) => { console.error('Image load error:', e, msg.media_url); handleImageError(e); }"
@@ -297,7 +297,7 @@
                                             class="p-4 bg-gray-100 rounded-lg border border-gray-300 cursor-pointer hover:bg-gray-200 transition-colors"
                                             @click="openFileModal(msg.media_url)"
                                         >
-                                            <div class="flex items-center space-x-3">
+                                            <div class="flex items-center space-x-3 rtl:space-x-reverse">
                                                 <svg class="w-10 h-10 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                                 </svg>
@@ -306,7 +306,7 @@
                                                         {{ getFileName(msg.media_url) }}
                                                     </p>
                                                     <p class="text-xs text-gray-500 capitalize">
-                                                        {{ msg.message_type || 'file' }}
+                                                        {{ msg.message_type || t('common.file') }}
                                                     </p>
                                                 </div>
                                                 <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -328,7 +328,7 @@
                             </div>
 
                             <div v-if="messages.length === 0" class="text-center text-gray-500 py-8">
-                                <p>No messages yet. Start the conversation!</p>
+                                <p>{{ t('inbox.no_messages_start_conversation') }}</p>
                             </div>
                         </div>
 
@@ -337,7 +337,7 @@
                             <form @submit.prevent class="space-y-3">
                                 <!-- File Upload Preview -->
                                 <div v-if="selectedFile" class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                    <div class="flex items-center space-x-2 min-w-0">
+                                    <div class="flex items-center space-x-2 rtl:space-x-reverse min-w-0">
                                         <svg class="w-5 h-5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                                         </svg>
@@ -346,7 +346,7 @@
                                     <button
                                         type="button"
                                         @click="clearSelectedFile"
-                                        class="text-red-600 hover:text-red-700 flex-shrink-0 ml-2"
+                                        class="text-red-600 hover:text-red-700 flex-shrink-0 ltr:ml-2 rtl:mr-2"
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -354,7 +354,7 @@
                                     </button>
                                 </div>
                                 
-                                <div class="flex items-center space-x-3">
+                                <div class="flex items-center space-x-3 rtl:space-x-reverse">
                                     <input
                                         ref="fileInput"
                                         type="file"
@@ -366,7 +366,7 @@
                                         type="button"
                                         @click="$refs.fileInput?.click()"
                                         class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-                                        title="Upload file"
+                                        :title="t('inbox.upload_file')"
                                     >
                                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -376,7 +376,7 @@
                                         type="button"
                                         @click="showMediaPicker = true"
                                         class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-                                        title="Select from media"
+                                        :title="t('inbox.select_from_media')"
                                     >
                                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -386,7 +386,7 @@
                                         type="button"
                                         @click="showTemplatePicker = true"
                                         class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-                                        title="Select template"
+                                        :title="t('inbox.select_template')"
                                     >
                                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -396,7 +396,7 @@
                                         ref="messageTextarea"
                                         v-model="newMessage"
                                         @keydown.enter.exact="handleEnterKey"
-                                        placeholder="Type a message... (Press Enter for new line, click Send to send)"
+                                        :placeholder="t('inbox.type_message_help')"
                                         rows="1"
                                         class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0 resize-none"
                                         :style="{ minHeight: '40px', maxHeight: '120px', height: '40px' }"
@@ -409,7 +409,7 @@
                                         :disabled="sendingMessage || (!newMessage.trim() && !selectedFile)"
                                         class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex-shrink-0 whitespace-nowrap"
                                     >
-                                        {{ sendingMessage ? 'Sending...' : 'Send' }}
+                                        {{ sendingMessage ? t('settings.sending') : t('inbox.send') }}
                                     </button>
                                 </div>
                             </form>
@@ -435,22 +435,30 @@
                                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                                 />
                             </svg>
-                            <p class="text-lg">{{ channel === 'telegram' ? 'Search for a contact with Telegram or open a conversation from the list' : (channel === 'instagram' ? 'Search for a contact with Instagram or open a conversation from the list' : 'Search for a contact or enter a phone number to start a conversation') }}</p>
+                            <p class="text-lg">
+                                {{
+                                    channel === 'telegram'
+                                        ? t('inbox.empty_state_telegram')
+                                        : (channel === 'instagram'
+                                            ? t('inbox.empty_state_instagram')
+                                            : t('inbox.empty_state_whatsapp'))
+                                }}
+                            </p>
                             <div v-if="channel === 'instagram'" class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 max-w-md mx-auto text-right">
-                                <p class="font-medium mb-1">Sending messages via Instagram</p>
-                                <p class="mb-2">To send and receive Instagram DMs, connect the Meta app (Facebook Developer) to your Instagram Business/Creator account and enter the Access Token in Settings → Instagram. The contact's Instagram Scoped User ID is obtained from the Meta API when receiving a message or via webhook.</p>
-                                <a :href="route('settings.index')" class="text-amber-700 underline font-medium">Go to Settings</a>
+                                <p class="font-medium mb-1">{{ t('inbox.instagram_send_messages_title') }}</p>
+                                <p class="mb-2">{{ t('inbox.instagram_send_messages_help') }}</p>
+                                <a :href="route('settings.index')" class="text-amber-700 underline font-medium">{{ t('inbox.go_to_settings') }}</a>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Customer Info Panel (Right Side) - 30% -->
-                <div v-if="selectedContact" class="w-[30%] bg-white border-l border-gray-200 flex flex-col min-w-0 flex-shrink-0 overflow-hidden">
+                <div v-if="selectedContact" class="w-[30%] bg-white border-l border-gray-200 rtl:border-l-0 rtl:border-r flex flex-col min-w-0 flex-shrink-0 overflow-hidden">
                     <div v-if="selectedCustomer" class="flex-1 overflow-y-auto p-6">
                         <!-- Customer Header -->
                         <div class="mb-6 pb-6 border-b border-gray-200">
-                            <div class="flex items-center space-x-4 mb-4">
+                            <div class="flex items-center space-x-4 rtl:space-x-reverse mb-4">
                                 <div
                                     v-if="selectedCustomer.avatar"
                                     class="w-20 h-20 rounded-full bg-cover bg-center border-4 border-gray-200 flex-shrink-0"
@@ -471,7 +479,7 @@
                                 :href="route('customers.show', selectedCustomer.id)"
                                 class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors text-center block"
                             >
-                                View Full Profile
+                                {{ t('inbox.view_full_profile') }}
                             </Link>
                         </div>
 
@@ -479,22 +487,22 @@
                         <div class="space-y-6">
                             <!-- Basic Info -->
                             <div>
-                                <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Basic Information</h3>
+                                <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">{{ t('inbox.basic_information') }}</h3>
                                 <div class="space-y-2">
                                     <div v-if="selectedCustomer.type" class="flex items-center justify-between py-2 border-b border-gray-100">
-                                        <span class="text-sm text-gray-600">Type</span>
+                                        <span class="text-sm text-gray-600">{{ t('customers.type') }}</span>
                                         <span class="text-sm font-medium text-gray-900 capitalize">{{ selectedCustomer.type }}</span>
                                     </div>
                                     <div v-if="selectedCustomer.status" class="flex items-center justify-between py-2 border-b border-gray-100">
-                                        <span class="text-sm text-gray-600">Status</span>
+                                        <span class="text-sm text-gray-600">{{ t('common.status') }}</span>
                                         <span class="text-sm font-medium text-gray-900 capitalize">{{ selectedCustomer.status }}</span>
                                     </div>
                                     <div v-if="selectedCustomer.industry" class="flex items-center justify-between py-2 border-b border-gray-100">
-                                        <span class="text-sm text-gray-600">Industry</span>
+                                        <span class="text-sm text-gray-600">{{ t('customers.industry') }}</span>
                                         <span class="text-sm font-medium text-gray-900">{{ selectedCustomer.industry.name }}</span>
                                     </div>
                                     <div v-if="selectedCustomer.source" class="flex items-center justify-between py-2 border-b border-gray-100">
-                                        <span class="text-sm text-gray-600">Source</span>
+                                        <span class="text-sm text-gray-600">{{ t('customers.source') }}</span>
                                         <span class="text-sm font-medium text-gray-900 capitalize">{{ selectedCustomer.source }}</span>
                                     </div>
                                 </div>
@@ -502,7 +510,7 @@
 
                             <!-- Contact Information -->
                             <div v-if="selectedCustomer.contacts && selectedCustomer.contacts.length > 0">
-                                <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Contact Information</h3>
+                                <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">{{ t('inbox.contact_information') }}</h3>
                                 <div class="space-y-2">
                                     <div
                                         v-for="contact in selectedCustomer.contacts"
@@ -517,15 +525,15 @@
 
                             <!-- Social Media -->
                             <div v-if="selectedCustomer.social_media && selectedCustomer.social_media.length > 0">
-                                <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Social Media</h3>
+                                <h3 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">{{ t('customers.social_media') }}</h3>
                                 <div class="space-y-2">
                                     <div
                                         v-for="sm in selectedCustomer.social_media"
                                         :key="sm.id"
-                                        class="flex items-center space-x-2 py-2 border-b border-gray-100"
+                                        class="flex items-center space-x-2 rtl:space-x-reverse py-2 border-b border-gray-100"
                                     >
                                         <i v-if="sm.social_media_type?.icon" :class="sm.social_media_type.icon" class="w-5 h-5 text-gray-600"></i>
-                                        <span class="text-sm text-gray-600 flex-1">{{ sm.social_media_type?.name || 'Social Media' }}</span>
+                                        <span class="text-sm text-gray-600 flex-1">{{ sm.social_media_type?.name || t('customers.social_media') }}</span>
                                         <a :href="sm.url" target="_blank" class="text-sm font-medium text-blue-600 hover:text-blue-700 truncate max-w-[150px]">
                                             {{ sm.url }}
                                         </a>
@@ -541,12 +549,12 @@
                             <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
-                            <p class="text-gray-500 mb-4">No customer information available</p>
+                            <p class="text-gray-500 mb-4">{{ t('inbox.no_customer_info') }}</p>
                             <button
                                 @click="showCreateCustomerModal = true"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
                             >
-                                Add as Customer
+                                {{ t('inbox.add_as_customer') }}
                             </button>
                         </div>
                     </div>
@@ -561,12 +569,12 @@
             @click.self="showCreateCustomerModal = false"
         >
             <div class="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
-                <h3 class="text-lg font-semibold mb-4 text-gray-900">Add as Customer</h3>
+                <h3 class="text-lg font-semibold mb-4 text-gray-900">{{ t('inbox.add_as_customer') }}</h3>
                 <form @submit.prevent="createCustomer">
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Name *
+                                {{ t('customers.name_required') }}
                             </label>
                             <input
                                 v-model="customerForm.name"
@@ -577,7 +585,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Email
+                                {{ t('common.email') }}
                             </label>
                             <input
                                 v-model="customerForm.email"
@@ -587,7 +595,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                {{ channel === 'telegram' ? 'Telegram Chat ID' : (channel === 'instagram' ? 'Instagram User ID' : 'Phone') }}
+                                {{ channel === 'telegram' ? t('inbox.telegram_chat_id') : (channel === 'instagram' ? t('inbox.instagram_user_id') : t('customers.phone')) }}
                             </label>
                             <input
                                 :value="channel === 'instagram' ? selectedIgUserId : (channel === 'telegram' ? selectedChatId : selectedPhone)"
@@ -597,20 +605,20 @@
                             />
                         </div>
                     </div>
-                    <div class="flex justify-end space-x-3 mt-6">
+                    <div class="flex justify-end space-x-3 rtl:space-x-reverse mt-6">
                         <button
                             type="button"
                             @click="showCreateCustomerModal = false"
                             class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
                         >
-                            Cancel
+                            {{ t('common.cancel') }}
                         </button>
                         <button
                             type="submit"
                             :disabled="customerForm.processing"
                             class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
                         >
-                            {{ customerForm.processing ? 'Creating...' : 'Create Customer' }}
+                            {{ customerForm.processing ? t('inbox.creating') : t('inbox.create_customer') }}
                         </button>
                     </div>
                 </form>
@@ -624,12 +632,12 @@
             @click.self="showAssignCustomerModal = false"
         >
             <div class="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
-                <h3 class="text-lg font-semibold mb-4 text-gray-900">Assign to existing customer</h3>
+                <h3 class="text-lg font-semibold mb-4 text-gray-900">{{ t('inbox.assign_existing_customer') }}</h3>
                 <div class="mb-4">
                     <input
                         v-model="assignSearchQuery"
                         type="text"
-                        placeholder="Search by name..."
+                        :placeholder="t('inbox.search_by_name')"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
@@ -646,16 +654,16 @@
                         <span class="font-medium text-gray-900">{{ c.name }}</span>
                     </div>
                     <div v-if="assignSearchQuery.trim().length >= 2 && assignCustomers.length === 0" class="px-4 py-6 text-center text-gray-500">
-                        No customers found
+                        {{ t('inbox.no_customers_found') }}
                     </div>
                 </div>
-                <div class="flex justify-end space-x-3">
+                <div class="flex justify-end space-x-3 rtl:space-x-reverse">
                     <button
                         type="button"
                         @click="showAssignCustomerModal = false; assignCustomerId = null; assignSearchQuery = ''"
                         class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
                     >
-                        Cancel
+                        {{ t('common.cancel') }}
                     </button>
                     <button
                         type="button"
@@ -663,7 +671,7 @@
                         @click="submitAssignCustomer"
                         class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
                     >
-                        Assign
+                        {{ t('inbox.assign') }}
                     </button>
                 </div>
             </div>
@@ -691,6 +699,9 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import MediaPickerModal from '@/Components/MediaPickerModal.vue';
 import TemplatePickerModal from '@/Components/TemplatePickerModal.vue';
 import { debounce } from 'lodash-es';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     channel: {
@@ -872,15 +883,15 @@ const isImageFile = (messageType, url) => {
 };
 
 const getFileName = (url) => {
-    if (!url) return 'File';
+    if (!url) return t('common.file');
     try {
         const urlObj = new URL(url);
         const pathname = urlObj.pathname;
         const fileName = pathname.split('/').pop();
-        return fileName || 'File';
+        return fileName || t('common.file');
     } catch {
         const parts = url.split('/');
-        return parts[parts.length - 1] || 'File';
+        return parts[parts.length - 1] || t('common.file');
     }
 };
 
@@ -960,7 +971,7 @@ const handleFileSelect = (event) => {
     if (file) {
         // Validate file size (50MB max)
         if (file.size > 50 * 1024 * 1024) {
-            alert('File size must be less than 50MB');
+            alert(t('inbox.file_size_limit_50mb'));
             event.target.value = '';
             return;
         }
@@ -1101,10 +1112,10 @@ const formatTime = (dateString) => {
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
+    if (minutes < 1) return t('inbox.just_now');
+    if (minutes < 60) return t('inbox.minutes_ago').replace(':count', String(minutes));
+    if (hours < 24) return t('inbox.hours_ago').replace(':count', String(hours));
+    if (days < 7) return t('inbox.days_ago').replace(':count', String(days));
 
     return date.toLocaleDateString('en-US', {
         month: 'short',
@@ -1153,7 +1164,7 @@ function runInstagramPoll() {
                     const hasNew = newLen > instagramPollPrevCount.value || newUnread > instagramPollPrevUnread.value;
                     if (hasNew) {
                         try {
-                            new Notification('New Instagram message', { body: 'You have received a new message.' });
+                            new Notification(t('inbox.new_instagram_message'), { body: t('inbox.you_received_new_message') });
                         } catch (_) {}
                     }
                     instagramPollPrevCount.value = newLen;

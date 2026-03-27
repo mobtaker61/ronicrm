@@ -1,7 +1,7 @@
 <template>
     <AppLayout>
         <template #header>
-            Industries Management
+            {{ t('industries.management') }}
         </template>
 
         <div class="space-y-6">
@@ -15,12 +15,12 @@
 
             <!-- Header -->
             <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900">Industries</h2>
+                <h2 class="text-2xl font-bold text-gray-900">{{ t('sidebar.industries') }}</h2>
                 <button
                     @click="showCreateModal = true; form.parent_id = null"
                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                    Add Industry
+                    {{ t('industries.add_industry') }}
                 </button>
             </div>
 
@@ -46,21 +46,21 @@
                                 <button
                                     @click="addChild(industry)"
                                     class="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 rounded hover:bg-blue-50"
-                                    title="Add Sub-Industry"
+                                    :title="t('industries.add_sub_industry')"
                                 >
-                                    + Sub
+                                    {{ t('industries.sub') }}
                                 </button>
                                 <button
                                     @click="editIndustry(industry)"
                                     class="px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
                                 >
-                                    Edit
+                                    {{ t('common.edit') }}
                                 </button>
                                 <button
                                     @click="deleteIndustry(industry)"
                                     class="px-3 py-1 text-sm text-red-600 hover:text-red-800"
                                 >
-                                    Delete
+                                    {{ t('common.delete') }}
                                 </button>
                             </div>
                         </div>
@@ -90,13 +90,13 @@
                                         @click="editIndustry(child)"
                                         class="px-2 py-1 text-xs text-blue-600 hover:text-blue-800"
                                     >
-                                        Edit
+                                        {{ t('common.edit') }}
                                     </button>
                                     <button
                                         @click="deleteIndustry(child)"
                                         class="px-2 py-1 text-xs text-red-600 hover:text-red-800"
                                     >
-                                        Delete
+                                        {{ t('common.delete') }}
                                     </button>
                                 </div>
                             </div>
@@ -104,7 +104,7 @@
                     </div>
 
                     <div v-if="industries.length === 0" class="text-center py-8 text-gray-500">
-                        No industries found. Create your first industry to get started.
+                        {{ t('industries.empty') }}
                     </div>
                 </div>
             </div>
@@ -117,16 +117,16 @@
             >
                 <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
                     <h3 class="text-lg font-bold text-gray-900 mb-4">
-                        {{ editingIndustry ? 'Edit Industry' : 'Create Industry' }}
+                        {{ editingIndustry ? t('industries.edit_industry') : t('industries.create_industry') }}
                     </h3>
                     <form @submit.prevent="saveIndustry">
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Parent Industry (Optional)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('industries.parent_optional') }}</label>
                             <select
                                 v-model="form.parent_id"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                <option :value="null">None (Top Level)</option>
+                                <option :value="null">{{ t('industries.none_top_level') }}</option>
                                 <option
                                     v-for="parent in availableParents"
                                     :key="parent.id"
@@ -141,7 +141,7 @@
                         </div>
 
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.name') }}</label>
                             <input
                                 v-model="form.name"
                                 type="text"
@@ -154,7 +154,7 @@
                         </div>
 
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.color') }}</label>
                             <input
                                 v-model="form.color"
                                 type="color"
@@ -167,7 +167,7 @@
                         </div>
 
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.description') }}</label>
                             <textarea
                                 v-model="form.description"
                                 rows="3"
@@ -176,14 +176,14 @@
                         </div>
 
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Sort Order</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.sort_order') }}</label>
                             <input
                                 v-model.number="form.sort_order"
                                 type="number"
                                 min="0"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
-                            <p class="mt-1 text-xs text-gray-500">Lower numbers appear first</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ t('industries.lower_numbers_first') }}</p>
                         </div>
 
                         <div class="flex justify-end space-x-3">
@@ -192,14 +192,14 @@
                                 @click="closeModal"
                                 class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                             >
-                                Cancel
+                                {{ t('common.cancel') }}
                             </button>
                             <button
                                 type="submit"
                                 :disabled="form.processing"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                             >
-                                {{ form.processing ? 'Saving...' : 'Save' }}
+                                {{ form.processing ? t('common.saving') : t('common.save') }}
                             </button>
                         </div>
                     </form>
@@ -213,6 +213,9 @@
 import { ref, computed } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     industries: Array,
@@ -262,7 +265,7 @@ const editIndustry = (industry) => {
 };
 
 const deleteIndustry = (industry) => {
-    if (confirm('Are you sure you want to delete this industry?')) {
+    if (confirm(t('industries.confirm_delete'))) {
         router.delete(route('industries.destroy', industry.id));
     }
 };

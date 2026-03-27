@@ -2,12 +2,12 @@
     <AppLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <h2 class="text-2xl font-bold text-gray-900">Users Management</h2>
+                <h2 class="text-2xl font-bold text-gray-900">{{ t('settings.users_management') }}</h2>
                 <Link
                     :href="route('settings.index')"
                     class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
-                    Back to Settings
+                    {{ t('settings.back_to_settings') }}
                 </Link>
             </div>
         </template>
@@ -24,12 +24,12 @@
             <!-- Users List -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-gray-900">All Users</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">{{ t('settings.all_users') }}</h3>
                     <button
                         @click="showCreateModal = true"
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
                     >
-                        Add New User
+                        {{ t('settings.add_new_user') }}
                     </button>
                 </div>
 
@@ -37,12 +37,12 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roles</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.name') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.username') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.email') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.roles') }}</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.created') }}</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -51,7 +51,7 @@
                                     <div class="text-sm font-medium text-gray-900">{{ user.name }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-500">{{ user.username || '-' }}</div>
+                                    <div class="text-sm text-gray-500">{{ user.username || t('common.dash') }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-500">{{ user.email }}</div>
@@ -65,7 +65,7 @@
                                         >
                                             {{ role }}
                                         </span>
-                                        <span v-if="user.roles.length === 0" class="text-sm text-gray-400">No roles</span>
+                                        <span v-if="user.roles.length === 0" class="text-sm text-gray-400">{{ t('settings.no_roles') }}</span>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -76,7 +76,7 @@
                                         @click="editUser(user)"
                                         class="text-blue-600 hover:text-blue-900 mr-4"
                                     >
-                                        Edit
+                                        {{ t('common.edit') }}
                                     </button>
                                     <button
                                         @click="deleteUser(user)"
@@ -86,7 +86,7 @@
                                             user.id === $page.props.auth?.user?.id ? 'opacity-50 cursor-not-allowed' : ''
                                         ]"
                                     >
-                                        Delete
+                                        {{ t('common.delete') }}
                                     </button>
                                 </td>
                             </tr>
@@ -94,7 +94,7 @@
                     </table>
 
                     <div v-if="users.length === 0" class="px-6 py-8 text-center text-gray-500">
-                        <p>No users found.</p>
+                        <p>{{ t('settings.no_users_found') }}</p>
                     </div>
                 </div>
             </div>
@@ -109,7 +109,7 @@
             <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
                 <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                     <h3 class="text-lg font-semibold text-gray-900">
-                        {{ showEditModal ? 'Edit User' : 'Create New User' }}
+                        {{ showEditModal ? t('settings.edit_user') : t('settings.create_new_user') }}
                     </h3>
                     <button
                         @click="closeModal"
@@ -123,7 +123,7 @@
 
                 <form @submit.prevent="saveUser" class="p-6 space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.name') }} *</label>
                         <input
                             v-model="userForm.name"
                             type="text"
@@ -134,7 +134,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.username') }} *</label>
                         <input
                             v-model="userForm.username"
                             type="text"
@@ -145,7 +145,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.email') }} *</label>
                         <input
                             v-model="userForm.email"
                             type="email"
@@ -157,7 +157,7 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
-                            Password {{ showEditModal ? '(leave blank to keep current)' : '*' }}
+                            {{ t('auth.password') }} {{ showEditModal ? t('settings.leave_blank_keep_current') : '*' }}
                         </label>
                         <input
                             v-model="userForm.password"
@@ -169,7 +169,7 @@
                     </div>
 
                     <div v-if="showEditModal">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.confirm_password_required') }}</label>
                         <input
                             v-model="userForm.password_confirmation"
                             type="password"
@@ -178,7 +178,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Roles</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.roles') }}</label>
                         <div class="space-y-2">
                             <label
                                 v-for="role in roles"
@@ -203,14 +203,14 @@
                             @click="closeModal"
                             class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                         >
-                            Cancel
+                            {{ t('common.cancel') }}
                         </button>
                         <button
                             type="submit"
                             :disabled="userForm.processing"
                             class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                         >
-                            {{ userForm.processing ? 'Saving...' : 'Save' }}
+                            {{ userForm.processing ? t('profile.saving') : t('common.save') }}
                         </button>
                     </div>
                 </form>
@@ -223,6 +223,9 @@
 import { ref, computed } from 'vue';
 import { useForm, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     users: {
@@ -260,7 +263,7 @@ const editUser = (user) => {
 };
 
 const deleteUser = (user) => {
-    if (confirm(`Are you sure you want to delete user "${user.name}"?`)) {
+    if (confirm(t('settings.confirm_delete_user').replace(':name', user.name))) {
         router.delete(route('settings.users.destroy', user.id), {
             preserveState: true,
             preserveScroll: true,

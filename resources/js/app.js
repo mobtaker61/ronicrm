@@ -2,8 +2,9 @@ import './bootstrap';
 import '../css/app.css';
 
 import { createApp, h } from 'vue';
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+import { useI18n } from './composables/useI18n';
 
 const appName = import.meta.env.VITE_APP_NAME || 'RoniCRM';
 
@@ -86,6 +87,12 @@ const routeHelper = (name, params = null, absolute = false) => {
         'settings.users.store': '/settings/users',
         'settings.users.update': (id) => `/settings/users/${id}`,
         'settings.users.destroy': (id) => `/settings/users/${id}`,
+        'superadmin.translations.index': '/superadmin/translations',
+        'superadmin.social-media-platforms.index': '/superadmin/social-media-platforms',
+        'superadmin.languages.index': '/superadmin/languages',
+        'superadmin.organizations.index': '/superadmin/organizations',
+        'superadmin.plans.index': '/superadmin/plans',
+        'superadmin.subscriptions.index': '/superadmin/subscriptions',
         'organizations.current.update': '/organizations/current',
         'settings.organizations.store': '/settings/organizations',
         'settings.organizations.update': (id) => `/settings/organizations/${id}`,
@@ -110,9 +117,24 @@ createInertiaApp({
     resolve: (name) => resolvePageComponent(`./Pages/${name}.vue`, import.meta.glob('./Pages/**/*.vue')),
     setup({ el, App, props, plugin }) {
         const app = createApp({ render: () => h(App, props) });
+        const i18n = useI18n();
+        const syncI18nFromPage = (page) => {
+            const locale = page?.props?.i18n?.locale;
+            const jsonUrl = page?.props?.i18n?.json_url;
+            if (locale && jsonUrl) {
+                i18n.load(locale, jsonUrl);
+            }
+        };
+
+        syncI18nFromPage(props?.initialPage);
+        router.on('navigate', (event) => {
+            syncI18nFromPage(event?.detail?.page);
+        });
         
         // Make route helper available globally in templates
         app.config.globalProperties.route = routeHelper;
+        app.config.globalProperties.t = i18n.t;
+        app.provide('i18n', i18n);
         
         return app.use(plugin).mount(el);
     },

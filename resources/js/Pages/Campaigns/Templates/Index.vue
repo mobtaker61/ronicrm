@@ -1,7 +1,7 @@
 <template>
     <AppLayout>
         <template #header>
-            Campaign Templates
+            {{ t('campaigns.templates_title') }}
         </template>
 
         <div class="space-y-6">
@@ -12,12 +12,12 @@
 
             <!-- Header -->
             <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900">Campaign Templates</h2>
+                <h2 class="text-2xl font-bold text-gray-900">{{ t('campaigns.templates_title') }}</h2>
                 <button
                     @click="showAddModal = true"
                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                    Create Template
+                    {{ t('campaigns.create_template') }}
                 </button>
             </div>
 
@@ -26,11 +26,11 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Preview</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.name') }}</th>
+                            <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.type') }}</th>
+                            <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('campaigns.subject') }}</th>
+                            <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.preview') }}</th>
+                            <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -57,25 +57,25 @@
                                 <div class="max-w-xs truncate" v-html="template.content"></div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <div class="flex space-x-4">
+                                <div class="flex space-x-4 rtl:space-x-reverse">
                                     <button
                                         @click="editTemplate(template)"
                                         class="text-blue-600 hover:text-blue-900"
                                     >
-                                        Edit
+                                        {{ t('common.edit') }}
                                     </button>
                                     <button
                                         @click="deleteTemplate(template)"
                                         class="text-red-600 hover:text-red-900"
                                     >
-                                        Delete
+                                        {{ t('common.delete') }}
                                     </button>
                                 </div>
                             </td>
                         </tr>
                         <tr v-if="templates.length === 0">
                             <td colspan="5" class="px-6 py-8 text-center text-gray-500">
-                                No templates found. Create your first template!
+                                {{ t('campaigns.no_templates_found') }}
                             </td>
                         </tr>
                     </tbody>
@@ -92,13 +92,13 @@
             <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                 <div class="p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                        {{ editingTemplate ? 'Edit' : 'Create' }} Template
+                        {{ editingTemplate ? t('common.edit') : t('campaigns.create_template') }}
                     </h3>
 
                     <form @submit.prevent="saveTemplate" class="space-y-6">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.name') }} *</label>
                                 <input
                                     v-model="form.name"
                                     type="text"
@@ -108,14 +108,14 @@
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Type *</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.type') }} *</label>
                                 <select
                                     v-model="form.type"
                                     required
                                     @change="handleTypeChange"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
-                                    <option value="">Select Type</option>
+                                    <option value="">{{ t('campaigns.select_type') }}</option>
                                     <option value="whatsapp">WhatsApp</option>
                                     <option value="email">Email</option>
                                     <option value="telegram">Telegram</option>
@@ -124,7 +124,7 @@
                         </div>
 
                         <div v-if="form.type === 'email'">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Email Subject</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.email_subject') }}</label>
                             <input
                                 v-model="form.subject"
                                 type="text"
@@ -134,8 +134,8 @@
 
                         <!-- File Upload (for WhatsApp & Telegram) -->
                         <div v-if="form.type === 'whatsapp' || form.type === 'telegram'">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Attachment (Optional)</label>
-                            <div class="flex items-center space-x-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.attachment_optional') }}</label>
+                            <div class="flex items-center space-x-4 rtl:space-x-reverse">
                                 <div v-if="imagePreview || selectedFile || (editingTemplate && editingTemplate.image)" class="flex-shrink-0 relative">
                                     <img
                                         v-if="(imagePreview || (editingTemplate && editingTemplate.image)) && isImageFile(selectedFile || editingTemplate?.image)"
@@ -164,79 +164,78 @@
                                     <input
                                         type="file"
                                         @change="handleImageChange"
-                                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                        class="block w-full text-sm text-gray-500 file:ltr:mr-4 file:rtl:ml-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                     />
                                     <button
                                         type="button"
                                         @click="showMediaPicker = true"
                                         class="mt-2 px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                                     >
-                                        انتخاب از مدیا
+                                        {{ t('campaigns.select_from_media') }}
                                     </button>
-                                    <p class="mt-1 text-xs text-gray-500">Upload file (PDF, Word, Excel, Images, etc. - Max 50MB)</p>
+                                    <p class="mt-1 text-xs text-gray-500">{{ t('campaigns.upload_file_help') }}</p>
                                     <p v-if="selectedFile" class="mt-1 text-xs text-gray-600">
-                                        انتخاب‌شده: {{ selectedFile.name }}{{ selectedFile.size != null ? ' (' + formatFileSize(selectedFile.size) + ')' : '' }}
+                                        {{ t('campaigns.selected_file') }}: {{ selectedFile.name }}{{ selectedFile.size != null ? ' (' + formatFileSize(selectedFile.size) + ')' : '' }}
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- تنظیمات پیشرفته واتساپ (جنسیت، مقدمه تصادفی، کد انتهایی) -->
+                        <!-- Advanced WhatsApp settings (gender, random intro, ending token) -->
                         <div
                             v-if="form.type === 'whatsapp'"
                             class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-5 space-y-4"
                         >
                             <div class="flex items-start gap-3">
                                 <div class="flex-1">
-                                    <h4 class="text-sm font-semibold text-emerald-900">تنظیمات پیام واتساپ</h4>
+                                    <h4 class="text-sm font-semibold text-emerald-900">{{ t('campaigns.whatsapp_message_settings') }}</h4>
                                     <p class="text-xs text-emerald-800/80 mt-1 leading-relaxed">
-                                        برای کاهش تشابه پیام‌های انبوه: متغیر <code class="bg-white/80 px-1 rounded">{intro}</code> یکی از جملات مقدمه را
-                                        <strong>تصادفی</strong> جایگزین می‌کند. با <code class="bg-white/80 px-1 rounded">{gender}</code> برچسب مناسب جنسیت (فقط مخاطب person) را بگذارید.
+                                        {{ t('campaigns.whatsapp_message_settings_help') }}
                                     </p>
                                 </div>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-700 mb-1">نمایش برای male</label>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('campaigns.gender_male_label') }}</label>
                                     <input
                                         v-model="form.whatsapp_settings.gender_labels.male"
                                         type="text"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
-                                        placeholder="مثال: آقای"
+                                        :placeholder="t('campaigns.gender_male_placeholder')"
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-700 mb-1">نمایش برای female</label>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('campaigns.gender_female_label') }}</label>
                                     <input
                                         v-model="form.whatsapp_settings.gender_labels.female"
                                         type="text"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
-                                        placeholder="مثال: خانم"
+                                        :placeholder="t('campaigns.gender_female_placeholder')"
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-700 mb-1">نمایش برای other</label>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('campaigns.gender_other_label') }}</label>
                                     <input
                                         v-model="form.whatsapp_settings.gender_labels.other"
                                         type="text"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
-                                        placeholder="مثال: جناب"
+                                        :placeholder="t('campaigns.gender_other_placeholder')"
                                     />
                                 </div>
                             </div>
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    جملات مقدمه برای <code class="text-xs bg-white px-1 rounded">{intro}</code>
+                                    {{ t('campaigns.intro_phrases_for') }} <code class="text-xs bg-white px-1 rounded">{intro}</code>
                                 </label>
                                 <textarea
                                     v-model="form.whatsapp_settings.intro_phrases"
                                     rows="2"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
-                                    placeholder="با ویرگول (انگلیسی یا فارسی) جدا کنید — مثال: سلام وقت بخیر، درود، صبح بخیر"
+                                    :placeholder="t('campaigns.intro_phrases_placeholder')"
                                 ></textarea>
-                                <p class="text-xs text-gray-600 mt-1">در هر ارسال یکی به‌صورت تصادفی انتخاب می‌شود.</p>
+                                <p class="text-xs text-gray-600 mt-1">{{ t('campaigns.intro_phrases_random_hint') }}</p>
                             </div>
 
                             <label class="flex items-start gap-3 cursor-pointer rounded-lg bg-white/80 border border-emerald-100 p-3">
@@ -246,19 +245,19 @@
                                     class="mt-1 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                                 />
                                 <span class="text-sm text-gray-800">
-                                    <span class="font-medium">درج کد تصادفی ۸ رقمی در انتهای هر پیام</span>
-                                    <span class="block text-xs text-gray-600 mt-0.5">برای هر گیرنده یک کد جدا ساخته می‌شود (مثلاً جهت تمایز از پیام‌های کپی‌شده).</span>
+                                    <span class="font-medium">{{ t('campaigns.append_random_token_label') }}</span>
+                                    <span class="block text-xs text-gray-600 mt-0.5">{{ t('campaigns.append_random_token_help') }}</span>
                                 </span>
                             </label>
                         </div>
 
                         <!-- Content Editor -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Content *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.content_required') }}</label>
                             
                             <!-- HTML Editor for Email -->
                             <div v-if="form.type === 'email'" class="space-y-2">
-                                <div class="flex space-x-2 mb-2">
+                                <div class="flex space-x-2 rtl:space-x-reverse mb-2">
                                     <button
                                         type="button"
                                         @click="editorMode = 'html'"
@@ -308,7 +307,7 @@
                                         >
                                             <u>U</u>
                                         </button>
-                                        <div class="border-l border-gray-300 mx-1"></div>
+                                        <div class="border-l border-gray-300 mx-1 rtl:border-l-0 rtl:border-r"></div>
                                         <button
                                             type="button"
                                             @click="formatText('h1')"
@@ -333,7 +332,7 @@
                                         >
                                             H3
                                         </button>
-                                        <div class="border-l border-gray-300 mx-1"></div>
+                                        <div class="border-l border-gray-300 mx-1 rtl:border-l-0 rtl:border-r"></div>
                                         <button
                                             type="button"
                                             @click="formatText('ul')"
@@ -358,7 +357,7 @@
                                         >
                                             🔗 Link
                                         </button>
-                                        <div class="border-l border-gray-300 mx-1"></div>
+                                        <div class="border-l border-gray-300 mx-1 rtl:border-l-0 rtl:border-r"></div>
                                         <button
                                             type="button"
                                             @click="insertVariable('name')"
@@ -398,14 +397,14 @@
                                         rows="12"
                                         required
                                         class="w-full px-3 py-2 border border-gray-300 rounded-b-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                                        placeholder="Enter HTML content or use the toolbar above..."
+                                        :placeholder="t('campaigns.html_placeholder')"
                                     ></textarea>
                                 </div>
                                 
                                 <div v-else class="border border-gray-300 rounded-md bg-white min-h-[200px] overflow-auto">
                                     <div 
                                         class="p-4 email-preview" 
-                                        v-html="form.content || '<p class=&quot;text-gray-400 italic&quot;>No content to preview. Start typing HTML in the editor above.</p>'"
+                                        v-html="form.content || `<p class=&quot;text-gray-400 italic&quot;>${t('campaigns.no_preview_content')}</p>`"
                                     ></div>
                                 </div>
                             </div>
@@ -416,7 +415,7 @@
                                     v-if="form.type === 'whatsapp'"
                                     class="flex flex-wrap gap-2 p-2 bg-gray-50 border border-gray-200 rounded-t-md border-b-0"
                                 >
-                                    <span class="text-xs text-gray-500 self-center mr-1">درج:</span>
+                                    <span class="text-xs text-gray-500 self-center ltr:mr-1 rtl:ml-1">{{ t('campaigns.insert_label') }}</span>
                                     <button
                                         v-for="v in waVariableNames"
                                         :key="v"
@@ -436,25 +435,25 @@
                                         'w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500',
                                         form.type === 'whatsapp' ? 'rounded-b-md rounded-t-none border-t-0' : 'rounded-md',
                                     ]"
-                                    placeholder="Enter message content..."
+                                    :placeholder="t('campaigns.message_content_placeholder')"
                                 ></textarea>
                             </div>
 
                             <p class="mt-1 text-xs text-gray-500">
                                 <template v-if="form.type === 'whatsapp'">
-                                    متغیرها: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}, {{ '{gender}' }}, {{ '{intro}' }}
+                                    {{ t('campaigns.variables_whatsapp') }}: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}, {{ '{gender}' }}, {{ '{intro}' }}
                                 </template>
                                 <template v-else-if="form.type === 'telegram'">
-                                    متغیرها: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}
+                                    {{ t('campaigns.variables') }}: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}
                                 </template>
                                 <template v-else>
-                                    Available variables: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}
+                                    {{ t('campaigns.available_variables') }}: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}
                                 </template>
                             </p>
                             <!-- Telegram: Multilingual content for group broadcast -->
                             <div v-if="form.type === 'telegram' && languages?.length" class="mt-4 p-4 border border-sky-200 rounded-lg bg-sky-50/60">
-                                <h4 class="text-sm font-semibold text-sky-900 mb-2">Multilingual content (sent by group language)</h4>
-                                <p class="text-xs text-sky-700 mb-3">Enter content for each language. If the group has no language set or no translation exists, the main content above will be used.</p>
+                                <h4 class="text-sm font-semibold text-sky-900 mb-2">{{ t('campaigns.multilingual_content_title') }}</h4>
+                                <p class="text-xs text-sky-700 mb-3">{{ t('campaigns.multilingual_content_help') }}</p>
                                 <div class="space-y-3">
                                     <div v-for="lang in languages" :key="lang.id">
                                         <label class="block text-xs font-medium text-gray-700 mb-1">{{ lang.name }} ({{ lang.code }})</label>
@@ -462,27 +461,27 @@
                                             v-model="form.content_translations[lang.code]"
                                             rows="4"
                                             class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-sky-500"
-                                            :placeholder="'Content in ' + lang.name + '...'"
+                                            :placeholder="t('campaigns.content_in_language').replace(':language', lang.name)"
                                         ></textarea>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="flex justify-end space-x-3 pt-4 border-t">
+                        <div class="flex justify-end space-x-3 rtl:space-x-reverse pt-4 border-t">
                             <button
                                 type="button"
                                 @click="closeModal"
                                 class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                             >
-                                Cancel
+                                {{ t('common.cancel') }}
                             </button>
                             <button
                                 type="submit"
                                 :disabled="form.processing"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                             >
-                                {{ form.processing ? 'Saving...' : 'Save Template' }}
+                                {{ form.processing ? t('settings.saving') : t('campaigns.save_template') }}
                             </button>
                         </div>
                     </form>
@@ -503,6 +502,9 @@ import { ref, nextTick, watch, computed } from 'vue';
 import { useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import MediaPickerModal from '@/Components/MediaPickerModal.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const page = usePage();
 const languages = computed(() => page.props.languages || []);
@@ -566,7 +568,7 @@ const handleImageChange = (event) => {
     const file = event.target.files[0];
     if (file) {
         if (file.size > 50 * 1024 * 1024) {
-            alert('File size must be less than 50MB');
+            alert(t('campaigns.file_size_max_50mb'));
             event.target.value = '';
             return;
         }
@@ -643,7 +645,7 @@ const editTemplate = (template) => {
 };
 
 const deleteTemplate = (template) => {
-    if (confirm(`Are you sure you want to delete "${template.name}"?`)) {
+    if (confirm(t('common.confirm_delete_named').replace(':name', template.name))) {
         router.delete(route('campaign-templates.destroy', template.id), {
             preserveState: true,
             preserveScroll: true,

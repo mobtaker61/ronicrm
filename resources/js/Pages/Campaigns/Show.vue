@@ -1,7 +1,7 @@
 <template>
     <AppLayout>
         <template #header>
-            Campaign Details
+            {{ t('campaigns.details') }}
         </template>
 
         <div class="max-w-6xl mx-auto space-y-6">
@@ -20,8 +20,8 @@
                         <h2 class="text-2xl font-bold text-gray-900">{{ campaign.name }}</h2>
                         <p v-if="campaign.description" class="text-gray-600 mt-2">{{ campaign.description }}</p>
                     </div>
-                    <div class="flex items-center space-x-3">
-                        <div class="flex space-x-2">
+                    <div class="flex items-center space-x-3 rtl:space-x-reverse">
+                        <div class="flex space-x-2 rtl:space-x-reverse">
                             <span
                                 class="px-3 py-1 text-sm font-medium rounded-full"
                                 :class="{
@@ -29,7 +29,7 @@
                                     'bg-blue-100 text-blue-800': campaign.type === 'email',
                                 }"
                             >
-                                {{ campaign.type }}
+                                {{ campaignTypeLabel(campaign.type) }}
                             </span>
                             <span
                                 class="px-3 py-1 text-sm font-medium rounded-full"
@@ -41,62 +41,62 @@
                                     'bg-red-100 text-red-800': campaign.status === 'cancelled',
                                 }"
                             >
-                                {{ campaign.status }}
+                                {{ campaignStatusLabel(campaign.status) }}
                             </span>
                         </div>
                         <button
                             v-if="campaign.status === 'draft' || (campaign.status === 'scheduled' && canStartNow)"
                             @click="startCampaign"
                             :disabled="startForm.processing"
-                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2 rtl:space-x-reverse"
                         >
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span>{{ startForm.processing ? 'Starting...' : 'Start Campaign' }}</span>
+                            <span>{{ startForm.processing ? t('campaigns.starting') : t('campaigns.start_campaign') }}</span>
                         </button>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
                     <div>
-                        <p class="text-sm text-gray-500">Created</p>
+                        <p class="text-sm text-gray-500">{{ t('common.created') }}</p>
                         <p class="text-sm font-medium text-gray-900">{{ formatDate(campaign.created_at) }}</p>
                     </div>
                     <div v-if="campaign.scheduled_at">
-                        <p class="text-sm text-gray-500">Scheduled</p>
+                        <p class="text-sm text-gray-500">{{ t('campaigns.scheduled') }}</p>
                         <p class="text-sm font-medium text-gray-900">{{ formatDate(campaign.scheduled_at) }}</p>
                     </div>
                     <div v-if="campaign.started_at">
-                        <p class="text-sm text-gray-500">Started</p>
+                        <p class="text-sm text-gray-500">{{ t('campaigns.started') }}</p>
                         <p class="text-sm font-medium text-gray-900">{{ formatDate(campaign.started_at) }}</p>
                     </div>
                     <div v-if="campaign.completed_at">
-                        <p class="text-sm text-gray-500">Completed</p>
+                        <p class="text-sm text-gray-500">{{ t('campaigns.completed') }}</p>
                         <p class="text-sm font-medium text-gray-900">{{ formatDate(campaign.completed_at) }}</p>
                     </div>
                     <div>
-                        <p class="text-sm text-gray-500">Created By</p>
-                        <p class="text-sm font-medium text-gray-900">{{ campaign.creator?.name || 'Unknown' }}</p>
+                        <p class="text-sm text-gray-500">{{ t('campaigns.created_by') }}</p>
+                        <p class="text-sm font-medium text-gray-900">{{ campaign.creator?.name || t('common.unknown') }}</p>
                     </div>
                 </div>
             </div>
 
             <!-- Campaign Content -->
             <div class="bg-white rounded-lg shadow p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Campaign Content</h3>
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('campaigns.content') }}</h3>
                 <div v-if="campaign.subject" class="mb-4">
-                    <p class="text-sm text-gray-500">Subject</p>
+                    <p class="text-sm text-gray-500">{{ t('campaigns.subject') }}</p>
                     <p class="text-sm font-medium text-gray-900">{{ campaign.subject }}</p>
                 </div>
                 <div v-if="campaign.image" class="mb-4">
-                    <p class="text-sm text-gray-500 mb-2">Attachment</p>
+                    <p class="text-sm text-gray-500 mb-2">{{ t('campaigns.attachment') }}</p>
                     <div class="inline-block max-w-md border border-gray-300 rounded-lg overflow-hidden bg-white">
                         <img
                             v-if="isImageFile(campaign.image)"
                             :src="`/storage/${campaign.image}`"
-                            alt="Campaign Attachment"
+                            :alt="t('campaigns.attachment')"
                             class="max-h-[100px] w-auto object-contain"
                         />
                         <div
@@ -115,7 +115,7 @@
                     </div>
                 </div>
                 <div>
-                    <p class="text-sm text-gray-500 mb-2">Message</p>
+                    <p class="text-sm text-gray-500 mb-2">{{ t('campaigns.message') }}</p>
                     <div v-if="campaign.type === 'email'" class="p-4 bg-gray-50 rounded-lg border border-gray-200 email-preview" v-html="campaignContentDisplay"></div>
                     <div v-else class="p-4 bg-gray-50 rounded-lg border border-gray-200 whitespace-pre-wrap">{{ campaign.content }}</div>
                 </div>
@@ -124,19 +124,19 @@
             <!-- Statistics -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="bg-white rounded-lg shadow p-6">
-                    <p class="text-sm text-gray-500">Total Recipients</p>
+                    <p class="text-sm text-gray-500">{{ t('campaigns.total_recipients') }}</p>
                     <p class="text-2xl font-bold text-gray-900">{{ campaign.recipients?.length || 0 }}</p>
                 </div>
                 <div class="bg-white rounded-lg shadow p-6">
-                    <p class="text-sm text-gray-500">Sent</p>
+                    <p class="text-sm text-gray-500">{{ t('customers.sent') }}</p>
                     <p class="text-2xl font-bold text-green-600">{{ getStatusCount('sent') }}</p>
                 </div>
                 <div class="bg-white rounded-lg shadow p-6">
-                    <p class="text-sm text-gray-500">Delivered</p>
+                    <p class="text-sm text-gray-500">{{ t('campaigns.delivered') }}</p>
                     <p class="text-2xl font-bold text-blue-600">{{ getStatusCount('delivered') }}</p>
                 </div>
                 <div class="bg-white rounded-lg shadow p-6">
-                    <p class="text-sm text-gray-500">Failed</p>
+                    <p class="text-sm text-gray-500">{{ t('campaigns.failed') }}</p>
                     <p class="text-2xl font-bold text-red-600">{{ getStatusCount('failed') }}</p>
                 </div>
             </div>
@@ -144,28 +144,28 @@
             <!-- Recipients List -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900">Recipients</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">{{ t('campaigns.recipients') }}</h3>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sent At</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Delivered At</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Error</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('customers.customer') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('campaigns.contact') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.status') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('campaigns.sent_at') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('campaigns.delivered_at') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('campaigns.error') }}</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <tr v-for="recipient in campaign.recipients" :key="recipient.id">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-gray-900">
-                                        {{ recipient.customer?.name || 'Unknown' }}
+                                        {{ recipient.customer?.name || t('common.unknown') }}
                                     </div>
                                     <div class="text-sm text-gray-500">
-                                        {{ recipient.customer?.company_name || '-' }}
+                                        {{ recipient.customer?.company_name || t('common.dash') }}
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -177,8 +177,10 @@
                                             <span class="text-xs text-gray-400">{{ contact.type }}:</span> {{ contact.value }}
                                         </div>
                                     </template>
-                                    <template v-else-if="recipient.customer?.email">email: {{ recipient.customer.email }}</template>
-                                    <span v-else>-</span>
+                                    <template v-else-if="recipient.customer?.email">
+                                        <span class="text-xs text-gray-400">{{ t('common.email') }}:</span> {{ recipient.customer.email }}
+                                    </template>
+                                    <span v-else>{{ t('common.dash') }}</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span
@@ -192,22 +194,22 @@
                                             'bg-indigo-100 text-indigo-800': recipient.status === 'clicked',
                                         }"
                                     >
-                                        {{ recipient.status }}
+                                        {{ getStatusLabel(recipient.status) }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ recipient.sent_at ? formatDate(recipient.sent_at) : '-' }}
+                                    {{ recipient.sent_at ? formatDate(recipient.sent_at) : t('common.dash') }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ recipient.delivered_at ? formatDate(recipient.delivered_at) : '-' }}
+                                    {{ recipient.delivered_at ? formatDate(recipient.delivered_at) : t('common.dash') }}
                                 </td>
                                 <td class="px-6 py-4 text-sm text-red-600">
-                                    {{ recipient.error_message || '-' }}
+                                    {{ recipient.error_message || t('common.dash') }}
                                 </td>
                             </tr>
                             <tr v-if="!campaign.recipients || campaign.recipients.length === 0">
                                 <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-                                    No recipients found.
+                                    {{ t('campaigns.no_recipients') }}
                                 </td>
                             </tr>
                         </tbody>
@@ -217,22 +219,24 @@
 
             <!-- Email sent log (for email campaigns: visible record of what was sent) -->
             <div v-if="campaign.type === 'email' && campaign.logs && sentLogs.length > 0" class="bg-white rounded-lg shadow p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Sent emails log</h3>
-                <p class="text-sm text-gray-500 mb-4">Emails sent from this campaign (also stored on your mail server if SMTP is configured).</p>
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('campaigns.sent_emails_log_title') }}</h3>
+                <p class="text-sm text-gray-500 mb-4">{{ t('campaigns.sent_emails_log_description') }}</p>
                 <div class="overflow-x-auto border border-gray-200 rounded-lg">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">To</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sent at</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('campaigns.sent_emails_log_to') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('campaigns.sent_emails_log_subject') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('campaigns.sent_emails_log_sent_at') }}</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <tr v-for="log in sentLogs" :key="log.id">
-                                <td class="px-6 py-3 text-sm text-gray-900">{{ log.details?.to || '-' }}</td>
-                                <td class="px-6 py-3 text-sm text-gray-600">{{ log.details?.subject || '-' }}</td>
-                                <td class="px-6 py-3 text-sm text-gray-500">{{ log.details?.sent_at ? formatDate(log.details.sent_at) : (log.created_at ? formatDate(log.created_at) : '-') }}</td>
+                                <td class="px-6 py-3 text-sm text-gray-900">{{ log.details?.to || t('common.dash') }}</td>
+                                <td class="px-6 py-3 text-sm text-gray-600">{{ log.details?.subject || t('common.dash') }}</td>
+                                <td class="px-6 py-3 text-sm text-gray-500">
+                                    {{ log.details?.sent_at ? formatDate(log.details.sent_at) : (log.created_at ? formatDate(log.created_at) : t('common.dash')) }}
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -245,14 +249,14 @@
                     :href="route('campaigns.index')"
                     class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 >
-                    Back to Campaigns
+                    {{ t('campaigns.back_to_campaigns') }}
                 </Link>
                 <button
                     v-if="campaign.status !== 'running' && campaign.status !== 'completed'"
                     @click="deleteCampaign"
                     class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
                 >
-                    Delete Campaign
+                    {{ t('campaigns.delete_campaign') }}
                 </button>
             </div>
         </div>
@@ -261,7 +265,7 @@
         <div v-if="showProgressModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
                 <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                    <h3 class="text-lg font-semibold text-gray-900">ارسال کمپین در حال انجام...</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">{{ t('campaigns.sending_progress_title') }}</h3>
                     <button
                         v-if="isCompleted"
                         @click="closeProgressModal"
@@ -277,7 +281,7 @@
                     <!-- Progress Bar -->
                     <div class="mb-6">
                         <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm font-medium text-gray-700">پیشرفت ارسال</span>
+                            <span class="text-sm font-medium text-gray-700">{{ t('campaigns.sending_progress_label') }}</span>
                             <span class="text-sm text-gray-600">{{ progressPercentage }}%</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-3">
@@ -287,10 +291,10 @@
                             ></div>
                         </div>
                         <div class="flex justify-between items-center mt-2 text-sm text-gray-600">
-                            <span>ارسال شده: {{ statusCounts.sent + statusCounts.delivered }}</span>
-                            <span>ناموفق: {{ statusCounts.failed }}</span>
-                            <span>در انتظار: {{ statusCounts.pending }}</span>
-                            <span>کل: {{ statusCounts.total }}</span>
+                            <span>{{ t('campaigns.sent_delivered_count_label').replace(':count', String(statusCounts.sent + statusCounts.delivered)) }}</span>
+                            <span>{{ t('campaigns.failed_count_label').replace(':count', String(statusCounts.failed)) }}</span>
+                            <span>{{ t('campaigns.pending_count_label').replace(':count', String(statusCounts.pending)) }}</span>
+                            <span>{{ t('campaigns.total_count_label').replace(':count', String(statusCounts.total)) }}</span>
                         </div>
                     </div>
 
@@ -318,7 +322,7 @@
                                     {{ recipient.error_message }}
                                 </div>
                             </div>
-                            <div class="ml-4">
+                            <div class="ltr:ml-4 rtl:mr-4">
                                 <span
                                     class="px-3 py-1 text-xs font-medium rounded-full"
                                     :class="{
@@ -338,11 +342,10 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium" :class="statusCounts.failed > 0 ? 'text-yellow-800' : 'text-green-800'">
-                                {{ statusCounts.failed > 0 ? 'ارسال کمپین به پایان رسید (برخی با خطا)' : 'ارسال کمپین با موفقیت به پایان رسید!' }}
+                                {{ statusCounts.failed > 0 ? t('campaigns.progress_completed_with_errors') : t('campaigns.progress_completed_success') }}
                             </p>
                             <p class="text-xs mt-1" :class="statusCounts.failed > 0 ? 'text-yellow-600' : 'text-green-600'">
-                                {{ statusCounts.sent + statusCounts.delivered }} ارسال موفق، 
-                                {{ statusCounts.failed }} ناموفق
+                                {{ t('campaigns.progress_completed_summary').replace(':success', String(statusCounts.sent + statusCounts.delivered)).replace(':failed', String(statusCounts.failed)) }}
                             </p>
                         </div>
                         <button
@@ -350,7 +353,7 @@
                             class="px-4 py-2 rounded-lg text-white"
                             :class="statusCounts.failed > 0 ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'"
                         >
-                            بستن
+                            {{ t('common.close') }}
                         </button>
                     </div>
                 </div>
@@ -364,6 +367,9 @@ import { computed, ref, onUnmounted } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import axios from 'axios';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     campaign: Object,
@@ -408,7 +414,7 @@ const sentLogs = computed(() => {
 });
 
 const formatDate = (date) => {
-    if (!date) return '-';
+    if (!date) return t('common.dash');
     return new Date(date).toLocaleString('en-US', {
         year: 'numeric',
         month: 'short',
@@ -425,12 +431,29 @@ const getStatusCount = (status) => {
 
 const getStatusLabel = (status) => {
     const labels = {
-        'pending': 'در انتظار',
-        'sent': 'ارسال شده',
-        'delivered': 'تحویل داده شده',
-        'failed': 'ناموفق',
+        pending: t('campaigns.status_pending'),
+        sent: t('campaigns.status_sent'),
+        delivered: t('campaigns.status_delivered'),
+        failed: t('campaigns.status_failed'),
+        opened: t('campaigns.status_opened'),
+        clicked: t('campaigns.status_clicked'),
     };
     return labels[status] || status;
+};
+
+const campaignTypeLabel = (type) => {
+    if (type === 'whatsapp') return t('campaigns.type_whatsapp');
+    if (type === 'email') return t('campaigns.type_email');
+    return type || t('common.dash');
+};
+
+const campaignStatusLabel = (status) => {
+    if (status === 'draft') return t('campaigns.status_draft');
+    if (status === 'scheduled') return t('campaigns.status_scheduled');
+    if (status === 'running') return t('campaigns.status_running');
+    if (status === 'completed') return t('campaigns.status_completed');
+    if (status === 'cancelled') return t('campaigns.status_cancelled');
+    return status || t('common.dash');
 };
 
 const isImageFile = (filePath) => {
@@ -448,7 +471,7 @@ const getFileName = (filePath) => {
 };
 
 const startCampaign = async () => {
-    if (!confirm('آیا مطمئن هستید که می‌خواهید این کمپین را شروع کنید؟ پیام‌ها بلافاصله ارسال خواهند شد.')) {
+    if (!confirm(t('campaigns.confirm_start'))) {
         return;
     }
 
@@ -473,12 +496,18 @@ const startCampaign = async () => {
             // Start polling for status
             startPolling();
         } else {
-            alert('خطا در شروع کمپین: ' + (response.data.message || 'خطای ناشناخته'));
+            alert(
+                t('campaigns.start_campaign_error')
+                    .replace(':message', response.data.message || t('common.unknown_error'))
+            );
             showProgressModal.value = false;
         }
     } catch (error) {
         console.error('Error starting campaign:', error);
-        alert('خطا در شروع کمپین: ' + (error.response?.data?.message || error.message));
+        alert(
+            t('campaigns.start_campaign_error')
+                .replace(':message', error.response?.data?.message || error.message || t('common.unknown_error'))
+        );
         showProgressModal.value = false;
     }
 };
@@ -542,7 +571,7 @@ onUnmounted(() => {
 });
 
 const deleteCampaign = () => {
-    if (confirm('Are you sure you want to delete this campaign?')) {
+    if (confirm(t('campaigns.confirm_delete'))) {
         router.delete(route('campaigns.destroy', props.campaign.id));
     }
 };

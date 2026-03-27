@@ -1,7 +1,7 @@
 <template>
     <AppLayout>
         <template #header>
-            Create Campaign
+            {{ t('campaigns.create_campaign') }}
         </template>
 
         <div class="max-w-4xl mx-auto">
@@ -16,38 +16,38 @@
                 <!-- Basic Information -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Campaign Name *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.name_required') }}</label>
                         <input
                             v-model="form.name"
                             type="text"
                             required
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="e.g., Summer Sale 2024"
+                            :placeholder="t('campaigns.name_placeholder')"
                         />
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Campaign Type *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.type_required') }}</label>
                         <select
                             v-model="form.type"
                             required
                             @change="handleTypeChange"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            <option value="">Select Type</option>
-                            <option value="whatsapp">WhatsApp</option>
-                            <option value="email">Email</option>
+                            <option value="">{{ t('campaigns.select_type') }}</option>
+                            <option value="whatsapp">{{ t('campaigns.type_whatsapp') }}</option>
+                            <option value="email">{{ t('campaigns.type_email') }}</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Template</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('sidebar.templates') }}</label>
                         <select
                             v-model="form.template_id"
                             @change="loadTemplate"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            <option :value="null">No Template</option>
+                            <option :value="null">{{ t('campaigns.no_template') }}</option>
                             <option v-for="template in templates" :key="template.id" :value="template.id">
                                 {{ template.name }}
                             </option>
@@ -55,56 +55,56 @@
                     </div>
 
                     <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.description') }}</label>
                         <textarea
                             v-model="form.description"
                             rows="3"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Campaign description..."
+                            :placeholder="t('campaigns.description_placeholder')"
                         ></textarea>
                     </div>
                 </div>
 
                 <!-- Email Subject (only for email campaigns) -->
                 <div v-if="form.type === 'email'" class="border-t pt-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Email Subject *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.email_subject_required') }}</label>
                     <input
                         v-model="form.subject"
                         type="text"
                         :required="form.type === 'email'"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="e.g., Special Offer Just for You!"
+                        :placeholder="t('campaigns.email_subject_placeholder')"
                     />
                 </div>
 
                 <!-- Email Attachments -->
                 <div v-if="form.type === 'email'" class="border-t pt-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">پیوست ایمیل (اختیاری)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.email_attachment_optional') }}</label>
                     <input
                         type="file"
                         ref="emailAttachmentsInput"
                         multiple
                         @change="handleEmailAttachmentsChange"
-                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        class="block w-full text-sm text-gray-500 file:ltr:mr-4 file:rtl:ml-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     />
-                    <p class="mt-1 text-xs text-gray-500">حداکثر ۲۰ مگابایت برای هر فایل. چند فایل می‌توانید انتخاب کنید.</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ t('campaigns.email_attachments_help') }}</p>
                     <ul v-if="emailAttachmentFiles.length" class="mt-2 space-y-1">
                         <li v-for="(f, i) in emailAttachmentFiles" :key="i" class="flex items-center justify-between text-sm text-gray-600">
                             <span>{{ f.name }} ({{ formatFileSize(f.size) }})</span>
-                            <button type="button" @click="removeEmailAttachment(i)" class="text-red-600 hover:text-red-800">حذف</button>
+                            <button type="button" @click="removeEmailAttachment(i)" class="text-red-600 hover:text-red-800">{{ t('common.delete') }}</button>
                         </li>
                     </ul>
                 </div>
 
                 <!-- File Upload (for WhatsApp) -->
                 <div v-if="form.type === 'whatsapp'" class="border-t pt-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Attachment (Optional)</label>
-                    <div class="flex items-center space-x-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.attachment_optional') }}</label>
+                    <div class="flex items-center space-x-4 rtl:space-x-reverse">
                         <div v-if="imagePreview || selectedFile" class="flex-shrink-0 relative">
                             <img
                                 v-if="imagePreview && isImageFile(selectedFile)"
                                 :src="imagePreview"
-                                alt="Preview"
+                                :alt="t('common.preview')"
                                 class="w-32 h-32 object-cover rounded-lg border border-gray-300"
                             />
                             <div
@@ -128,21 +128,21 @@
                             <input
                                 type="file"
                                 @change="handleImageChange"
-                                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                class="block w-full text-sm text-gray-500 file:ltr:mr-4 file:rtl:ml-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                             />
                             <button
                                 type="button"
                                 @click="showMediaPicker = true"
                                 class="mt-2 px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                             >
-                                انتخاب از مدیا
+                                {{ t('campaigns.select_from_media') }}
                             </button>
-                            <p class="mt-1 text-xs text-gray-500">Upload file for WhatsApp (PDF, Word, Excel, Images, etc. - Max 50MB)</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ t('campaigns.whatsapp_attachment_help') }}</p>
                             <p v-if="selectedFile" class="mt-1 text-xs text-gray-600">
-                                انتخاب‌شده: {{ selectedFile.name }}{{ selectedFile.size != null ? ' (' + formatFileSize(selectedFile.size) + ')' : '' }}
+                                {{ t('campaigns.selected_file') }}: {{ selectedFile.name }}{{ selectedFile.size != null ? ' (' + formatFileSize(selectedFile.size) + ')' : '' }}
                             </p>
                             <p v-if="form.template_id && selectedTemplate?.image" class="mt-1 text-xs text-blue-600">
-                                Template has an attachment. Upload a new file to replace it.
+                                {{ t('campaigns.template_has_attachment') }}
                             </p>
                         </div>
                     </div>
@@ -150,11 +150,11 @@
 
                 <!-- Content -->
                 <div class="border-t pt-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Message Content *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.message_content_required') }}</label>
                     
                     <!-- HTML Editor for Email -->
                     <div v-if="form.type === 'email'" class="space-y-2">
-                        <div class="flex space-x-2 mb-2">
+                        <div class="flex space-x-2 rtl:space-x-reverse mb-2">
                             <button
                                 type="button"
                                 @click="editorMode = 'html'"
@@ -163,7 +163,7 @@
                                     editorMode === 'html' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                                 ]"
                             >
-                                HTML
+                                {{ t('campaigns.html') }}
                             </button>
                             <button
                                 type="button"
@@ -173,7 +173,7 @@
                                     editorMode === 'preview' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
                                 ]"
                             >
-                                Preview
+                                {{ t('common.preview') }}
                             </button>
                         </div>
                         
@@ -204,7 +204,7 @@
                                 >
                                     <u>U</u>
                                 </button>
-                                <div class="border-l border-gray-300 mx-1"></div>
+                                <div class="border-l border-gray-300 mx-1 rtl:border-l-0 rtl:border-r"></div>
                                 <button
                                     type="button"
                                     @click="formatText('h1')"
@@ -229,7 +229,7 @@
                                 >
                                     H3
                                 </button>
-                                <div class="border-l border-gray-300 mx-1"></div>
+                                <div class="border-l border-gray-300 mx-1 rtl:border-l-0 rtl:border-r"></div>
                                 <button
                                     type="button"
                                     @click="formatText('ul')"
@@ -254,7 +254,7 @@
                                 >
                                     🔗 Link
                                 </button>
-                                <div class="border-l border-gray-300 mx-1"></div>
+                                <div class="border-l border-gray-300 mx-1 rtl:border-l-0 rtl:border-r"></div>
                                 <button
                                     type="button"
                                     @click="insertVariable('name')"
@@ -294,7 +294,7 @@
                                 rows="12"
                                 required
                                 class="w-full px-3 py-2 border border-gray-300 rounded-b-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                                placeholder="Enter HTML content or use the toolbar above..."
+                                :placeholder="t('campaigns.html_placeholder')"
                             ></textarea>
                         </div>
                         
@@ -312,7 +312,7 @@
                             v-if="form.type === 'whatsapp'"
                             class="flex flex-wrap gap-2 p-2 bg-gray-50 border border-gray-200 rounded-t-md border-b-0"
                         >
-                            <span class="text-xs text-gray-500 self-center mr-1">درج:</span>
+                            <span class="text-xs text-gray-500 self-center ltr:mr-1 rtl:ml-1">{{ t('campaigns.insert_label') }}</span>
                             <button
                                 v-for="v in waVariableNames"
                                 :key="v"
@@ -332,16 +332,16 @@
                                 'w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500',
                                 form.type === 'whatsapp' ? 'rounded-b-md rounded-t-none border-t-0' : 'rounded-md',
                             ]"
-                            placeholder="WhatsApp message content..."
+                            :placeholder="t('campaigns.whatsapp_content_placeholder')"
                         ></textarea>
                     </div>
 
                     <p class="mt-1 text-xs text-gray-500">
                         <template v-if="form.type === 'whatsapp'">
-                            متغیرها: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}, {{ '{gender}' }}, {{ '{intro}' }}
+                            {{ t('campaigns.variables_whatsapp') }}: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}, {{ '{gender}' }}, {{ '{intro}' }}
                         </template>
                         <template v-else>
-                            You can use variables: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}
+                            {{ t('campaigns.variables_email') }}: {{ '{name}' }}, {{ '{company}' }}, {{ '{email}' }}, {{ '{phone}' }}
                         </template>
                     </p>
 
@@ -350,46 +350,46 @@
                         v-if="form.type === 'whatsapp'"
                         class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/60 p-5 space-y-4"
                     >
-                        <h4 class="text-sm font-semibold text-emerald-900">تنظیمات پیام واتساپ</h4>
+                        <h4 class="text-sm font-semibold text-emerald-900">{{ t('campaigns.whatsapp_message_settings') }}</h4>
                         <p class="text-xs text-emerald-900/80">
-                            اگر از تمپلیت استفاده کردید این فیلدها از تمپلیت پر می‌شوند؛ می‌توانید قبل از ساخت کمپین اصلاح کنید.
+                            {{ t('campaigns.whatsapp_message_settings_help') }}
                         </p>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">نمایش male برای {{ '{gender}' }}</label>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('campaigns.gender_male_label_for_variable') }} {{ '{gender}' }}</label>
                                 <input
                                     v-model="form.whatsapp_settings.gender_labels.male"
                                     type="text"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                    placeholder="آقای"
+                                    :placeholder="t('campaigns.gender_male_placeholder')"
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">نمایش female</label>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('campaigns.gender_female_label') }}</label>
                                 <input
                                     v-model="form.whatsapp_settings.gender_labels.female"
                                     type="text"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                    placeholder="خانم"
+                                    :placeholder="t('campaigns.gender_female_placeholder')"
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">نمایش other</label>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('campaigns.gender_other_label') }}</label>
                                 <input
                                     v-model="form.whatsapp_settings.gender_labels.other"
                                     type="text"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                    placeholder="جناب"
+                                    :placeholder="t('campaigns.gender_other_placeholder')"
                                 />
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">جملات {{ '{intro}' }} (با ویرگول جدا کنید)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('campaigns.intro_phrases_label') }} {{ '{intro}' }} {{ t('campaigns.comma_separated') }}</label>
                             <textarea
                                 v-model="form.whatsapp_settings.intro_phrases"
                                 rows="2"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                placeholder="سلام، درود، صبح بخیر"
+                                :placeholder="t('campaigns.intro_phrases_placeholder')"
                             ></textarea>
                         </div>
                         <label class="flex items-start gap-3 cursor-pointer rounded-lg bg-white/80 border p-3">
@@ -399,7 +399,7 @@
                                 class="mt-1 rounded border-gray-300 text-emerald-600"
                             />
                             <span class="text-sm text-gray-800">
-                                <span class="font-medium">کد تصادفی ۸ رقمی در انتهای هر پیام</span>
+                                <span class="font-medium">{{ t('campaigns.append_random_token_label') }}</span>
                             </span>
                         </label>
                     </div>
@@ -407,22 +407,22 @@
 
                 <!-- Recipients Selection -->
                 <div class="border-t pt-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Select Recipients</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('campaigns.select_recipients') }}</h3>
                     
                     <!-- Campaign Type Warning -->
                     <div v-if="!form.type" class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <p class="text-sm text-yellow-800">
-                            <strong>Note:</strong> Please select the campaign type (WhatsApp or Email) first. The recipient list will be filtered automatically based on the selected type.
+                            <strong>{{ t('common.note') }}:</strong> {{ t('campaigns.select_type_warning') }}
                         </p>
                     </div>
                     
                     <!-- Filtered Count Info -->
                     <div v-if="form.type" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p class="text-sm text-blue-800">
-                            <strong>By campaign type:</strong>
+                            <strong>{{ t('campaigns.by_campaign_type') }}:</strong>
                             <span class="font-semibold">{{ recipientEntries.length }}</span>
-                            {{ form.type === 'whatsapp' ? 'WhatsApp contact(s)' : 'email(s)' }}
-                            (one row per contact method; count is number of messages to be sent)
+                            {{ form.type === 'whatsapp' ? t('campaigns.whatsapp_contacts_count_label') : t('campaigns.email_count_label') }}
+                            ({{ t('campaigns.recipients_count_hint') }})
                         </p>
                     </div>
                     
@@ -430,50 +430,50 @@
                     <div class="mb-4 p-4 bg-gray-50 rounded-lg">
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Project</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.filter_by_project') }}</label>
                                 <select
                                     v-model="recipientFilters.project_id"
                                     @change="filterRecipients"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
-                                    <option value="">All Projects</option>
+                                    <option value="">{{ t('customers.all_projects') }}</option>
                                     <option v-for="project in projects" :key="project.id" :value="project.id">
                                         {{ project.name }}
                                     </option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Industry</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.filter_by_industry') }}</label>
                                 <IndustrySelect
                                     v-model="recipientFilters.industry_id"
                                     :industries="industries"
-                                    placeholder="All industries"
+                                    :placeholder="t('customers.all_industries')"
                                     @update:model-value="filterRecipients"
                                 />
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.filter_by_status') }}</label>
                                 <select
                                     v-model="recipientFilters.status"
                                     @change="filterRecipients"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
-                                    <option value="">All Statuses</option>
-                                    <option value="lead">Lead</option>
-                                    <option value="prospect">Prospect</option>
-                                    <option value="customer">Customer</option>
+                                    <option value="">{{ t('customers.all_statuses') }}</option>
+                                    <option value="lead">{{ t('customers.lead') }}</option>
+                                    <option value="prospect">{{ t('customers.prospect') }}</option>
+                                    <option value="customer">{{ t('customers.customer') }}</option>
                                 </select>
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Type</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.filter_by_type') }}</label>
                                 <select
                                     v-model="recipientFilters.type"
                                     @change="filterRecipients"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
-                                    <option value="">All Types</option>
+                                    <option value="">{{ t('customers.all_types') }}</option>
                                     <option value="person">Person</option>
                                     <option value="company">Company</option>
                                 </select>
@@ -481,41 +481,45 @@
                         </div>
 
                         <div class="mt-4 flex items-center justify-between">
-                            <div class="flex items-center space-x-4">
+                            <div class="flex items-center space-x-4 rtl:space-x-reverse">
                                 <button
                                     type="button"
                                     @click="selectAll"
                                     class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
                                 >
-                                    Select All
+                                    {{ t('campaigns.select_all') }}
                                 </button>
                                 <button
                                     type="button"
                                     @click="deselectAll"
                                     class="px-3 py-1 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-700"
                                 >
-                                    Deselect All
+                                    {{ t('campaigns.deselect_all') }}
                                 </button>
                             </div>
                             <div class="text-sm text-gray-600">
-                                Selected: <span class="font-semibold">{{ form.recipient_entries.length }}</span> (messages to send)
+                                {{ t('campaigns.selected_messages') }}: <span class="font-semibold">{{ form.recipient_entries.length }}</span> ({{ t('campaigns.messages_to_send') }})
                             </div>
                         </div>
                     </div>
 
                     <!-- Recipients List (one row per contact method) -->
                     <div v-if="!form.type" class="p-8 text-center text-gray-500 border border-gray-200 rounded-lg">
-                        <p>Please select the campaign type first to see available recipients.</p>
+                        <p>{{ t('campaigns.select_type_first_for_recipients') }}</p>
                     </div>
                     <div v-else-if="recipientEntries.length === 0" class="p-8 text-center text-gray-500 border border-gray-200 rounded-lg">
-                        <p>No recipients found matching the selected filters.</p>
-                        <p class="text-sm mt-2">Try adjusting your filters or check if customers have {{ form.type === 'whatsapp' ? 'WhatsApp' : 'email' }} contact(s).</p>
+                        <p>{{ t('campaigns.no_recipients_for_filters') }}</p>
+                        <p class="text-sm mt-2">
+                            {{ t('campaigns.adjust_filters_hint') }}
+                            {{ form.type === 'whatsapp' ? t('campaigns.type_whatsapp') : t('campaigns.type_email') }}
+                            {{ t('campaigns.contact_suffix_hint') }}
+                        </p>
                     </div>
                     <div v-else class="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50 sticky top-0">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">
                                         <input
                                             type="checkbox"
                                             :checked="allSelected"
@@ -523,10 +527,10 @@
                                             class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                         />
                                     </th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact (to send to)</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.name') }}</th>
+                                    <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.type') }}</th>
+                                    <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('campaigns.contact_to_send') }}</th>
+                                    <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.status') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -544,11 +548,11 @@
                                         <span class="px-2 py-1 text-xs rounded-full"
                                             :class="entry.customer.type === 'person' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'"
                                         >
-                                            {{ entry.customer.type || 'person' }}
+                                            {{ customerTypeLabel(entry.customer.type) }}
                                         </span>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-500">
-                                        <span class="text-xs text-gray-400">{{ entry.contact ? entry.contact.type : 'email' }}:</span> {{ entry.contact ? entry.contact.value : entry.customer.email }}
+                                        <span class="text-xs text-gray-400">{{ contactTypeLabel(entry.contact ? entry.contact.type : 'email') }}:</span> {{ entry.contact ? entry.contact.value : entry.customer.email }}
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-500">
                                         <span class="px-2 py-1 text-xs rounded-full"
@@ -558,7 +562,7 @@
                                                 'bg-green-100 text-green-800': entry.customer.status === 'customer',
                                             }"
                                         >
-                                            {{ entry.customer.status }}
+                                            {{ customerStatusLabel(entry.customer.status) }}
                                         </span>
                                     </td>
                                 </tr>
@@ -569,9 +573,9 @@
 
                 <!-- Scheduling -->
                 <div class="border-t pt-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Schedule Campaign</h3>
-                    <div class="flex items-center space-x-4">
-                        <label class="flex items-center space-x-2">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('campaigns.schedule_campaign') }}</h3>
+                    <div class="flex items-center space-x-4 rtl:space-x-reverse">
+                        <label class="flex items-center space-x-2 rtl:space-x-reverse">
                             <input
                                 v-model="scheduleNow"
                                 type="radio"
@@ -579,20 +583,20 @@
                                 @change="form.scheduled_at = null"
                                 class="text-blue-600 focus:ring-blue-500"
                             />
-                            <span>Send Now</span>
+                            <span>{{ t('campaigns.send_now') }}</span>
                         </label>
-                        <label class="flex items-center space-x-2">
+                        <label class="flex items-center space-x-2 rtl:space-x-reverse">
                             <input
                                 v-model="scheduleNow"
                                 type="radio"
                                 :value="false"
                                 class="text-blue-600 focus:ring-blue-500"
                             />
-                            <span>Schedule Later</span>
+                            <span>{{ t('campaigns.schedule_later') }}</span>
                         </label>
                     </div>
                     <div v-if="!scheduleNow" class="mt-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Scheduled Date & Time</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('campaigns.scheduled_datetime') }}</label>
                         <input
                             v-model="form.scheduled_at"
                             type="datetime-local"
@@ -602,19 +606,19 @@
                 </div>
 
                 <!-- Actions -->
-                <div class="flex justify-end space-x-3 border-t pt-6">
+                <div class="flex justify-end space-x-3 rtl:space-x-reverse border-t pt-6">
                     <Link
                         :href="route('campaigns.index')"
                         class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                     >
-                        Cancel
+                        {{ t('common.cancel') }}
                     </Link>
                     <button
                         type="submit"
                         :disabled="form.processing || form.recipient_entries.length === 0"
                         class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {{ form.processing ? 'Creating...' : 'Create Campaign' }}
+                        {{ form.processing ? t('campaigns.creating') : t('campaigns.create_campaign') }}
                     </button>
                 </div>
             </form>
@@ -634,6 +638,29 @@ import { useForm, Link } from '@inertiajs/vue3';
 import MediaPickerModal from '@/Components/MediaPickerModal.vue';
 import IndustrySelect from '@/Components/IndustrySelect.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
+
+const customerTypeLabel = (type) => {
+    if (type === 'person') return t('customers.person');
+    if (type === 'company') return t('customers.company');
+    return type || t('common.dash');
+};
+
+const customerStatusLabel = (status) => {
+    if (status === 'lead') return t('customers.lead');
+    if (status === 'prospect') return t('customers.prospect');
+    if (status === 'customer') return t('customers.customer');
+    return status || t('common.dash');
+};
+
+const contactTypeLabel = (type) => {
+    if (type === 'email') return t('common.email');
+    if (type === 'whatsapp') return t('inbox.whatsapp');
+    // Fallback: show raw type if we don't have a dedicated label.
+    return type || t('common.dash');
+};
 
 const props = defineProps({
     templates: Array,
@@ -693,7 +720,7 @@ watch(
 // برای پیش‌نمایش: اگر محتوا شبیه HTML نبود (بدون تگ)، خط‌شکنی را با <br> نشان بده تا به‌هم نریزد
 const previewContent = computed(() => {
     const c = form.content || '';
-    if (!c.trim()) return '<p class="text-gray-400 italic">No content to preview. Start typing HTML in the editor above.</p>';
+    if (!c.trim()) return `<p class="text-gray-400 italic">${t('campaigns.no_preview_content')}</p>`;
     if (c.includes('<') && c.includes('>')) return c;
     return c.replace(/\n/g, '<br>');
 });
@@ -865,7 +892,7 @@ const handleImageChange = (event) => {
     if (file) {
         // Validate file size (50MB max)
         if (file.size > 50 * 1024 * 1024) {
-            alert('File size must be less than 50MB');
+            alert(t('campaigns.file_size_max_50mb'));
             event.target.value = '';
             return;
         }

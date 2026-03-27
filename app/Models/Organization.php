@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Organization extends Model
 {
@@ -38,5 +39,15 @@ class Organization extends Model
     public function settings(): HasMany
     {
         return $this->hasMany(OrganizationSetting::class);
+    }
+
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(OrganizationSubscription::class);
+    }
+
+    public function subscriptionPayments(): HasMany
+    {
+        return $this->hasMany(SubscriptionPayment::class);
     }
 }

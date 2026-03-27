@@ -1,18 +1,18 @@
 <template>
     <AppLayout>
         <template #header>
-            Reports
+            {{ t('sidebar.reports') }}
         </template>
 
         <div class="space-y-6">
             <!-- Customer Reports -->
             <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">Customer Reports</h2>
+                <h2 class="text-xl font-bold text-gray-900 mb-4">{{ t('reports.customer_reports') }}</h2>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <!-- By Industry -->
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-700 mb-3">By Industry</h3>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">{{ t('reports.by_industry') }}</h3>
                         <div class="space-y-2">
                             <div
                                 v-for="item in customersByIndustry"
@@ -27,7 +27,7 @@
 
                     <!-- By Status -->
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-700 mb-3">By Status</h3>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">{{ t('reports.by_status') }}</h3>
                         <div class="space-y-2">
                             <div
                                 v-for="item in customersByStatus"
@@ -42,7 +42,7 @@
 
                     <!-- By Source -->
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-700 mb-3">By Source</h3>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">{{ t('reports.by_source') }}</h3>
                         <div class="space-y-2">
                             <div
                                 v-for="item in customersBySource"
@@ -59,29 +59,29 @@
 
             <!-- Campaign Reports -->
             <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">Campaign Reports</h2>
+                <h2 class="text-xl font-bold text-gray-900 mb-4">{{ t('reports.campaign_reports') }}</h2>
                 
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div class="bg-blue-50 p-4 rounded-lg">
-                        <p class="text-sm text-blue-600 font-medium">Total Campaigns</p>
+                        <p class="text-sm text-blue-600 font-medium">{{ t('reports.total_campaigns') }}</p>
                         <p class="text-2xl font-bold text-blue-900">{{ campaignStats.total }}</p>
                     </div>
                     <div class="bg-green-50 p-4 rounded-lg">
-                        <p class="text-sm text-green-600 font-medium">Completed</p>
+                        <p class="text-sm text-green-600 font-medium">{{ t('scrap_tasks.completed') }}</p>
                         <p class="text-2xl font-bold text-green-900">{{ campaignStats.completed }}</p>
                     </div>
                     <div class="bg-yellow-50 p-4 rounded-lg">
-                        <p class="text-sm text-yellow-600 font-medium">Running</p>
+                        <p class="text-sm text-yellow-600 font-medium">{{ t('scrap_tasks.running') }}</p>
                         <p class="text-2xl font-bold text-yellow-900">{{ campaignStats.running }}</p>
                     </div>
                     <div class="bg-purple-50 p-4 rounded-lg">
-                        <p class="text-sm text-purple-600 font-medium">Scheduled</p>
+                        <p class="text-sm text-purple-600 font-medium">{{ t('reports.scheduled') }}</p>
                         <p class="text-2xl font-bold text-purple-900">{{ campaignStats.scheduled }}</p>
                     </div>
                 </div>
 
                 <div class="mb-6">
-                    <h3 class="text-lg font-semibold text-gray-700 mb-3">By Type</h3>
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">{{ t('reports.by_type') }}</h3>
                     <div class="grid grid-cols-2 gap-4">
                         <div
                             v-for="item in campaignsByType"
@@ -95,16 +95,16 @@
                 </div>
 
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-700 mb-3">Recent Campaigns</h3>
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">{{ t('reports.recent_campaigns') }}</h3>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recipients</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ t('common.name') }}</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ t('customers.type') }}</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ t('common.status') }}</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ t('reports.recipients') }}</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ t('common.created') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -146,6 +146,9 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 defineProps({
     customersByIndustry: Array,

@@ -44,6 +44,14 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
+            'i18n' => [
+                'locale' => fn () => app()->getLocale(),
+                'default_locale' => fn () => (string) (\App\Models\Language::query()
+                    ->where('is_active', true)
+                    ->where('is_default', true)
+                    ->value('code') ?: config('app.locale', 'en')),
+                'json_url' => fn () => route('i18n.json', ['locale' => app()->getLocale()]),
+            ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
@@ -81,9 +89,31 @@ class HandleInertiaRequests extends Middleware
                     ->where('organizations.id', $request->user()->current_organization_id)
                     ->first()?->pivot?->role_in_org
                 : null,
-            'languages' => fn () => $request->user() ? \App\Models\Language::orderBy('sort_order')->orderBy('name')->get(['id', 'code', 'name']) : [],
+            'languages' => fn () => $request->user()
+                ? \App\Models\Language::query()
+                    ->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->orderBy('name')
+                    ->get(['id', 'code', 'name', 'is_default', 'direction', 'font_family'])
+                : [],
             'telegramGroupCategories' => fn () => $request->user() ? \App\Models\TelegramGroupCategory::orderBy('sort_order')->orderBy('name')->get(['id', 'name']) : [],
             'csrf_token' => csrf_token(),
+            'subscription' => fn () => (function () use ($request) {
+                $orgId = \App\Support\OrganizationContext::getOrganizationId();
+                if (! $request->user() || ! $orgId) {
+                    return null;
+                }
+                $service = app(\App\Services\SubscriptionService::class);
+                $sub = $service->getOrCreateForOrganization((int) $orgId);
+                $status = $service->computeStatus($sub);
+                return [
+                    'status' => $status,
+                    'remaining_days' => $service->remainingDays($sub),
+                    'ends_at' => $sub->ends_at?->toIso8601String(),
+                    'trial_ends_at' => $sub->trial_ends_at?->toIso8601String(),
+                    'grace_ends_at' => $sub->grace_ends_at?->toIso8601String(),
+                ];
+            })(),
         ];
     }
 }

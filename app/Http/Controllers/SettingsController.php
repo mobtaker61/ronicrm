@@ -78,11 +78,11 @@ class SettingsController extends Controller
         }
 
         $allowedTabs = $canManageSystemSettings
-            ? ['social-media', 'smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts', 'languages', 'users', 'organizations']
-            : ['smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts'];
+            ? ['smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts', 'subscription', 'users']
+            : ['smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts', 'subscription'];
         $initialTab = in_array(request()->query('tab'), $allowedTabs, true)
             ? request()->query('tab')
-            : ($canManageSystemSettings ? 'social-media' : 'smtp');
+            : 'smtp';
 
         return Inertia::render('Settings/Index', [
             'initialTab' => $initialTab,
@@ -135,7 +135,34 @@ class SettingsController extends Controller
             'googleContactsRedirectUri' => config('services.google_contacts.redirect_uri'),
             'telegramConnection' => $this->getTelegramConnectionForFront(),
             'instagramWebhookEvents' => $canManageSystemSettings ? $this->getInstagramWebhookEventsLast20() : [],
+            'subscriptionSummary' => $this->getSubscriptionSummaryForFront(),
         ]);
+    }
+
+    protected function getSubscriptionSummaryForFront(): ?array
+    {
+        $orgId = \App\Support\OrganizationContext::getOrganizationId();
+        if (! $orgId) {
+            return null;
+        }
+        $service = app(\App\Services\SubscriptionService::class);
+        $sub = $service->getOrCreateForOrganization((int) $orgId);
+        $sub->loadMissing('plan:id,name,code');
+
+        return [
+            'id' => $sub->id,
+            'status' => $service->computeStatus($sub),
+            'remaining_days' => $service->remainingDays($sub),
+            'plan' => $sub->plan ? [
+                'id' => $sub->plan->id,
+                'name' => $sub->plan->name,
+                'code' => $sub->plan->code,
+            ] : null,
+            'started_at' => $sub->started_at?->toIso8601String(),
+            'trial_ends_at' => $sub->trial_ends_at?->toIso8601String(),
+            'ends_at' => $sub->ends_at?->toIso8601String(),
+            'grace_ends_at' => $sub->grace_ends_at?->toIso8601String(),
+        ];
     }
 
     protected function getTelegramConnectionForFront(): ?array
@@ -500,5 +527,29 @@ class SettingsController extends Controller
             return redirect()->back()
                 ->with('error', 'Failed to send test email: '.$e->getMessage());
         }
+    }
+
+    public function renewSubscription(Request $request)
+    {
+        $orgId = \App\Support\OrganizationContext::getOrganizationId();
+        if (! $orgId || ! Auth::user()?->canManageOrganizationSettings((int) $orgId)) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'months' => 'nullable|integer|min:1|max:24',
+        ]);
+
+        $months = (int) ($validated['months'] ?? 1);
+        $service = app(\App\Services\SubscriptionService::class);
+        $sub = $service->getOrCreateForOrganization((int) $orgId);
+
+        $base = $sub->ends_at && $sub->ends_at->isFuture() ? $sub->ends_at->copy() : now();
+        $sub->started_at = $sub->started_at ?: now();
+        $sub->ends_at = $base->addMonths($months);
+        $sub->grace_ends_at = null;
+        $sub->save();
+
+        return redirect()->back()->with('success', 'اشتراک سازمان تمدید شد.');
     }
 }

@@ -10,14 +10,14 @@
 
             <div class="flex-1 flex min-h-0 overflow-hidden">
                 <!-- Left: Template list -->
-                <div class="w-[40%] border-r border-gray-200 overflow-y-auto flex-shrink-0">
+                <div class="w-[40%] border-r border-gray-200 overflow-y-auto flex-shrink-0 rtl:border-r-0 rtl:border-l">
                     <div class="p-2">
                         <div
                             v-for="t in templates"
                             :key="t.id"
                             @click="selectedTemplate = t"
                             :class="[
-                                'px-4 py-3 rounded-lg cursor-pointer transition-colors text-left',
+                                'px-4 py-3 rounded-lg cursor-pointer transition-colors text-left rtl:text-right',
                                 selectedTemplate?.id === t.id
                                     ? 'bg-blue-100 border border-blue-300 text-blue-900'
                                     : 'hover:bg-gray-50 border border-transparent'

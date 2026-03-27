@@ -1,0 +1,27 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('translation_keys', function (Blueprint $table) {
+            $table->id();
+            $table->string('namespace', 100)->default('app');
+            $table->string('key', 190);
+            $table->string('description', 255)->nullable();
+            $table->timestamps();
+
+            $table->unique(['namespace', 'key']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('translation_keys');
+    }
+};
+

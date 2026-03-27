@@ -32,6 +32,10 @@ Route::post('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookControl
 Route::get('/instagram-webhook/{organization}', [\App\Http\Controllers\InstagramWebhookController::class, 'verify'])->name('instagram.webhook.verify.organization');
 Route::post('/instagram-webhook/{organization}', [\App\Http\Controllers\InstagramWebhookController::class, 'handle'])->middleware('throttle:120,1')->name('instagram.webhook.organization');
 
+// i18n (public JSON + session locale setter)
+Route::get('/i18n/{locale}.json', [\App\Http\Controllers\I18nController::class, 'json'])->name('i18n.json');
+Route::post('/i18n/locale', [\App\Http\Controllers\I18nController::class, 'setLocale'])->middleware('auth')->name('i18n.locale.set');
+
 Route::middleware('auth')->group(function () {
     Route::post('/organizations/current', [\App\Http\Controllers\CurrentOrganizationController::class, 'update'])->name('organizations.current.update');
 
@@ -150,6 +154,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/telegram/disconnect', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'disconnect'])->name('settings.telegram.disconnect');
     Route::post('/settings/telegram/reset-session', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'resetSession'])->name('settings.telegram.reset-session');
     Route::post('/settings/instagram/revalidate', [\App\Http\Controllers\SettingsController::class, 'revalidateInstagramToken'])->name('settings.instagram.revalidate');
+    Route::post('/settings/subscription/renew', [\App\Http\Controllers\SettingsController::class, 'renewSubscription'])->name('settings.subscription.renew');
 
     // Users Management (Admin Only)
     Route::get('/settings/users', [\App\Http\Controllers\UserController::class, 'index'])->name('settings.users.index');
@@ -173,6 +178,25 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/languages', [\App\Http\Controllers\LanguageController::class, 'store'])->name('settings.languages.store');
     Route::put('/settings/languages/{language}', [\App\Http\Controllers\LanguageController::class, 'update'])->name('settings.languages.update');
     Route::delete('/settings/languages/{language}', [\App\Http\Controllers\LanguageController::class, 'destroy'])->name('settings.languages.destroy');
+
+    // SuperAdmin (system-wide)
+    Route::get('/superadmin/translations', [\App\Http\Controllers\SuperAdmin\TranslationsController::class, 'index'])->name('superadmin.translations.index');
+    Route::get('/superadmin/languages', [\App\Http\Controllers\SuperAdmin\LanguagesPageController::class, 'index'])->name('superadmin.languages.index');
+    Route::get('/superadmin/social-media-platforms', [\App\Http\Controllers\SuperAdmin\SocialMediaPlatformsController::class, 'index'])->name('superadmin.social-media-platforms.index');
+    Route::get('/superadmin/organizations', [\App\Http\Controllers\SuperAdmin\OrganizationsPageController::class, 'index'])->name('superadmin.organizations.index');
+    Route::post('/superadmin/translations/keys', [\App\Http\Controllers\SuperAdmin\TranslationsController::class, 'storeKey'])->name('superadmin.translations.keys.store');
+    Route::put('/superadmin/translations/keys/{translationKey}', [\App\Http\Controllers\SuperAdmin\TranslationsController::class, 'updateKey'])->name('superadmin.translations.keys.update');
+    Route::delete('/superadmin/translations/keys/{translationKey}', [\App\Http\Controllers\SuperAdmin\TranslationsController::class, 'destroyKey'])->name('superadmin.translations.keys.destroy');
+    Route::get('/superadmin/translations/keys/{translationKey}/values', [\App\Http\Controllers\SuperAdmin\TranslationsController::class, 'valuesForKey'])->name('superadmin.translations.keys.values');
+    Route::post('/superadmin/translations/values', [\App\Http\Controllers\SuperAdmin\TranslationsController::class, 'upsertValue'])->name('superadmin.translations.values.upsert');
+    Route::post('/superadmin/translations/build-json', [\App\Http\Controllers\SuperAdmin\TranslationsController::class, 'buildJson'])->name('superadmin.translations.build-json');
+    Route::get('/superadmin/plans', [\App\Http\Controllers\SuperAdmin\PlansController::class, 'index'])->name('superadmin.plans.index');
+    Route::post('/superadmin/plans', [\App\Http\Controllers\SuperAdmin\PlansController::class, 'store'])->name('superadmin.plans.store');
+    Route::put('/superadmin/plans/{plan}', [\App\Http\Controllers\SuperAdmin\PlansController::class, 'update'])->name('superadmin.plans.update');
+    Route::delete('/superadmin/plans/{plan}', [\App\Http\Controllers\SuperAdmin\PlansController::class, 'destroy'])->name('superadmin.plans.destroy');
+    Route::get('/superadmin/subscriptions', [\App\Http\Controllers\SuperAdmin\OrganizationSubscriptionsController::class, 'index'])->name('superadmin.subscriptions.index');
+    Route::put('/superadmin/subscriptions/organizations/{organization}', [\App\Http\Controllers\SuperAdmin\OrganizationSubscriptionsController::class, 'update'])->name('superadmin.subscriptions.organizations.update');
+    Route::post('/superadmin/subscriptions/organizations/{organization}/payments', [\App\Http\Controllers\SuperAdmin\OrganizationSubscriptionsController::class, 'addPayment'])->name('superadmin.subscriptions.organizations.payments.store');
 
     // Telegram Group Categories (Settings > Telegram tab)
     Route::get('/settings/telegram-group-categories', [\App\Http\Controllers\TelegramGroupCategoryController::class, 'index'])->name('settings.telegram-group-categories.index');

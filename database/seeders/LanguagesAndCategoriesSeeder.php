@@ -14,7 +14,8 @@ class LanguagesAndCategoriesSeeder extends Seeder
         $langs = [
             ['code' => 'fa', 'name' => 'Persian', 'sort_order' => 1],
             ['code' => 'en', 'name' => 'English', 'sort_order' => 2],
-            ['code' => 'ku', 'name' => 'Kurdish', 'sort_order' => 3],
+            ['code' => 'ckb', 'name' => 'Kurdish (Sorani)', 'sort_order' => 3],
+            ['code' => 'ku', 'name' => 'Kurdish (Sorani)', 'sort_order' => 8],
             ['code' => 'tr', 'name' => 'Turkish', 'sort_order' => 4],
             ['code' => 'ar', 'name' => 'Arabic', 'sort_order' => 5],
             ['code' => 'hi', 'name' => 'Hindi', 'sort_order' => 6],

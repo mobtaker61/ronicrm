@@ -2,7 +2,7 @@
     <div v-if="show" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" @click.self="$emit('close')">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col">
             <div class="flex items-center justify-between p-4 border-b">
-                <h3 class="text-lg font-semibold">انتخاب از مدیا</h3>
+                <h3 class="text-lg font-semibold">{{ t('media_picker.title') }}</h3>
                 <button type="button" @click="$emit('close')" class="p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -13,7 +13,7 @@
                     @click="loadFolder(null)"
                     :class="['px-3 py-1.5 rounded-lg text-sm', currentFolderId === null ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']"
                 >
-                    همه
+                    {{ t('common.all') }}
                 </button>
                 <template v-for="b in breadcrumbs" :key="b.id ?? 'root'">
                     <span class="text-gray-400">/</span>
@@ -27,7 +27,7 @@
                 </template>
             </div>
             <div class="flex-1 overflow-y-auto p-4">
-                <div v-if="loading" class="text-center py-8 text-gray-500">در حال بارگذاری...</div>
+                <div v-if="loading" class="text-center py-8 text-gray-500">{{ t('common.loading') }}</div>
                 <template v-else>
                     <div class="grid grid-cols-4 sm:grid-cols-6 gap-3 mb-4">
                         <button
@@ -60,7 +60,7 @@
                             <span class="text-xs truncate w-full text-center">{{ file.name }}</span>
                         </button>
                     </div>
-                    <p v-if="!loading && folders.length === 0 && files.length === 0" class="text-center text-gray-500 py-8">فایلی در این پوشه نیست.</p>
+                    <p v-if="!loading && folders.length === 0 && files.length === 0" class="text-center text-gray-500 py-8">{{ t('media_picker.no_files_in_folder') }}</p>
                 </template>
             </div>
         </div>
@@ -70,12 +70,14 @@
 <script setup>
 import { ref, watch } from 'vue';
 import axios from 'axios';
+import { useI18n } from '@/composables/useI18n';
 
 const props = defineProps({
     show: Boolean,
 });
 
 const emit = defineEmits(['close', 'select']);
+const { t } = useI18n();
 
 const loading = ref(false);
 const currentFolderId = ref(null);

@@ -1,7 +1,7 @@
 <template>
     <AppLayout>
         <template #header>
-            Profile
+            {{ t('common.profile') }}
         </template>
 
         <div class="space-y-6 max-w-3xl">
@@ -13,33 +13,33 @@
             </div>
 
             <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Account Information</h2>
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('profile.account_information') }}</h2>
                 <form @submit.prevent="saveProfile" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Avatar</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.avatar') }}</label>
                         <div class="flex items-center gap-4">
                             <div class="w-16 h-16 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
                                 <img
                                     v-if="currentAvatarUrl"
                                     :src="currentAvatarUrl"
-                                    alt="Avatar"
+                                    :alt="t('common.avatar')"
                                     class="w-full h-full object-cover"
                                 />
-                                <span v-else class="text-gray-400 text-xs">No image</span>
+                                <span v-else class="text-gray-400 text-xs">{{ t('profile.no_image') }}</span>
                             </div>
                             <div class="flex-1 space-y-2">
                                 <input
                                     type="file"
                                     accept="image/*"
                                     @change="onAvatarSelected"
-                                    class="block w-full text-sm text-gray-700 file:mr-3 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                    class="block w-full text-sm text-gray-700 file:ltr:mr-3 file:rtl:ml-3 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                 />
                                 <button
                                     type="button"
                                     @click="clearAvatar"
                                     class="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100"
                                 >
-                                    Remove Avatar
+                                    {{ t('profile.remove_avatar') }}
                                 </button>
                             </div>
                         </div>
@@ -47,7 +47,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.name') }}</label>
                         <input
                             v-model="profileForm.name"
                             type="text"
@@ -57,7 +57,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.username') }}</label>
                         <input
                             v-model="profileForm.username"
                             type="text"
@@ -67,7 +67,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.email') }}</label>
                         <input
                             v-model="profileForm.email"
                             type="email"
@@ -81,16 +81,16 @@
                         :disabled="profileForm.processing"
                         class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                     >
-                        {{ profileForm.processing ? 'Saving...' : 'Save Profile' }}
+                        {{ profileForm.processing ? t('profile.saving') : t('profile.save_profile') }}
                     </button>
                 </form>
             </div>
 
             <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Change Password</h2>
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('profile.change_password') }}</h2>
                 <form @submit.prevent="savePassword" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('profile.current_password') }}</label>
                         <input
                             v-model="passwordForm.current_password"
                             type="password"
@@ -100,7 +100,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('profile.new_password') }}</label>
                         <input
                             v-model="passwordForm.password"
                             type="password"
@@ -110,7 +110,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('profile.confirm_new_password') }}</label>
                         <input
                             v-model="passwordForm.password_confirmation"
                             type="password"
@@ -123,7 +123,7 @@
                         :disabled="passwordForm.processing"
                         class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50"
                     >
-                        {{ passwordForm.processing ? 'Updating...' : 'Update Password' }}
+                        {{ passwordForm.processing ? t('profile.updating') : t('profile.update_password') }}
                     </button>
                 </form>
             </div>
@@ -135,6 +135,9 @@
 import { computed, ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     profile: {

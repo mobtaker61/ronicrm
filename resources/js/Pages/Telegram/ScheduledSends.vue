@@ -2,7 +2,7 @@
     <AppLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <span>Telegram Scheduled Sends</span>
+                <span>{{ t('telegram_scheduled.telegram_scheduled_sends') }}</span>
             </div>
         </template>
 
@@ -20,53 +20,53 @@
 
         <!-- Not Connected -->
         <div v-if="!telegramConnected" class="p-6 border border-amber-200 rounded-lg bg-amber-50">
-            <p class="text-gray-800 mb-4">Connect your Telegram account in Settings first.</p>
+            <p class="text-gray-800 mb-4">{{ t('telegram_scheduled.connect_telegram_first') }}</p>
             <Link :href="route('settings.index')" class="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">
-                Go to Telegram Settings
+                {{ t('telegram_scheduled.go_to_telegram_settings') }}
             </Link>
         </div>
 
         <div v-else class="space-y-6">
             <!-- Create Form -->
             <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Add Scheduled Send</h2>
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('telegram_scheduled.add_scheduled_send') }}</h2>
                 <p class="text-sm text-gray-600 mb-4">
-                    Choose template or post link, select a category. Sends run daily at the specified time for the given number of days. Only groups with can_post are used. Time uses server timezone ({{ timezone }}).
+                    {{ t('telegram_scheduled.form_help').replace(':timezone', timezone) }}
                 </p>
                 <form @submit.prevent="create" class="space-y-4">
                     <div class="flex flex-wrap gap-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('customers.type') }}</label>
                             <select v-model="form.type" class="rounded-md border-gray-300 text-sm py-2 min-w-[160px]">
-                                <option value="template">Template</option>
-                                <option value="forward">Forward Post</option>
+                                <option value="template">{{ t('sidebar.templates') }}</option>
+                                <option value="forward">{{ t('telegram_scheduled.forward_post') }}</option>
                             </select>
                         </div>
                         <div v-if="form.type === 'template'" class="min-w-[200px]">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Template</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('sidebar.templates') }}</label>
                             <select v-model="form.campaign_template_id" required class="w-full rounded-md border-gray-300 text-sm py-2">
-                                <option value="">Select...</option>
+                                <option value="">{{ t('telegram_scheduled.select') }}...</option>
                                 <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
                             </select>
                         </div>
                         <div v-else class="min-w-[280px]">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Post link</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('telegram_crawler.post_link') }}</label>
                             <input
                                 v-model="form.post_link"
                                 type="text"
-                                placeholder="t.me/channel/123 or t.me/c/1234567890/123"
+                                :placeholder="t('telegram_crawler.post_link_placeholder')"
                                 class="w-full rounded-md border-gray-300 text-sm py-2"
                             />
                         </div>
                         <div class="min-w-[180px]">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.category') }}</label>
                             <select v-model="form.telegram_group_category_id" required class="w-full rounded-md border-gray-300 text-sm py-2">
-                                <option value="">Select...</option>
+                                <option value="">{{ t('telegram_scheduled.select') }}...</option>
                                 <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Time (HH:MM)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('telegram_scheduled.time_hhmm') }}</label>
                             <input
                                 v-model="form.send_at_time"
                                 type="time"
@@ -75,7 +75,7 @@
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Days</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('telegram_scheduled.days') }}</label>
                             <input
                                 v-model.number="form.days_count"
                                 type="number"
@@ -91,7 +91,7 @@
                                 :disabled="saving"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
                             >
-                                {{ saving ? 'Adding...' : 'Add' }}
+                                {{ saving ? t('telegram_scheduled.adding') : t('common.add') }}
                             </button>
                         </div>
                     </div>
@@ -101,24 +101,24 @@
             <!-- List -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
-                    <h2 class="text-lg font-semibold text-gray-900">Scheduled Sends</h2>
+                    <h2 class="text-lg font-semibold text-gray-900">{{ t('telegram_scheduled.scheduled_sends') }}</h2>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Content</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Progress</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ t('customers.type') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ t('telegram_scheduled.content') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ t('common.category') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ t('common.time') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ t('telegram_scheduled.progress') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ t('common.status') }}</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{{ t('common.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <tr v-if="!schedules.length" class="text-center text-gray-500 py-8">
-                                <td colspan="7" class="px-4 py-6">No scheduled sends yet.</td>
+                                <td colspan="7" class="px-4 py-6">{{ t('telegram_scheduled.no_scheduled_sends') }}</td>
                             </tr>
                             <template v-for="s in schedules" :key="s.id">
                                 <tr class="hover:bg-gray-50">
@@ -146,17 +146,17 @@
                                             type="button"
                                             @click="openEdit(s)"
                                             class="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                                            title="Edit"
+                                            :title="t('common.edit')"
                                         >
-                                            Edit
+                                            {{ t('common.edit') }}
                                         </button>
                                         <button
                                             type="button"
                                             @click="openReport(s)"
                                             class="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                            title="Execution report"
+                                            :title="t('telegram_scheduled.execution_report')"
                                         >
-                                            Report
+                                            {{ t('telegram_scheduled.report') }}
                                         </button>
                                         <button
                                             v-if="s.status === 'active'"
@@ -165,9 +165,9 @@
                                             :disabled="stoppingId === s.id"
                                             class="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
                                         >
-                                            {{ stoppingId === s.id ? '...' : 'Stop' }}
+                                            {{ stoppingId === s.id ? '...' : t('telegram_scheduled.stop') }}
                                         </button>
-                                        <span v-else-if="s.status !== 'active'" class="text-gray-400 text-sm">—</span>
+                                        <span v-else-if="s.status !== 'active'" class="text-gray-400 text-sm">{{ t('common.dash') }}</span>
                                     </td>
                                 </tr>
                                 <tr v-if="s.runs?.length" class="bg-gray-50/50">
@@ -203,7 +203,7 @@
                         <div class="relative bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
                             <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                                 <h3 class="text-lg font-semibold text-gray-900">
-                                    Execution Report — {{ reportModal.schedule?.type_label }}: {{ reportModal.schedule?.content || '—' }}
+                                    {{ t('telegram_scheduled.execution_report') }} — {{ reportModal.schedule?.type_label }}: {{ reportModal.schedule?.content || '—' }}
                                 </h3>
                                 <button
                                     type="button"
@@ -216,9 +216,9 @@
                                 </button>
                             </div>
                             <div class="px-6 py-4 overflow-auto flex-1">
-                                <div v-if="reportModal.loading" class="text-center py-12 text-gray-500">Loading...</div>
+                                <div v-if="reportModal.loading" class="text-center py-12 text-gray-500">{{ t('common.loading') }}...</div>
                                 <div v-else-if="reportModal.error" class="text-red-600 py-4">{{ reportModal.error }}</div>
-                                <div v-else-if="!reportModal.runs?.length" class="text-gray-500 py-8 text-center">No runs recorded yet.</div>
+                                <div v-else-if="!reportModal.runs?.length" class="text-gray-500 py-8 text-center">{{ t('telegram_scheduled.no_runs_recorded') }}</div>
                                 <div v-else class="space-y-6">
                                     <div v-for="r in reportModal.runs" :key="r.id" class="border border-gray-200 rounded-lg overflow-hidden">
                                         <div class="px-4 py-2 bg-gray-50 flex items-center justify-between gap-4 flex-wrap">
@@ -246,7 +246,7 @@
                                                             item.status === 'pending' && 'bg-gray-100 text-gray-600'
                                                         ]"
                                                     >
-                                                        {{ item.status === 'sent' ? 'Sent' : item.status === 'failed' ? 'Failed' : 'Pending' }}
+                                                        {{ item.status === 'sent' ? t('telegram_scheduled.sent') : item.status === 'failed' ? t('telegram_scheduled.failed') : t('telegram_scheduled.pending') }}
                                                     </span>
                                                     <span v-if="item.sent_at" class="text-xs text-gray-400 shrink-0">{{ formatDate(item.sent_at) }}</span>
                                                 </div>
@@ -273,7 +273,7 @@
                         <div class="fixed inset-0 bg-gray-500/75 transition-opacity" @click="closeEdit" />
                         <div class="relative bg-white rounded-xl shadow-xl max-w-2xl w-full">
                             <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                                <h3 class="text-lg font-semibold text-gray-900">Edit Scheduled Send</h3>
+                                <h3 class="text-lg font-semibold text-gray-900">{{ t('telegram_scheduled.edit_scheduled_send') }}</h3>
                                 <button type="button" @click="closeEdit" class="text-gray-400 hover:text-gray-600 rounded-lg p-1">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -283,37 +283,37 @@
                             <form @submit.prevent="update" class="p-6 space-y-4">
                                 <div class="flex flex-wrap gap-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('customers.type') }}</label>
                                         <select v-model="editForm.type" class="rounded-md border-gray-300 text-sm py-2 min-w-[140px]">
-                                            <option value="template">Template</option>
-                                            <option value="forward">Forward Post</option>
+                                            <option value="template">{{ t('sidebar.templates') }}</option>
+                                            <option value="forward">{{ t('telegram_scheduled.forward_post') }}</option>
                                         </select>
                                     </div>
                                     <div v-if="editForm.type === 'template'" class="min-w-[200px] flex-1">
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Template</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('sidebar.templates') }}</label>
                                         <select v-model="editForm.campaign_template_id" required class="w-full rounded-md border-gray-300 text-sm py-2">
-                                            <option value="">Select...</option>
+                                            <option value="">{{ t('telegram_scheduled.select') }}...</option>
                                             <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}</option>
                                         </select>
                                     </div>
                                     <div v-else class="min-w-[240px] flex-1">
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Post link</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('telegram_crawler.post_link') }}</label>
                                         <input
                                             v-model="editForm.post_link"
                                             type="text"
-                                            placeholder="t.me/channel/123"
+                                            :placeholder="t('telegram_crawler.post_link_placeholder')"
                                             class="w-full rounded-md border-gray-300 text-sm py-2"
                                         />
                                     </div>
                                     <div class="min-w-[160px]">
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.category') }}</label>
                                         <select v-model="editForm.telegram_group_category_id" required class="w-full rounded-md border-gray-300 text-sm py-2">
-                                            <option value="">Select...</option>
+                                            <option value="">{{ t('telegram_scheduled.select') }}...</option>
                                             <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Time (HH:MM)</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('telegram_scheduled.time_hhmm') }}</label>
                                         <input
                                             v-model="editForm.send_at_time"
                                             type="time"
@@ -322,7 +322,7 @@
                                         />
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Days</label>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('telegram_scheduled.days') }}</label>
                                         <input
                                             v-model.number="editForm.days_count"
                                             type="number"
@@ -334,9 +334,9 @@
                                     </div>
                                 </div>
                                 <div class="flex justify-end gap-2 pt-2">
-                                    <button type="button" @click="closeEdit" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm font-medium">Cancel</button>
+                                    <button type="button" @click="closeEdit" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm font-medium">{{ t('common.cancel') }}</button>
                                     <button type="submit" :disabled="editModal.loading" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium">
-                                        {{ editModal.loading ? 'Saving...' : 'Save' }}
+                                        {{ editModal.loading ? t('telegram_scheduled.saving') : t('common.save') }}
                                     </button>
                                 </div>
                             </form>
@@ -353,6 +353,9 @@ import { ref, reactive } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     telegramConnected: { type: Boolean, default: false },
@@ -389,11 +392,11 @@ const resetForm = () => {
 
 const create = async () => {
     if (form.type === 'template' && !form.campaign_template_id) {
-        error.value = 'Select a template.';
+        error.value = t('telegram_scheduled.select_template_error');
         return;
     }
     if (form.type === 'forward' && !form.post_link?.trim()) {
-        error.value = 'Enter post link.';
+        error.value = t('telegram_scheduled.enter_post_link_error');
         return;
     }
     error.value = '';
@@ -413,7 +416,7 @@ const create = async () => {
             resetForm();
         }
     } catch (e) {
-        error.value = e.response?.data?.error || e.message || 'Failed to add.';
+        error.value = e.response?.data?.error || e.message || t('telegram_scheduled.failed_to_add');
     } finally {
         saving.value = false;
     }
@@ -428,7 +431,7 @@ const stop = async (s) => {
             schedules.value[idx] = { ...schedules.value[idx], status: 'stopped' };
         }
     } catch (e) {
-        error.value = e.response?.data?.error || e.message || 'Failed to stop.';
+        error.value = e.response?.data?.error || e.message || t('telegram_scheduled.failed_to_stop');
     } finally {
         stoppingId.value = null;
     }
@@ -453,7 +456,7 @@ const openReport = async (s) => {
         reportModal.schedule = data.schedule;
         reportModal.runs = data.runs;
     } catch (e) {
-        reportModal.error = e.response?.data?.error || e.message || 'Failed to load report.';
+        reportModal.error = e.response?.data?.error || e.message || t('telegram_scheduled.failed_to_load_report');
     } finally {
         reportModal.loading = false;
     }
@@ -508,11 +511,11 @@ const update = async () => {
     const s = editModal.schedule;
     if (!s) return;
     if (editForm.type === 'template' && !editForm.campaign_template_id) {
-        error.value = 'Select a template.';
+        error.value = t('telegram_scheduled.select_template_error');
         return;
     }
     if (editForm.type === 'forward' && !editForm.post_link?.trim()) {
-        error.value = 'Enter post link.';
+        error.value = t('telegram_scheduled.enter_post_link_error');
         return;
     }
     error.value = '';
@@ -533,7 +536,7 @@ const update = async () => {
             closeEdit();
         }
     } catch (e) {
-        error.value = e.response?.data?.error || e.message || 'Failed to update.';
+        error.value = e.response?.data?.error || e.message || t('telegram_scheduled.failed_to_update');
     } finally {
         editModal.loading = false;
     }

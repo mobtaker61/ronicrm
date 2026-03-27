@@ -1,10 +1,10 @@
 <template>
     <AppLayout>
         <template #header>
-            Scraping Task: {{ displayTask.name }}
+            {{ t('scrap_tasks.scraping_task_named').replace(':name', displayTask.name) }}
         </template>
 
-        <div class="max-w-6xl mx-auto space-y-6" dir="ltr">
+        <div class="max-w-6xl mx-auto space-y-6">
             <div v-if="$page.props.flash?.success" class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
                 {{ $page.props.flash.success }}
             </div>
@@ -30,10 +30,10 @@
                             >
                                 {{ statusLabel(displayTask.status) }}
                             </span>
-                            <span class="text-gray-500">{{ displayTask.urls?.length ?? 0 }} URLs</span>
-                            <span class="text-gray-500">{{ displayTask.extract_params?.length ?? 0 }} fields</span>
+                            <span class="text-gray-500">{{ t('scrap_tasks.n_urls').replace(':count', String(displayTask.urls?.length ?? 0)) }}</span>
+                            <span class="text-gray-500">{{ t('scrap_tasks.n_fields').replace(':count', String(displayTask.extract_params?.length ?? 0)) }}</span>
                             <span v-if="displayTask.completed_at" class="text-gray-500">
-                                Completed: {{ new Date(displayTask.completed_at).toLocaleString('en-US') }}
+                                {{ t('scrap_tasks.completed_at').replace(':date', new Date(displayTask.completed_at).toLocaleString('en-US')) }}
                             </span>
                         </div>
                     </div>
@@ -42,13 +42,13 @@
                             :href="route('scrap-tasks.index')"
                             class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                         >
-                            Back to list
+                            {{ t('scrap_tasks.back_to_list') }}
                         </Link>
                         <Link
                             :href="route('scrap-tasks.edit', displayTask.id)"
                             class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                         >
-                            Edit task
+                            {{ t('scrap_tasks.edit_task') }}
                         </Link>
                         <a
                             v-if="displayTask.results?.length > 0"
@@ -60,25 +60,25 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
-                            Download CSV
+                            {{ t('scrap_tasks.download_csv') }}
                         </a>
                         <button
                             v-if="['draft', 'failed', 'completed'].includes(displayTask.status)"
                             type="button"
                             @click="runTaskLive"
                             class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                            title="Requires queue worker: php artisan queue:work"
+                            :title="t('scrap_tasks.requires_queue_worker')"
                         >
-                            {{ displayTask.status === 'completed' ? 'Re-run (Live progress)' : 'Run (Live progress)' }}
+                            {{ displayTask.status === 'completed' ? t('scrap_tasks.re_run_live') : t('scrap_tasks.run_live') }}
                         </button>
                         <button
                             v-if="['draft', 'failed', 'completed'].includes(displayTask.status)"
                             type="button"
                             @click="runTaskSync"
                             class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
-                            title="No worker needed; results appear after the request finishes"
+                            :title="t('scrap_tasks.no_worker_needed')"
                         >
-                            {{ displayTask.status === 'completed' ? 'Re-run (Sync)' : 'Run (Sync)' }}
+                            {{ displayTask.status === 'completed' ? t('scrap_tasks.re_run_sync') : t('scrap_tasks.run_sync') }}
                         </button>
                         <button
                             v-if="displayTask.status === 'running'"
@@ -86,7 +86,7 @@
                             @click="resetTask"
                             class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
                         >
-                            Reset status
+                            {{ t('scrap_tasks.reset_status') }}
                         </button>
                         <button
                             v-if="displayTask.status === 'draft'"
@@ -94,7 +94,7 @@
                             @click="deleteTask"
                             class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                         >
-                            Delete
+                            {{ t('common.delete') }}
                         </button>
                     </div>
                 </div>
@@ -106,11 +106,11 @@
                 class="bg-white rounded-lg shadow p-4"
             >
                 <template v-if="displayTask.type === 'list'">
-                    <p class="text-sm text-gray-600">Fetching page and extracting list...</p>
+                    <p class="text-sm text-gray-600">{{ t('scrap_tasks.fetching_page_extracting_list') }}</p>
                 </template>
                 <template v-else-if="progress.total > 0">
                     <div class="flex justify-between text-sm text-gray-600 mb-2">
-                        <span>Extracting... {{ progress.done }} / {{ progress.total }} URLs</span>
+                        <span>{{ t('scrap_tasks.extracting_urls').replace(':done', String(progress.done)).replace(':total', String(progress.total)) }}</span>
                         <span>{{ progress.percent }}%</span>
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
@@ -120,7 +120,7 @@
                         />
                     </div>
                     <p class="text-xs text-gray-500 mt-2">
-                        If you don't see progress, run: <code class="bg-gray-100 px-1 rounded">php artisan queue:work</code>
+                        {{ t('scrap_tasks.if_no_progress_run') }} <code class="bg-gray-100 px-1 rounded">php artisan queue:work</code>
                     </p>
                 </template>
             </div>
@@ -128,7 +128,7 @@
             <!-- URLs & Params summary -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-white rounded-lg shadow p-4">
-                    <h3 class="font-medium text-gray-900 mb-2">{{ displayTask.type === 'list' ? 'Page URL' : 'URLs' }}</h3>
+                    <h3 class="font-medium text-gray-900 mb-2">{{ displayTask.type === 'list' ? t('scrap_tasks.page_url') : t('scrap_tasks.urls') }}</h3>
                     <ul class="text-sm text-gray-600 space-y-1 max-h-48 overflow-y-auto">
                         <li v-for="(u, i) in displayTask.urls" :key="u.id" class="truncate" :title="u.url">
                             {{ i + 1 }}. {{ u.url }}
@@ -137,14 +137,14 @@
                 </div>
                 <div class="bg-white rounded-lg shadow p-4">
                     <template v-if="displayTask.type === 'list'">
-                        <h3 class="font-medium text-gray-900 mb-2">List selector</h3>
+                        <h3 class="font-medium text-gray-900 mb-2">{{ t('scrap_tasks.list_selector') }}</h3>
                         <p v-if="displayTask.list_config" class="text-sm text-gray-600">
                             {{ displayTask.list_config.selector_type }}: {{ displayTask.list_config.selector_value }}
-                            <span class="text-gray-500">— value: {{ displayTask.list_config.value_kind === 'attribute' ? displayTask.list_config.value_attr : 'text' }}</span>
+                            <span class="text-gray-500">— {{ t('scrap_tasks.value') }}: {{ displayTask.list_config.value_kind === 'attribute' ? displayTask.list_config.value_attr : t('scrap_tasks.text') }}</span>
                         </p>
                     </template>
                     <template v-else>
-                        <h3 class="font-medium text-gray-900 mb-2">Extraction fields</h3>
+                        <h3 class="font-medium text-gray-900 mb-2">{{ t('scrap_tasks.extraction_fields') }}</h3>
                         <ul class="text-sm text-gray-600 space-y-1">
                             <li v-for="p in displayTask.extract_params" :key="p.id">
                                 <span class="font-medium">{{ p.name }}</span>
@@ -158,10 +158,10 @@
             <!-- Report: list type = list of values; detail type = table per URL -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="px-6 py-3 bg-gray-50 font-medium text-gray-900 border-b flex flex-wrap items-center justify-between gap-2">
-                    <span>Extraction report</span>
+                    <span>{{ t('scrap_tasks.extraction_report') }}</span>
                     <template v-if="displayTask.type === 'list'">
                         <span v-if="listItems.length > 0" class="text-sm font-normal text-gray-600">
-                            Extracted: {{ listItems.length }} items
+                            {{ t('scrap_tasks.extracted_n_items').replace(':count', String(listItems.length)) }}
                         </span>
                         <button
                             v-if="displayTask.list_config && displayTask.urls?.length"
@@ -170,7 +170,7 @@
                             :disabled="testSelectorLoading"
                             class="text-sm px-3 py-1.5 bg-slate-100 text-slate-700 rounded hover:bg-slate-200 disabled:opacity-50"
                         >
-                            {{ testSelectorLoading ? 'Testing...' : 'Test selector' }}
+                            {{ testSelectorLoading ? t('scrap_tasks.testing') : t('scrap_tasks.test_selector') }}
                         </button>
                     </template>
                 </div>
@@ -179,23 +179,23 @@
                 </div>
                 <template v-if="displayTask.type === 'list'">
                     <div v-if="displayTask.status === 'running' && !listItems.length" class="p-8 text-center text-gray-500">
-                        Fetching page and extracting list...
+                        {{ t('scrap_tasks.fetching_page_extracting_list') }}
                     </div>
                     <div v-else-if="hasListResultButZeroItems" class="p-8 text-center">
-                        <p class="text-amber-700 font-medium">Task finished, but no matching elements were found in the fetched HTML.</p>
+                        <p class="text-amber-700 font-medium">{{ t('scrap_tasks.task_finished_no_matching_elements') }}</p>
                         <p class="text-sm text-gray-600 mt-2">
-                            Many sites render content via JavaScript; in that case server-side HTML scraping won't see the final content. Use “Test selector” to preview the match count.
+                            {{ t('scrap_tasks.javascript_rendering_help') }}
                         </p>
                     </div>
                     <div v-else-if="!listItems.length" class="p-8 text-center text-gray-500">
-                        No run yet. Click “Run” or “Test selector” to start.
+                        {{ t('scrap_tasks.no_run_yet_run_or_test') }}
                     </div>
                     <div v-else class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 report-table">
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase w-16">#</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Value</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">{{ t('scrap_tasks.value') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -211,10 +211,10 @@
                 </template>
                 <template v-else>
                     <div v-if="!displayResults.length && displayTask.status !== 'running'" class="p-8 text-center text-gray-500">
-                        No run yet. Click “Run” to start extraction.
+                        {{ t('scrap_tasks.no_run_yet_run_to_start') }}
                     </div>
                     <div v-else-if="displayTask.status === 'running' && !displayResults.length" class="p-8 text-center text-gray-500">
-                        Starting extraction...
+                        {{ t('scrap_tasks.starting_extraction') }}
                     </div>
                     <div v-else class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 report-table">
@@ -229,7 +229,7 @@
                                     >
                                         {{ p.name }}
                                     </th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 w-24">Status</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 w-24">{{ t('common.status') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -243,7 +243,7 @@
                                         :key="p.id"
                                         class="px-4 py-2 text-sm text-gray-900 align-top"
                                     >
-                                        <div class="cell-wrap">{{ (res.extracted_data || {})[p.name] ?? '—' }}</div>
+                                        <div class="cell-wrap">{{ (res.extracted_data || {})[p.name] ?? t('common.dash') }}</div>
                                     </td>
                                     <td class="px-4 py-2 align-top">
                                         <span
@@ -254,7 +254,7 @@
                                                 'bg-gray-100 text-gray-800': res.status === 'pending',
                                             }"
                                         >
-                                            {{ res.status === 'success' ? 'Success' : res.status === 'failed' ? 'Failed' : 'Pending' }}
+                                            {{ res.status === 'success' ? t('scrap_tasks.success') : res.status === 'failed' ? t('scrap_tasks.failed') : t('scrap_tasks.pending') }}
                                         </span>
                                         <p v-if="res.error_message" class="text-xs text-red-600 mt-1">{{ res.error_message }}</p>
                                     </td>
@@ -272,6 +272,9 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     task: Object,
@@ -321,7 +324,12 @@ const progress = computed(() => {
 });
 
 const statusLabel = (status) => {
-    const map = { draft: 'Draft', running: 'Running', completed: 'Completed', failed: 'Failed' };
+    const map = {
+        draft: t('scrap_tasks.draft'),
+        running: t('scrap_tasks.running'),
+        completed: t('scrap_tasks.completed'),
+        failed: t('scrap_tasks.failed'),
+    };
     return map[status] ?? status;
 };
 
@@ -369,25 +377,25 @@ function stopPolling() {
 }
 
 const runTaskLive = () => {
-    if (confirm('Start live run? (Queue worker must be running to see progress)')) {
+    if (confirm(t('scrap_tasks.confirm_start_live'))) {
         router.post(route('scrap-tasks.run', props.task.id));
     }
 };
 
 const runTaskSync = () => {
-    if (confirm('Start sync run? Please wait until the request finishes.')) {
+    if (confirm(t('scrap_tasks.confirm_start_sync'))) {
         router.post(route('scrap-tasks.run-sync', props.task.id));
     }
 };
 
 const resetTask = () => {
-    if (confirm('Reset task status to “Failed” so it can be run again?')) {
+    if (confirm(t('scrap_tasks.confirm_reset_to_failed'))) {
         router.post(route('scrap-tasks.reset', props.task.id));
     }
 };
 
 const deleteTask = () => {
-    if (confirm('Are you sure you want to delete this task?')) {
+    if (confirm(t('scrap_tasks.confirm_delete_task'))) {
         router.delete(route('scrap-tasks.destroy', props.task.id));
     }
 };
@@ -400,9 +408,9 @@ async function testListSelector() {
             headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         });
         const data = await res.json();
-        testSelectorResult.value = data.message || (data.count !== undefined ? `Matched elements: ${data.count}` : 'Error');
+        testSelectorResult.value = data.message || (data.count !== undefined ? t('scrap_tasks.matched_elements').replace(':count', String(data.count)) : t('common.error'));
     } catch {
-        testSelectorResult.value = 'Server communication error.';
+        testSelectorResult.value = t('scrap_tasks.server_communication_error');
     } finally {
         testSelectorLoading.value = false;
     }

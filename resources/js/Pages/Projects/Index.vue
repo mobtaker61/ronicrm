@@ -1,7 +1,7 @@
 <template>
     <AppLayout>
         <template #header>
-            Projects
+            {{ t('sidebar.projects') }}
         </template>
 
         <div class="space-y-6">
@@ -13,12 +13,12 @@
             </div>
 
             <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900">Projects</h2>
+                <h2 class="text-2xl font-bold text-gray-900">{{ t('sidebar.projects') }}</h2>
                 <button
                     @click="openCreateModal"
                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                    Add Project
+                    {{ t('projects.add_project') }}
                 </button>
             </div>
 
@@ -27,12 +27,12 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date / Location</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacts</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Share Link</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.name') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.description') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('projects.date_location') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('projects.contacts') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('projects.share_link') }}</th>
+                                <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -41,13 +41,13 @@
                                     <span class="font-medium text-gray-900">{{ project.name }}</span>
                                 </td>
                                 <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                                    {{ project.description || '—' }}
+                                    {{ project.description || t('common.dash') }}
                                 </td>
                                 <td class="px-6 py-4 text-sm text-gray-500">
                                     <span v-if="project.start_date">{{ formatDate(project.start_date) }}</span>
-                                    <span v-if="project.end_date"> to {{ formatDate(project.end_date) }}</span>
+                                    <span v-if="project.end_date"> {{ t('common.to') }} {{ formatDate(project.end_date) }}</span>
                                     <span v-if="project.location" class="block mt-1">{{ project.location }}</span>
-                                    <span v-if="!project.start_date && !project.end_date && !project.location">—</span>
+                                    <span v-if="!project.start_date && !project.end_date && !project.location">{{ t('common.dash') }}</span>
                                 </td>
                                 <td class="px-6 py-4">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -67,12 +67,12 @@
                                             type="button"
                                             @click="copyShareLink(project)"
                                             class="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded"
-                                            title="Copy link"
+                                            :title="t('projects.copy_link')"
                                         >
-                                            Copy
+                                            {{ t('common.copy') }}
                                         </button>
                                     </div>
-                                    <span v-else class="text-gray-400 text-sm">Disabled</span>
+                                    <span v-else class="text-gray-400 text-sm">{{ t('common.disabled') }}</span>
                                 </td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-2">
@@ -81,19 +81,19 @@
                                             target="_blank"
                                             class="text-blue-600 hover:text-blue-800 text-sm"
                                         >
-                                            Preview
+                                            {{ t('common.preview') }}
                                         </Link>
                                         <button
                                             @click="editProject(project)"
                                             class="text-blue-600 hover:text-blue-800 text-sm"
                                         >
-                                            Edit
+                                            {{ t('common.edit') }}
                                         </button>
                                         <button
                                             @click="deleteProject(project)"
                                             class="text-red-600 hover:text-red-800 text-sm"
                                         >
-                                            Delete
+                                            {{ t('common.delete') }}
                                         </button>
                                     </div>
                                 </td>
@@ -102,7 +102,7 @@
                     </table>
                 </div>
                 <div v-if="!projects || projects.length === 0" class="text-center py-12 text-gray-500">
-                    No projects yet. Create your first project.
+                    {{ t('projects.empty') }}
                 </div>
             </div>
 
@@ -114,12 +114,12 @@
             >
                 <div class="relative top-10 mx-auto p-6 border w-full max-w-lg shadow-lg rounded-lg bg-white max-h-[90vh] overflow-y-auto">
                     <h3 class="text-lg font-bold text-gray-900 mb-4">
-                        {{ editingProject ? 'Edit Project' : 'Add Project' }}
+                        {{ editingProject ? t('projects.edit_project') : t('projects.add_project') }}
                     </h3>
                     <form @submit.prevent="saveProject">
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('projects.project_name_required') }}</label>
                                 <input
                                     v-model="form.name"
                                     type="text"
@@ -129,7 +129,7 @@
                                 <p v-if="form.errors.name" class="mt-1 text-sm text-red-600">{{ form.errors.name }}</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.description') }}</label>
                                 <textarea
                                     v-model="form.description"
                                     rows="3"
@@ -138,7 +138,7 @@
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('projects.start_date') }}</label>
                                     <input
                                         v-model="form.start_date"
                                         type="date"
@@ -146,7 +146,7 @@
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('projects.end_date') }}</label>
                                     <input
                                         v-model="form.end_date"
                                         type="date"
@@ -155,7 +155,7 @@
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Location (venue / exhibition)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('projects.location_venue') }}</label>
                                 <input
                                     v-model="form.location"
                                     type="text"
@@ -169,7 +169,7 @@
                                     id="share_enabled"
                                     class="h-4 w-4 text-blue-600 rounded border-gray-300"
                                 />
-                                <label for="share_enabled" class="ml-2 text-sm text-gray-700">Enable public share link</label>
+                                <label for="share_enabled" class="ltr:ml-2 rtl:mr-2 text-sm text-gray-700">{{ t('projects.enable_public_share') }}</label>
                             </div>
                             <div class="flex items-center">
                                 <input
@@ -178,7 +178,7 @@
                                     id="allow_excel_export"
                                     class="h-4 w-4 text-blue-600 rounded border-gray-300"
                                 />
-                                <label for="allow_excel_export" class="ml-2 text-sm text-gray-700">Allow Excel export of contacts on share page</label>
+                                <label for="allow_excel_export" class="ltr:ml-2 rtl:mr-2 text-sm text-gray-700">{{ t('projects.allow_excel_export') }}</label>
                             </div>
                         </div>
                         <div class="flex justify-end gap-3 mt-6">
@@ -187,14 +187,14 @@
                                 @click="closeModal"
                                 class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                             >
-                                Cancel
+                                {{ t('common.cancel') }}
                             </button>
                             <button
                                 type="submit"
                                 :disabled="form.processing"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                             >
-                                {{ form.processing ? 'Saving...' : 'Save' }}
+                                {{ form.processing ? t('common.saving') : t('common.save') }}
                             </button>
                         </div>
                     </form>
@@ -208,6 +208,9 @@
 import { ref } from 'vue';
 import { useForm, router, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     projects: Array,
@@ -261,12 +264,12 @@ function editProject(project) {
 function copyShareLink(project) {
     const url = getShareUrl(project);
     navigator.clipboard.writeText(url).then(() => {
-        alert('Link copied.');
+        alert(t('projects.link_copied'));
     });
 }
 
 function deleteProject(project) {
-    if (confirm('Are you sure you want to delete this project? Contacts will not be deleted, only unlinked from the project.')) {
+    if (confirm(t('projects.confirm_delete'))) {
         router.delete(route('projects.destroy', project.id));
     }
 }

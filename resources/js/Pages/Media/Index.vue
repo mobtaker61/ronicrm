@@ -1,7 +1,7 @@
 <template>
     <AppLayout>
         <template #header>
-            Media
+            {{ t('sidebar.media') }}
         </template>
 
         <div v-if="$page.props.flash?.success" class="mb-4 p-3 bg-green-50 border border-green-200 text-green-800 rounded-lg">
@@ -12,12 +12,12 @@
             <!-- Sidebar: Folder tree -->
             <div class="w-64 flex-shrink-0 bg-white rounded-lg border border-gray-200 p-4">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="font-semibold text-gray-900">پوشه‌ها</h2>
+                    <h2 class="font-semibold text-gray-900">{{ t('media.folders') }}</h2>
                     <button
                         type="button"
                         @click="showNewFolderModal = true"
                         class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                        title="پوشه جدید"
+                        :title="t('media.new_folder')"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -28,7 +28,7 @@
                     :href="route('media.index')"
                     :class="['block px-3 py-2 rounded-lg text-sm font-medium', !currentFolderId ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']"
                 >
-                    همه فایل‌ها
+                    {{ t('media.all_files') }}
                 </Link>
                 <div
                     v-for="f in foldersTree"
@@ -48,8 +48,8 @@
                         </span>
                     </Link>
                     <div class="opacity-0 group-hover:opacity-100 flex-shrink-0">
-                        <button type="button" @click.prevent="openRenameFolder(f)" class="p-1 text-gray-500 hover:text-gray-700" title="تغییر نام">✎</button>
-                        <button type="button" @click.prevent="openDeleteFolder(f)" class="p-1 text-gray-500 hover:text-red-600" title="حذف">🗑</button>
+                        <button type="button" @click.prevent="openRenameFolder(f)" class="p-1 text-gray-500 hover:text-gray-700" :title="t('common.edit')">✎</button>
+                        <button type="button" @click.prevent="openDeleteFolder(f)" class="p-1 text-gray-500 hover:text-red-600" :title="t('common.delete')">🗑</button>
                     </div>
                 </div>
             </div>
@@ -65,19 +65,19 @@
                     </div>
 
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="font-medium text-gray-900">{{ currentFolder?.name || 'همه فایل‌ها' }}</h3>
+                        <h3 class="font-medium text-gray-900">{{ currentFolder?.name || t('media.all_files') }}</h3>
                         <div class="flex items-center gap-2">
                             <select
                                 v-if="!currentFolderId"
                                 v-model="uploadScopeType"
                                 class="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                             >
-                                <option value="organization">Organization scope</option>
-                                <option v-if="canCreateSystemScope" value="system">System scope</option>
+                                <option value="organization">{{ t('media.organization_scope') }}</option>
+                                <option v-if="canCreateSystemScope" value="system">{{ t('media.system_scope') }}</option>
                             </select>
                             <label class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 text-sm font-medium">
                                 <input type="file" class="hidden" @change="handleUpload" multiple accept="*" />
-                                آپلود فایل (همه انواع: تصویر، PDF، ورد، …)
+                                {{ t('media.upload_files_all_types') }}
                             </label>
                         </div>
                     </div>
@@ -104,8 +104,8 @@
                                 </span>
                             </Link>
                             <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                <button type="button" @click.prevent="openRenameFolder(f)" class="p-1.5 bg-gray-600 text-white rounded hover:bg-gray-700" title="تغییر نام">✎</button>
-                                <button type="button" @click.prevent="openDeleteFolder(f)" class="p-1.5 bg-red-600 text-white rounded hover:bg-red-700" title="حذف">🗑</button>
+                                <button type="button" @click.prevent="openRenameFolder(f)" class="p-1.5 bg-gray-600 text-white rounded hover:bg-gray-700" :title="t('common.edit')">✎</button>
+                                <button type="button" @click.prevent="openDeleteFolder(f)" class="p-1.5 bg-red-600 text-white rounded hover:bg-red-700" :title="t('common.delete')">🗑</button>
                             </div>
                         </div>
                     </div>
@@ -139,7 +139,7 @@
                                     type="button"
                                     @click.prevent="deleteFile(file)"
                                     class="p-1.5 bg-red-600 text-white rounded hover:bg-red-700"
-                                    title="حذف"
+                                    :title="t('common.delete')"
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -148,7 +148,7 @@
                             </div>
                         </div>
                     </div>
-                    <p v-if="files.length === 0 && childFolders.length === 0" class="text-center text-gray-500 py-12">فایلی در این پوشه نیست. آپلود کنید یا پوشه جدید بسازید.</p>
+                    <p v-if="files.length === 0 && childFolders.length === 0" class="text-center text-gray-500 py-12">{{ t('media.empty_folder') }}</p>
                 </div>
             </div>
         </div>
@@ -156,20 +156,20 @@
         <!-- New folder modal -->
         <div v-if="showNewFolderModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showNewFolderModal = false">
             <div class="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl">
-                <h3 class="text-lg font-semibold mb-4">پوشه جدید</h3>
+                <h3 class="text-lg font-semibold mb-4">{{ t('media.new_folder') }}</h3>
                 <form @submit.prevent="createFolder">
-                    <input v-model="newFolderName" type="text" required placeholder="نام پوشه" class="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4" />
+                    <input v-model="newFolderName" type="text" required :placeholder="t('media.folder_name')" class="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4" />
                     <select
                         v-if="!currentFolderId"
                         v-model="newFolderScopeType"
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 text-sm"
                     >
-                        <option value="organization">Organization scope</option>
-                        <option v-if="canCreateSystemScope" value="system">System scope</option>
+                        <option value="organization">{{ t('media.organization_scope') }}</option>
+                        <option v-if="canCreateSystemScope" value="system">{{ t('media.system_scope') }}</option>
                     </select>
                     <div class="flex justify-end gap-2">
-                        <button type="button" @click="showNewFolderModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">انصراف</button>
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">ایجاد</button>
+                        <button type="button" @click="showNewFolderModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">{{ t('common.cancel') }}</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{{ t('common.add') }}</button>
                     </div>
                 </form>
             </div>
@@ -178,12 +178,12 @@
         <!-- Rename folder modal -->
         <div v-if="showRenameFolderModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showRenameFolderModal = false">
             <div class="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl">
-                <h3 class="text-lg font-semibold mb-4">تغییر نام پوشه</h3>
+                <h3 class="text-lg font-semibold mb-4">{{ t('media.rename_folder') }}</h3>
                 <form @submit.prevent="renameFolder">
-                    <input v-model="renameFolderName" type="text" required placeholder="نام پوشه" class="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4" />
+                    <input v-model="renameFolderName" type="text" required :placeholder="t('media.folder_name')" class="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4" />
                     <div class="flex justify-end gap-2">
-                        <button type="button" @click="showRenameFolderModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">انصراف</button>
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">ذخیره</button>
+                        <button type="button" @click="showRenameFolderModal = false" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">{{ t('common.cancel') }}</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{{ t('common.save') }}</button>
                     </div>
                 </form>
             </div>
@@ -192,25 +192,25 @@
         <!-- Delete folder modal (when folder has contents) -->
         <div v-if="showDeleteFolderModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showDeleteFolderModal = false">
             <div class="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
-                <h3 class="text-lg font-semibold mb-2">حذف پوشه «{{ folderToDelete?.name }}»</h3>
+                <h3 class="text-lg font-semibold mb-2">{{ t('media.delete_folder_named').replace(':name', folderToDelete?.name || '') }}</h3>
                 <p v-if="folderHasContents" class="text-gray-600 text-sm mb-4">
-                    این پوشه خالی نیست. چگونه ادامه دهیم؟
+                    {{ t('media.folder_not_empty_how_continue') }}
                 </p>
-                <p v-else class="text-gray-600 text-sm mb-4">آیا از حذف این پوشه مطمئن هستید؟</p>
+                <p v-else class="text-gray-600 text-sm mb-4">{{ t('media.confirm_delete_folder') }}</p>
                 <div class="flex flex-col gap-2">
                     <template v-if="folderHasContents">
-                        <button type="button" @click="deleteFolder('with_contents')" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-right">
-                            حذف پوشه و همهٔ محتویات (فایل‌ها و زیرپوشه‌ها)
+                        <button type="button" @click="deleteFolder('with_contents')" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-right rtl:text-left">
+                            {{ t('media.delete_folder_with_contents') }}
                         </button>
-                        <button type="button" @click="deleteFolder('move_to_parent')" class="w-full px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-right">
-                            انتقال محتویات به پوشهٔ بالاتر و حذف فقط پوشه
+                        <button type="button" @click="deleteFolder('move_to_parent')" class="w-full px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-right rtl:text-left">
+                            {{ t('media.move_contents_to_parent') }}
                         </button>
                     </template>
-                    <button v-else type="button" @click="deleteFolder('empty')" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-right">
-                        بله، حذف پوشه
+                    <button v-else type="button" @click="deleteFolder('empty')" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-right rtl:text-left">
+                        {{ t('media.yes_delete_folder') }}
                     </button>
-                    <button type="button" @click="showDeleteFolderModal = false" class="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-right">
-                        انصراف
+                    <button type="button" @click="showDeleteFolderModal = false" class="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-right rtl:text-left">
+                        {{ t('common.cancel') }}
                     </button>
                 </div>
             </div>
@@ -222,6 +222,9 @@
 import { ref, computed } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     foldersTree: { type: Array, default: () => [] },
@@ -292,7 +295,7 @@ function handleUpload(e) {
 }
 
 function deleteFile(file) {
-    if (!confirm('حذف این فایل؟')) return;
+    if (!confirm(t('media.confirm_delete_file'))) return;
     router.delete(route('media.files.destroy', file.id), { preserveScroll: true });
 }
 

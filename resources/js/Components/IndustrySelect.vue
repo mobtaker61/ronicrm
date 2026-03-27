@@ -4,10 +4,10 @@
             type="button"
             @click.stop="open = !open"
             :disabled="disabled"
-            class="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-left flex items-center justify-between bg-white"
+            class="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-left rtl:text-right flex items-center justify-between bg-white"
         >
             <span :class="displayName ? 'text-gray-900' : 'text-gray-500'">{{ displayName || placeholder }}</span>
-            <svg class="w-4 h-4 text-gray-400 flex-shrink-0 mr-2" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 text-gray-400 flex-shrink-0 ltr:mr-2 rtl:ml-2" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
         </button>
@@ -21,7 +21,7 @@
             <!-- Stage 2: subcategories + back -->
             <template v-if="currentParent">
                 <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200">
-                    <button type="button" @click.stop="goBack" class="p-1 rounded hover:bg-gray-200 text-gray-600" title="Back">
+                    <button type="button" @click.stop="goBack" class="p-1 rounded hover:bg-gray-200 text-gray-600 rtl:rotate-180" title="Back">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                     </button>
                     <span class="text-sm text-gray-600 truncate flex-1">{{ currentParent.name }}</span>
@@ -31,7 +31,7 @@
                         type="button"
                         v-if="currentChildren.length"
                         @click.stop="select(currentParent.id)"
-                        class="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 text-gray-700 flex items-center justify-between"
+                        class="w-full px-3 py-2 text-left rtl:text-right text-sm hover:bg-blue-50 text-gray-700 flex items-center justify-between"
                     >
                         — {{ optionAllCategory }} —
                     </button>
@@ -40,7 +40,7 @@
                         v-for="c in currentChildren"
                         :key="c.id"
                         @click.stop="select(c.id)"
-                        class="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 text-gray-700"
+                        class="w-full px-3 py-2 text-left rtl:text-right text-sm hover:bg-blue-50 text-gray-700"
                     >
                         {{ c.name }}
                     </button>
@@ -48,7 +48,7 @@
                         v-if="!currentChildren.length"
                         type="button"
                         @click.stop="select(currentParent.id)"
-                        class="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 text-gray-700"
+                        class="w-full px-3 py-2 text-left rtl:text-right text-sm hover:bg-blue-50 text-gray-700"
                     >
                         {{ currentParent.name }}
                     </button>
@@ -61,7 +61,7 @@
                     <button
                         type="button"
                         @click.stop="chooseEmpty"
-                        class="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 text-gray-500"
+                        class="w-full px-3 py-2 text-left rtl:text-right text-sm hover:bg-blue-50 text-gray-500"
                     >
                         {{ placeholder }}
                     </button>
@@ -70,7 +70,7 @@
                         v-for="p in rootIndustries"
                         :key="p.id"
                         @click.stop.prevent="onParentClick(p)"
-                        class="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 text-gray-700 flex items-center justify-between"
+                        class="w-full px-3 py-2 text-left rtl:text-right text-sm hover:bg-blue-50 text-gray-700 flex items-center justify-between"
                     >
                         <span>{{ p.name }}</span>
                         <svg v-if="Array.isArray(p.children) && p.children.length" class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

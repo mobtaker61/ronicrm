@@ -1,7 +1,7 @@
 <template>
     <AppLayout>
         <template #header>
-            Customers
+            {{ t('sidebar.customers') }}
         </template>
 
         <div class="space-y-6">
@@ -12,22 +12,22 @@
 
             <!-- Header -->
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h2 class="text-2xl font-bold text-gray-900">Customers</h2>
+                <h2 class="text-2xl font-bold text-gray-900">{{ t('sidebar.customers') }}</h2>
                 <div class="flex gap-2">
                     <button
                         @click="showImportModal = true"
-                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap flex items-center space-x-2"
+                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap flex items-center space-x-2 rtl:space-x-reverse"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
-                        <span>Import Customers</span>
+                        <span>{{ t('customers.import_customers') }}</span>
                     </button>
                     <Link
                         :href="route('customers.create')"
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
                     >
-                        Add Customer
+                        {{ t('customers.add_customer') }}
                     </Link>
                 </div>
             </div>
@@ -36,47 +36,47 @@
             <div class="bg-white rounded-lg shadow p-4 md:p-6">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.search') }}</label>
                         <input
                             v-model="filters.search"
                             type="text"
-                            placeholder="Search customers..."
+                            :placeholder="t('customers.search_placeholder')"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             @input="applyFilters"
                         />
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.type') }}</label>
                         <select
                             v-model="filters.type"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             @change="applyFilters"
                         >
-                            <option value="">All Types</option>
-                            <option value="person">Person</option>
-                            <option value="company">Company</option>
+                            <option value="">{{ t('customers.all_types') }}</option>
+                            <option value="person">{{ t('customers.person') }}</option>
+                            <option value="company">{{ t('customers.company') }}</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('sidebar.industries') }}</label>
                         <IndustrySelect
                             v-model="filters.industry_id"
                             :industries="industries"
-                            placeholder="All industries"
+                            :placeholder="t('customers.all_industries')"
                             @update:model-value="applyFilters"
                         />
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Project</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('sidebar.projects') }}</label>
                         <select
                             v-model="filters.project_id"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             @change="applyFilters"
                         >
-                            <option value="">All Projects</option>
+                            <option value="">{{ t('customers.all_projects') }}</option>
                             <option v-for="project in projects" :key="project.id" :value="project.id">
                                 {{ project.name }}
                             </option>
@@ -84,40 +84,40 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.status') }}</label>
                         <select
                             v-model="filters.status"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             @change="applyFilters"
                         >
-                            <option value="">All Statuses</option>
-                            <option value="lead">Lead</option>
-                            <option value="prospect">Prospect</option>
-                            <option value="customer">Customer</option>
-                            <option value="inactive">Inactive</option>
+                            <option value="">{{ t('customers.all_statuses') }}</option>
+                            <option value="lead">{{ t('customers.lead') }}</option>
+                            <option value="prospect">{{ t('customers.prospect') }}</option>
+                            <option value="customer">{{ t('customers.customer') }}</option>
+                            <option value="inactive">{{ t('customers.inactive') }}</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Source</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.source') }}</label>
                         <select
                             v-model="filters.source"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             @change="applyFilters"
                         >
-                            <option value="">All Sources</option>
-                            <option value="website">Website</option>
-                            <option value="referral">Referral</option>
-                            <option value="advertisement">Advertisement</option>
-                            <option value="social_media">Social Media</option>
-                            <option value="crawl">Crawl</option>
-                            <option value="exhibition">Exhibition</option>
-                            <option value="direct">Direct</option>
-                            <option value="whatsapp">WhatsApp</option>
-                            <option value="telegram">Telegram</option>
-                            <option value="instagram">Instagram</option>
-                            <option value="telegram_group_crawl">Telegram Group Crawl</option>
-                            <option value="other">Other</option>
+                            <option value="">{{ t('customers.all_sources') }}</option>
+                            <option value="website">{{ t('customers.source_website') }}</option>
+                            <option value="referral">{{ t('customers.source_referral') }}</option>
+                            <option value="advertisement">{{ t('customers.source_advertisement') }}</option>
+                            <option value="social_media">{{ t('customers.source_social_media') }}</option>
+                            <option value="crawl">{{ t('customers.source_crawl') }}</option>
+                            <option value="exhibition">{{ t('customers.source_exhibition') }}</option>
+                            <option value="direct">{{ t('customers.source_direct') }}</option>
+                            <option value="whatsapp">{{ t('inbox.whatsapp') }}</option>
+                            <option value="telegram">{{ t('sidebar.telegram') }}</option>
+                            <option value="instagram">{{ t('settings.tabs.instagram_inbox') }}</option>
+                            <option value="telegram_group_crawl">{{ t('customers.source_telegram_group_crawl') }}</option>
+                            <option value="other">{{ t('customers.source_other') }}</option>
                         </select>
                     </div>
                 </div>
@@ -128,13 +128,13 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avatar</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Industry</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('customers.avatar') }}</th>
+                            <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.name') }}</th>
+                            <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('customers.company') }}</th>
+                            <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('customers.industry') }}</th>
+                            <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('sidebar.projects') }}</th>
+                            <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.status') }}</th>
+                            <th class="px-6 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -181,7 +181,7 @@
                                 <div class="text-sm font-medium text-gray-900">{{ customer.name }}</div>
                             </td>
                             <td class="px-3 md:px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-500">{{ customer.company_name || '-' }}</div>
+                                <div class="text-sm text-gray-500">{{ customer.company_name || t('common.dash') }}</div>
                             </td>
                             <td class="px-3 md:px-6 py-4 whitespace-nowrap">
                                 <select
@@ -190,16 +190,16 @@
                                     class="text-xs px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[140px]"
                                     :style="{ backgroundColor: customer.industry ? customer.industry.color + '20' : '', color: customer.industry ? customer.industry.color : '' }"
                                 >
-                                    <option :value="null">-</option>
+                                    <option :value="null">{{ t('common.dash') }}</option>
                                     <optgroup v-for="p in industries" :key="p.id" :label="p.name">
-                                        <option v-if="(p.children && p.children.length)" :value="p.id">— All this category —</option>
+                                        <option v-if="(p.children && p.children.length)" :value="p.id">{{ t('customers.all_this_category') }}</option>
                                         <option v-for="c in (p.children || [])" :key="c.id" :value="c.id">{{ c.name }}</option>
-                                        <option v-if="!(p.children || []).length" :value="p.id">—</option>
+                                        <option v-if="!(p.children || []).length" :value="p.id">{{ t('common.dash') }}</option>
                                     </optgroup>
                                 </select>
                             </td>
                             <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {{ customer.project ? customer.project.name : '-' }}
+                                {{ customer.project ? customer.project.name : t('common.dash') }}
                             </td>
                             <td class="px-3 md:px-6 py-4 whitespace-nowrap">
                                 <select
@@ -213,30 +213,30 @@
                                         'bg-gray-100 text-gray-800': customer.status === 'inactive',
                                     }"
                                 >
-                                    <option value="lead">Lead</option>
-                                    <option value="prospect">Prospect</option>
-                                    <option value="customer">Customer</option>
-                                    <option value="inactive">Inactive</option>
+                                    <option value="lead">{{ t('customers.lead') }}</option>
+                                    <option value="prospect">{{ t('customers.prospect') }}</option>
+                                    <option value="customer">{{ t('customers.customer') }}</option>
+                                    <option value="inactive">{{ t('customers.inactive') }}</option>
                                 </select>
                             </td>
                             <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <Link
                                     :href="route('customers.show', customer.id)"
-                                    class="text-blue-600 hover:text-blue-900 mr-4"
+                                    class="text-blue-600 hover:text-blue-900 ltr:mr-4 rtl:ml-4"
                                 >
-                                    View
+                                    {{ t('common.view') }}
                                 </Link>
                                 <Link
                                     :href="route('customers.edit', customer.id)"
-                                    class="text-indigo-600 hover:text-indigo-900 mr-4"
+                                    class="text-indigo-600 hover:text-indigo-900 ltr:mr-4 rtl:ml-4"
                                 >
-                                    Edit
+                                    {{ t('common.edit') }}
                                 </Link>
                                 <button
                                     @click="deleteCustomer(customer)"
                                     class="text-red-600 hover:text-red-900"
                                 >
-                                    Delete
+                                    {{ t('common.delete') }}
                                 </button>
                             </td>
                         </tr>
@@ -247,26 +247,26 @@
                 <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
                     <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div class="text-sm text-gray-700">
-                            Showing {{ customers.from || 0 }} to {{ customers.to || 0 }} of {{ customers.total || 0 }} results
+                            {{ t('common.showing_range_of_results').replace(':from', customers.from || 0).replace(':to', customers.to || 0).replace(':total', customers.total || 0) }}
                         </div>
-                        <div class="flex items-center space-x-2">
+                        <div class="flex items-center space-x-2 rtl:space-x-reverse">
                             <!-- Previous Button -->
                             <Link
                                 v-if="customers.prev_page_url"
                                 :href="customers.prev_page_url"
                                 class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Previous
+                                {{ t('common.previous') }}
                             </Link>
                             <span
                                 v-else
                                 class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-400 cursor-not-allowed opacity-50"
                             >
-                                Previous
+                                {{ t('common.previous') }}
                             </span>
 
                             <!-- Page Numbers -->
-                            <div class="flex items-center space-x-1">
+                            <div class="flex items-center space-x-1 rtl:space-x-reverse">
                                 <span
                                     v-for="page in getPageNumbers()"
                                     :key="`page-${page}`"
@@ -299,13 +299,13 @@
                                 :href="customers.next_page_url"
                                 class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Next
+                                {{ t('common.next') }}
                             </Link>
                             <span
                                 v-else
                                 class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-400 cursor-not-allowed opacity-50"
                             >
-                                Next
+                                {{ t('common.next') }}
                             </span>
                         </div>
                     </div>
@@ -317,7 +317,7 @@
         <div v-if="showImportModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
                 <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                    <h3 class="text-lg font-semibold text-gray-900">Import مخاطبان از فایل</h3>
+                            <h3 class="text-lg font-semibold text-gray-900">{{ t('customers.import_modal_title') }}</h3>
                     <button
                         @click="closeImportModal"
                         class="text-gray-400 hover:text-gray-600"
@@ -331,22 +331,22 @@
                 <div class="px-6 py-4 flex-1 overflow-y-auto">
                     <!-- Instructions -->
                     <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h4 class="font-medium text-blue-900 mb-2">فرمت فایل CSV:</h4>
+                                <h4 class="font-medium text-blue-900 mb-2">{{ t('customers.import_csv_format_title') }}</h4>
                         <ul class="text-sm text-blue-800 space-y-1 list-disc list-inside">
-                            <li>فایل باید فرمت CSV باشد (با encoding UTF-8)</li>
-                            <li>ستون‌های اجباری: name, type (person/company)</li>
-                            <li>ستون‌های اختیاری: company_name, email, phone, address, industry_name, status, source, gender, language (چند زبان با ویرگول/؛ مثلاً English,Persian), contact_person, notes، avatar_url (یا profile_picture_url / photo_url / picture_url — فقط لینک http(s) تصویر؛ دانلود و ذخیره در سرور)</li>
-                            <li>برای contacts: phone, email, whatsapp, telegram (مثال: phone:09123456789)</li>
-                            <li>برای social_media: instagram, telegram, linkedin (مثال: instagram:username)</li>
+                                    <li>{{ t('customers.import_csv_rule_utf8') }}</li>
+                                    <li>{{ t('customers.import_csv_rule_required_columns') }}</li>
+                                    <li>{{ t('customers.import_csv_rule_optional_columns') }}</li>
+                                    <li>{{ t('customers.import_csv_rule_contacts') }}</li>
+                                    <li>{{ t('customers.import_csv_rule_social_media') }}</li>
                         </ul>
                         <p class="text-xs text-blue-700 mt-3">
-                            <strong>نکته:</strong> اگر industry_name در فایل باشد، سیستم به صورت خودکار industry را پیدا می‌کند یا ایجاد می‌کند.
+                                    <strong>{{ t('common.note') }}:</strong> {{ t('customers.import_csv_note_industry') }}
                         </p>
                     </div>
 
                     <!-- File Upload -->
                     <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">انتخاب فایل CSV یا Excel</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('customers.import_choose_file_label') }}</label>
                         <input
                             type="file"
                             ref="fileInput"
@@ -354,27 +354,27 @@
                             accept=".csv,.xlsx,.xls"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <p class="mt-1 text-xs text-gray-500">فرمت‌های پشتیبانی شده: CSV, Excel (.xlsx, .xls)</p>
+                            <p class="mt-1 text-xs text-gray-500">{{ t('customers.import_supported_formats_help') }}</p>
                     </div>
 
                     <!-- Preview Table -->
                     <div v-if="isLoadingPreview" class="mb-4 p-4 bg-gray-50 rounded-lg text-center">
-                        <p class="text-sm text-gray-600">در حال خواندن فایل...</p>
+                            <p class="text-sm text-gray-600">{{ t('customers.import_reading_file') }}</p>
                     </div>
                     
                     <div v-if="previewData && previewData.success" class="mb-4">
                         <h4 class="font-medium text-gray-900 mb-2">
-                            پیش‌نمایش فایل ({{ previewData.preview_rows }} از {{ previewData.total_rows }} ردیف)
+                                {{ t('customers.import_file_preview_title').replace(':shown', String(previewData.preview_rows)).replace(':total', String(previewData.total_rows)) }}
                         </h4>
                         <div class="overflow-x-auto border border-gray-300 rounded-lg max-h-96 overflow-y-auto">
                             <table class="min-w-full divide-y divide-gray-200 text-sm">
                                 <thead class="bg-gray-50 sticky top-0">
                                     <tr>
-                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">#</th>
+                                        <th class="px-3 py-2 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 rtl:border-r-0 rtl:border-l">#</th>
                                         <th
                                             v-for="(header, index) in previewData.headers"
                                             :key="index"
-                                            class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200"
+                                            class="px-3 py-2 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 rtl:border-r-0 rtl:border-l"
                                         >
                                             {{ header }}
                                         </th>
@@ -382,13 +382,13 @@
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
                                     <tr v-for="(row, rowIndex) in previewData.rows" :key="rowIndex" class="hover:bg-gray-50">
-                                        <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 border-r border-gray-200">{{ rowIndex + 1 }}</td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-xs text-gray-500 border-r border-gray-200 rtl:border-r-0 rtl:border-l">{{ rowIndex + 1 }}</td>
                                         <td
                                             v-for="(header, headerIndex) in previewData.headers"
                                             :key="headerIndex"
-                                            class="px-3 py-2 text-xs text-gray-900 border-r border-gray-200"
+                                            class="px-3 py-2 text-xs text-gray-900 border-r border-gray-200 rtl:border-r-0 rtl:border-l"
                                         >
-                                            {{ row[header] || '-' }}
+                                            {{ row[header] || t('common.dash') }}
                                         </td>
                                     </tr>
                                 </tbody>
@@ -398,20 +398,22 @@
 
                     <!-- Preview/Results -->
                     <div v-if="importResult" class="mt-6">
-                        <h4 class="font-medium text-gray-900 mb-3">نتایج Import:</h4>
+                        <h4 class="font-medium text-gray-900 mb-3">{{ t('customers.import_results_title') }}</h4>
                         <div class="space-y-2">
                             <div v-if="importResult.success > 0" class="p-3 bg-green-50 border border-green-200 rounded-lg">
                                 <p class="text-sm text-green-800">
-                                    <strong>موفق:</strong> {{ importResult.success }} مخاطب با موفقیت وارد شد
+                                    <strong>{{ t('common.success') }}:</strong>
+                                    {{ t('customers.import_success_count').replace(':count', String(importResult.success)) }}
                                 </p>
                             </div>
                             <div v-if="importResult.failed > 0" class="p-3 bg-red-50 border border-red-200 rounded-lg">
                                 <p class="text-sm text-red-800">
-                                    <strong>ناموفق:</strong> {{ importResult.failed }} مخاطب با خطا مواجه شد
+                                    <strong>{{ t('common.failed') }}:</strong>
+                                    {{ t('customers.import_failed_count').replace(':count', String(importResult.failed)) }}
                                 </p>
                             </div>
                             <div v-if="importResult.errors && importResult.errors.length > 0" class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                <p class="text-sm text-yellow-800 font-medium mb-2">خطاها:</p>
+                                <p class="text-sm text-yellow-800 font-medium mb-2">{{ t('customers.import_errors_title') }}</p>
                                 <ul class="text-xs text-yellow-700 space-y-1 list-disc list-inside max-h-40 overflow-y-auto">
                                     <li v-for="(error, index) in importResult.errors" :key="index">{{ error }}</li>
                                 </ul>
@@ -420,19 +422,19 @@
                     </div>
                 </div>
 
-                <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3 rtl:space-x-reverse">
                     <button
                         @click="closeImportModal"
                         class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                     >
-                        انصراف
+                        {{ t('common.cancel') }}
                     </button>
                     <button
                         @click="importCustomers"
                         :disabled="!selectedFile || importForm.processing"
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {{ importForm.processing ? 'در حال Import...' : 'Import' }}
+                        {{ importForm.processing ? t('customers.import_processing') : t('customers.import') }}
                     </button>
                 </div>
             </div>
@@ -446,6 +448,7 @@ import { Link, router, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import IndustrySelect from '@/Components/IndustrySelect.vue';
 import { debounce } from 'lodash-es';
+import { useI18n } from '@/composables/useI18n';
 
 const props = defineProps({
     customers: Object,
@@ -466,6 +469,7 @@ const importForm = useForm({
 });
 
 const page = usePage();
+const { t } = useI18n();
 
 const filters = ref({
     search: props.filters?.search || '',
@@ -484,7 +488,8 @@ const applyFilters = debounce(() => {
 }, 300);
 
 const deleteCustomer = (customer) => {
-    if (confirm('Are you sure you want to delete this customer?')) {
+    const msg = t('common.confirm_delete_named').replace(':name', customer.name || '');
+    if (confirm(msg)) {
         router.delete(route('customers.destroy', customer.id));
     }
 };
@@ -534,11 +539,17 @@ const loadPreview = async (file) => {
         if (data.success) {
             previewData.value = data;
         } else {
-            alert('خطا در خواندن فایل: ' + (data.message || 'خطای ناشناخته'));
+            alert(
+                t('customers.import_preview_read_error')
+                    .replace(':message', data.message || t('common.unknown_error'))
+            );
         }
     } catch (error) {
         console.error('Preview error:', error);
-        alert('خطا در بارگذاری preview: ' + error.message);
+        alert(
+            t('customers.import_preview_load_error')
+                .replace(':message', error.message || t('common.unknown_error'))
+        );
     } finally {
         isLoadingPreview.value = false;
     }
@@ -546,7 +557,7 @@ const loadPreview = async (file) => {
 
 const importCustomers = () => {
     if (!selectedFile.value) {
-        alert('لطفا ابتدا یک فایل انتخاب کنید');
+        alert(t('customers.import_select_file_first'));
         return;
     }
 
@@ -579,7 +590,7 @@ const importCustomers = () => {
                 importResult.value = {
                     success: 0,
                     failed: 0,
-                    errors: ['خطای ناشناخته در import - لطفا لاگ‌ها را بررسی کنید'],
+                    errors: [t('customers.import_unknown_error_check_logs')],
                 };
             }
         },
@@ -588,7 +599,7 @@ const importCustomers = () => {
             importResult.value = {
                 success: 0,
                 failed: 0,
-                errors: Object.values(errors).flat() || ['خطا در ارسال فایل'],
+                errors: Object.values(errors).flat() || [t('customers.import_upload_error')],
             };
         },
     });

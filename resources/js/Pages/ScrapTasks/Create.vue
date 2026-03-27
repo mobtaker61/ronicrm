@@ -1,10 +1,10 @@
 <template>
     <AppLayout>
         <template #header>
-            Create Scraping Task
+            {{ t('scrap_tasks.create_scraping_task') }}
         </template>
 
-        <div class="max-w-4xl mx-auto" dir="ltr">
+        <div class="max-w-4xl mx-auto">
             <form @submit.prevent="submit" class="bg-white rounded-lg shadow p-6 space-y-6">
                 <div v-if="Object.keys(form.errors).length" class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
                     <ul class="list-disc list-inside">
@@ -13,64 +13,64 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Task type *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('scrap_tasks.task_type_required') }}</label>
                     <div class="flex gap-6">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input v-model="form.type" type="radio" value="list" class="rounded border-gray-300" />
-                            <span>List extraction</span>
-                            <span class="text-xs text-gray-500">— one URL, extract repeating elements (e.g. links/titles)</span>
+                            <span>{{ t('scrap_tasks.list_extraction') }}</span>
+                            <span class="text-xs text-gray-500">{{ t('scrap_tasks.list_extraction_help') }}</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input v-model="form.type" type="radio" value="detail" class="rounded border-gray-300" />
-                            <span>Detail extraction</span>
-                            <span class="text-xs text-gray-500">— multiple URLs, multiple fields per page</span>
+                            <span>{{ t('scrap_tasks.detail_extraction') }}</span>
+                            <span class="text-xs text-gray-500">{{ t('scrap_tasks.detail_extraction_help') }}</span>
                         </label>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Task name *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('scrap_tasks.task_name_required') }}</label>
                     <input
                         v-model="form.name"
                         type="text"
                         required
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="e.g. Scrape store products"
+                        :placeholder="t('scrap_tasks.task_name_placeholder')"
                     />
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Description (optional)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('scrap_tasks.description_optional') }}</label>
                     <textarea
                         v-model="form.description"
                         rows="2"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Short description of the task"
+                        :placeholder="t('scrap_tasks.description_placeholder')"
                     />
                 </div>
 
                 <!-- List type: single URL + list selector -->
                 <template v-if="form.type === 'list'">
                     <div class="border-t pt-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Page URL *</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('scrap_tasks.page_url_required') }}</label>
                         <input
                             v-model="form.listUrl"
                             type="url"
                             required
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                            placeholder="https://example.com/list-page"
+                            :placeholder="t('scrap_tasks.list_url_example_placeholder')"
                         />
                     </div>
                     <div class="border-t pt-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Repeating elements selector *</label>
-                        <p class="text-xs text-gray-500 mb-2">XPath / class / id that matches multiple elements. One value is extracted from each (text or attribute).</p>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('scrap_tasks.repeating_selector_required') }}</label>
+                        <p class="text-xs text-gray-500 mb-2">{{ t('scrap_tasks.repeating_selector_help') }}</p>
                         <div class="flex flex-wrap items-center gap-3 p-4 bg-gray-50 rounded-lg">
                             <select
                                 v-model="form.list_config.selector_type"
                                 class="px-3 py-2 border border-gray-300 rounded-md text-sm"
                             >
                                 <option value="xpath">XPath</option>
-                                <option value="class">Class</option>
+                                <option value="class">{{ t('scrap_tasks.class') }}</option>
                                 <option value="id">ID</option>
                             </select>
                             <input
@@ -84,20 +84,20 @@
                                 class="px-3 py-2 border border-gray-300 rounded-md text-sm"
                             >
                                 <option value="text">Element text</option>
-                                <option value="attribute">Attribute</option>
+                                <option value="attribute">{{ t('scrap_tasks.attribute') }}</option>
                             </select>
                             <input
                                 v-if="form.list_config.value_kind === 'attribute'"
                                 v-model="form.list_config.value_attr"
                                 type="text"
-                                placeholder="e.g. href or src"
+                                :placeholder="t('scrap_tasks.attribute_placeholder')"
                                 class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm"
                             />
                         </div>
                     </div>
                     <div class="border-t pt-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Delay before extraction (seconds)</label>
-                        <p class="text-xs text-gray-500 mb-2">Wait time to allow dynamic content to load. Leave empty for no delay.</p>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('scrap_tasks.delay_before_extraction') }}</label>
+                        <p class="text-xs text-gray-500 mb-2">{{ t('scrap_tasks.delay_before_extraction_help') }}</p>
                         <input
                             v-model.number="form.list_config.delay_seconds"
                             type="number"
@@ -108,30 +108,30 @@
                         />
                     </div>
                     <div class="border-t pt-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Pagination</label>
-                        <p class="text-xs text-gray-500 mb-2">If the list is paginated, configure how to navigate pages.</p>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('scrap_tasks.pagination') }}</label>
+                        <p class="text-xs text-gray-500 mb-2">{{ t('scrap_tasks.pagination_help') }}</p>
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Pagination type</label>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('scrap_tasks.pagination_type') }}</label>
                                 <select
                                     v-model="form.list_config.pagination_type"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                                 >
-                                    <option value="">None (single page)</option>
-                                    <option value="next_page">Next Page (link/button)</option>
-                                    <option value="load_more">Load More (button)</option>
+                                    <option value="">{{ t('scrap_tasks.pagination_none') }}</option>
+                                    <option value="next_page">{{ t('scrap_tasks.pagination_next_page') }}</option>
+                                    <option value="load_more">{{ t('scrap_tasks.pagination_load_more') }}</option>
                                 </select>
                             </div>
                             <template v-if="form.list_config.pagination_type">
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Pagination selector *</label>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('scrap_tasks.pagination_selector_required') }}</label>
                                     <div class="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg">
                                         <select
                                             v-model="form.list_config.pagination_selector_type"
                                             class="px-3 py-2 border border-gray-300 rounded-md text-sm"
                                         >
                                             <option value="xpath">XPath</option>
-                                            <option value="class">Class</option>
+                                            <option value="class">{{ t('scrap_tasks.class') }}</option>
                                             <option value="id">ID</option>
                                         </select>
                                         <input
@@ -143,7 +143,7 @@
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Max pages *</label>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('scrap_tasks.max_pages_required') }}</label>
                                     <input
                                         v-model.number="form.list_config.max_pages"
                                         type="number"
@@ -152,7 +152,7 @@
                                         class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                         placeholder="10"
                                     />
-                                    <p class="text-xs text-gray-500 mt-1">Maximum number of pages to scrape.</p>
+                                    <p class="text-xs text-gray-500 mt-1">{{ t('scrap_tasks.max_pages_help') }}</p>
                                 </div>
                             </template>
                         </div>
@@ -164,17 +164,17 @@
                 <!-- URLs -->
                 <div class="border-t pt-6">
                     <div class="flex justify-between items-center mb-2">
-                        <label class="block text-sm font-medium text-gray-700">Page URLs (one per line) *</label>
+                        <label class="block text-sm font-medium text-gray-700">{{ t('scrap_tasks.page_urls_required') }}</label>
                         <div class="flex flex-wrap gap-2">
                             <button
                                 type="button"
                                 @click="pasteUrls"
                                 class="text-sm text-blue-600 hover:text-blue-800"
                             >
-                                Paste from clipboard
+                                {{ t('scrap_tasks.paste_from_clipboard') }}
                             </button>
                             <label class="text-sm text-blue-600 hover:text-blue-800 cursor-pointer">
-                                Import from file
+                                {{ t('scrap_tasks.import_from_file') }}
                                 <input type="file" accept=".txt,.csv" class="hidden" @change="importUrlsFromFile" />
                             </label>
                             <template v-if="listTasks?.length">
@@ -183,7 +183,7 @@
                                     v-model="selectedListTaskId"
                                     class="text-sm border border-gray-300 rounded px-2 py-1"
                                 >
-                                    <option value="">Select a list task...</option>
+                                    <option value="">{{ t('scrap_tasks.select_list_task') }}</option>
                                     <option v-for="t in listTasks" :key="t.id" :value="t.id">
                                         {{ t.name }} ({{ t.items_count }} urls)
                                     </option>
@@ -194,7 +194,7 @@
                                     :disabled="!selectedListTaskId || loadListUrlsLoading"
                                     class="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
                                 >
-                                    {{ loadListUrlsLoading ? 'Loading...' : 'Load URLs from this task' }}
+                                    {{ loadListUrlsLoading ? t('common.loading') + '...' : t('scrap_tasks.load_urls_from_task') }}
                                 </button>
                             </template>
                         </div>
@@ -203,28 +203,28 @@
                         v-model="form.urlText"
                         rows="8"
                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                        placeholder="https://example.com/page1&#10;https://example.com/page2&#10;..."
+                        :placeholder="t('scrap_tasks.url_text_example_placeholder')"
                     />
                     <p class="mt-1 text-xs text-gray-500">
-                        One URL per line. You can paste or import from a TXT/CSV file.
+                        {{ t('scrap_tasks.url_text_help') }}
                     </p>
-                    <p v-if="urlCount > 0" class="mt-1 text-sm text-gray-600">{{ urlCount }} URLs detected.</p>
+                    <p v-if="urlCount > 0" class="mt-1 text-sm text-gray-600">{{ t('scrap_tasks.urls_detected').replace(':count', String(urlCount)) }}</p>
                 </div>
 
                 <!-- Extract params -->
                 <div class="border-t pt-6">
                     <div class="flex justify-between items-center mb-2">
-                        <label class="block text-sm font-medium text-gray-700">Extraction fields *</label>
+                        <label class="block text-sm font-medium text-gray-700">{{ t('scrap_tasks.extraction_fields_required') }}</label>
                         <button
                             type="button"
                             @click="addParam"
                             class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
                         >
-                            + Add field
+                            + {{ t('scrap_tasks.add_field') }}
                         </button>
                     </div>
                     <p class="text-xs text-gray-500 mb-3">
-                        Define the fields you want to extract from each page: name + selector type (xpath/class/id) + selector value.
+                        {{ t('scrap_tasks.extraction_fields_help') }}
                     </p>
                     <div class="space-y-4">
                         <div
@@ -235,7 +235,7 @@
                             <input
                                 v-model="param.name"
                                 type="text"
-                                placeholder="Field name (e.g. title)"
+                                :placeholder="t('scrap_tasks.field_name_placeholder')"
                                 class="flex-1 min-w-[120px] px-3 py-2 border border-gray-300 rounded-md text-sm"
                             />
                             <select
@@ -243,7 +243,7 @@
                                 class="px-3 py-2 border border-gray-300 rounded-md text-sm"
                             >
                                 <option value="xpath">XPath</option>
-                                <option value="class">Class</option>
+                                <option value="class">{{ t('scrap_tasks.class') }}</option>
                                 <option value="id">ID</option>
                             </select>
                             <input
@@ -256,7 +256,7 @@
                                 type="button"
                                 @click="removeParam(index)"
                                 class="p-2 text-red-600 hover:bg-red-50 rounded"
-                                title="Remove"
+                                :title="t('customers.remove')"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -265,7 +265,7 @@
                         </div>
                     </div>
                     <p v-if="form.extract_params.length === 0" class="text-sm text-amber-600 mt-2">
-                        Add at least one field.
+                        {{ t('scrap_tasks.add_at_least_one_field') }}
                     </p>
                 </div>
                 </template>
@@ -276,13 +276,13 @@
                         :disabled="!canSubmit"
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Save task
+                        {{ t('scrap_tasks.save_task') }}
                     </button>
                     <Link
                         :href="route('scrap-tasks.index')"
                         class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                     >
-                        Cancel
+                        {{ t('common.cancel') }}
                     </Link>
                 </div>
             </form>
@@ -295,6 +295,9 @@ import { computed, ref } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import axios from 'axios';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     listTasks: { type: Array, default: () => [] },
@@ -355,7 +358,7 @@ async function pasteUrls() {
         const text = await navigator.clipboard.readText();
         form.urlText = (form.urlText ? form.urlText + '\n' : '') + text;
     } catch {
-        alert('Clipboard access is not available. You can paste with Ctrl+V into the textarea.');
+        alert(t('scrap_tasks.clipboard_access_not_available'));
     }
 }
 
@@ -378,7 +381,7 @@ async function loadUrlsFromListTask() {
         const urls = Array.isArray(data?.urls) ? data.urls : [];
         form.urlText = urls.join('\n');
     } catch {
-        alert('Failed to load URLs from the list task.');
+        alert(t('scrap_tasks.failed_load_urls_from_task'));
     } finally {
         loadListUrlsLoading.value = false;
     }
@@ -388,11 +391,11 @@ function submit() {
     if (form.type === 'list') {
         const url = (form.listUrl || '').trim();
         if (!/^https?:\/\//i.test(url)) {
-            alert('Please enter a valid URL.');
+            alert(t('scrap_tasks.enter_valid_url'));
             return;
         }
         if (!(form.list_config?.selector_value || '').trim()) {
-            alert('Please fill the repeating elements selector.');
+            alert(t('scrap_tasks.fill_repeating_selector'));
             return;
         }
         form.transform(() => ({
@@ -417,12 +420,12 @@ function submit() {
     const lines = (form.urlText || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     const urls = lines.filter(line => /^https?:\/\//i.test(line));
     if (urls.length < 1) {
-        alert('Please enter at least one valid URL (starting with http/https), one per line.');
+        alert(t('scrap_tasks.enter_at_least_one_valid_url'));
         return;
     }
     const params = form.extract_params.filter(p => p.name && p.selector_value);
     if (params.length < 1) {
-        alert('Please add at least one extraction field (name + selector).');
+        alert(t('scrap_tasks.add_at_least_one_extraction_field'));
         return;
     }
     form.transform(() => ({

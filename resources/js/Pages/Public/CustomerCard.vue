@@ -17,7 +17,7 @@
                 <div class="lg:col-span-1">
                     <div class="bg-white rounded-lg shadow-lg p-6">
                         <!-- Mobile: Horizontal Layout -->
-                        <div class="flex flex-row items-center justify-center space-x-6 lg:hidden">
+                        <div class="flex flex-row items-center justify-center space-x-6 rtl:space-x-reverse lg:hidden">
                             <!-- Avatar -->
                             <div class="relative flex-shrink-0">
                                 <img
@@ -57,7 +57,7 @@
 
                             <!-- QR Code -->
                             <div class="flex-shrink-0">
-                                <h3 class="text-sm font-semibold text-gray-700 mb-2 text-center">Scan QR Code</h3>
+                                <h3 class="text-sm font-semibold text-gray-700 mb-2 text-center">{{ t('public_customer_card.scan_qr_code') }}</h3>
                                 <div class="flex justify-center">
                                     <canvas ref="qrCanvasMobile" class="border-2 border-gray-200 rounded-lg bg-white p-2"></canvas>
                                 </div>
@@ -105,11 +105,11 @@
 
                             <!-- QR Code -->
                             <div class="w-full">
-                                <h3 class="text-sm font-semibold text-gray-700 mb-3 text-center">Scan QR Code</h3>
+                                <h3 class="text-sm font-semibold text-gray-700 mb-3 text-center">{{ t('public_customer_card.scan_qr_code') }}</h3>
                                 <div class="flex justify-center mb-2">
                                     <canvas ref="qrCanvas" class="border-2 border-gray-200 rounded-lg bg-white p-2"></canvas>
                                 </div>
-                                <p class="text-xs text-gray-500 text-center">Share this card</p>
+                                <p class="text-xs text-gray-500 text-center">{{ t('public_customer_card.share_this_card') }}</p>
                             </div>
                         </div>
                     </div>
@@ -127,12 +127,12 @@
                                 </div>
                                 <button
                                     @click="showShareModal = true"
-                                    class="ml-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 flex-shrink-0"
+                                    class="ltr:ml-4 rtl:mr-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 rtl:space-x-reverse flex-shrink-0"
                                 >
                                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
                                     </svg>
-                                    <span class="hidden sm:inline">Share</span>
+                                    <span class="hidden sm:inline">{{ t('public_customer_card.share') }}</span>
                                 </button>
                             </div>
                             <div v-if="customer.industry" class="inline-block">
@@ -149,10 +149,10 @@
                             <!-- Contact Information -->
                             <div v-if="customer.contacts && customer.contacts.length > 0">
                                 <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-5 h-5 ltr:mr-2 rtl:ml-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                     </svg>
-                                    Contact Information
+                                    {{ t('public_customer_card.contact_information') }}
                                 </h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div
@@ -190,7 +190,7 @@
                                                 </span>
                                             </div>
                                             <span v-if="contact.is_primary" class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
-                                                Primary
+                                                {{ t('public_customer_card.primary') }}
                                             </span>
                                         </div>
                                     </div>
@@ -200,10 +200,10 @@
                             <!-- Social Media -->
                             <div v-if="customer.social_media && customer.social_media.length > 0">
                                 <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-5 h-5 ltr:mr-2 rtl:ml-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                                     </svg>
-                                    Social Media & Websites
+                                    {{ t('public_customer_card.social_media_websites') }}
                                 </h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <a
@@ -213,7 +213,7 @@
                                         target="_blank"
                                         class="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-between"
                                     >
-                                        <div class="flex items-center space-x-3">
+                                        <div class="flex items-center space-x-3 rtl:space-x-reverse">
                                             <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                                                 <i v-if="sm.social_media_type?.icon" :class="sm.social_media_type.icon" class="text-blue-600"></i>
                                                 <span v-else class="text-blue-600 font-bold">{{ sm.social_media_type?.name?.charAt(0) || '?' }}</span>
@@ -233,11 +233,11 @@
                             <!-- Address -->
                             <div v-if="customer.address">
                                 <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-5 h-5 ltr:mr-2 rtl:ml-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                     </svg>
-                                    Address
+                                    {{ t('customers.address') }}
                                 </h3>
                                 <p class="text-gray-700">{{ customer.address }}</p>
                             </div>
@@ -245,15 +245,15 @@
                             <!-- Additional Info -->
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
                                 <div v-if="customer.gender">
-                                    <p class="text-sm text-gray-500 mb-1">Gender</p>
+                                    <p class="text-sm text-gray-500 mb-1">{{ t('customers.gender') }}</p>
                                     <p class="text-gray-900 capitalize font-medium">{{ customer.gender }}</p>
                                 </div>
                                 <div v-if="customer.languages && customer.languages.length">
-                                    <p class="text-sm text-gray-500 mb-1">Languages</p>
+                                    <p class="text-sm text-gray-500 mb-1">{{ t('common.language') }}</p>
                                     <p class="text-gray-900 font-medium">{{ customer.languages.join(', ') }}</p>
                                 </div>
                                 <div v-if="customer.contact_person">
-                                    <p class="text-sm text-gray-500 mb-1">Contact Person</p>
+                                    <p class="text-sm text-gray-500 mb-1">{{ t('customers.contact_person') }}</p>
                                     <p class="text-gray-900 font-medium">{{ customer.contact_person }}</p>
                                 </div>
                             </div>
@@ -264,7 +264,7 @@
 
             <!-- Footer -->
             <div class="mt-6 text-center text-sm text-gray-500">
-                <p>Powered by RoniCRM</p>
+                <p>{{ t('public_customer_card.powered_by') }}</p>
             </div>
             </div>
         </div>
@@ -277,7 +277,7 @@
         >
             <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
                 <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-gray-900">Share via WhatsApp</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">{{ t('public_customer_card.share_via_whatsapp') }}</h3>
                     <button
                         @click="showShareModal = false"
                         class="text-gray-400 hover:text-gray-500"
@@ -291,37 +291,37 @@
                 <form @submit.prevent="shareViaWhatsApp" class="p-6">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Phone Number *
+                            {{ t('public_customer_card.phone_number_required') }}
                         </label>
                         <input
                             v-model="shareForm.phone"
                             type="text"
-                            placeholder="e.g., 971501234567"
+                            :placeholder="t('public_customer_card.phone_example_placeholder')"
                             required
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <p class="mt-1 text-xs text-gray-500">Enter phone number with country code (without +)</p>
+                        <p class="mt-1 text-xs text-gray-500">{{ t('public_customer_card.phone_help') }}</p>
                     </div>
 
                     <div v-if="shareForm.errors.phone" class="mb-4 text-sm text-red-600">
                         {{ shareForm.errors.phone }}
                     </div>
 
-                    <div class="flex justify-end space-x-3">
+                    <div class="flex justify-end space-x-3 rtl:space-x-reverse">
                         <button
                             type="button"
                             @click="showShareModal = false"
                             class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                         >
-                            Cancel
+                            {{ t('common.cancel') }}
                         </button>
                         <button
                             type="submit"
                             :disabled="shareForm.processing"
                             class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
                         >
-                            <span v-if="shareForm.processing">Sending...</span>
-                            <span v-else>Send</span>
+                            <span v-if="shareForm.processing">{{ t('settings.sending') }}</span>
+                            <span v-else>{{ t('public_customer_card.send') }}</span>
                         </button>
                     </div>
                 </form>
@@ -335,6 +335,9 @@ import { ref, onMounted } from 'vue';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import { useForm } from '@inertiajs/vue3';
 import QRCode from 'qrcode';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     customer: Object,

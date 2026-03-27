@@ -2,7 +2,7 @@
     <AppLayout>
         <template #header>
             <div class="flex items-center justify-between">
-                <span>Telegram Group Crawl</span>
+                <span>{{ t('settings.telegram_group_crawl') }}</span>
             </div>
         </template>
 
@@ -17,9 +17,9 @@
 
         <!-- Not Connected -->
         <div v-if="!telegramConnected" class="p-6 border border-amber-200 rounded-lg bg-amber-50">
-            <p class="text-gray-800 mb-4">To crawl groups, connect your Telegram account first in Settings.</p>
+            <p class="text-gray-800 mb-4">{{ t('telegram_crawler.connect_first') }}</p>
             <a :href="route('settings.index')" class="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">
-                Go to Telegram Settings
+                {{ t('telegram_crawler.go_to_telegram_settings') }}
             </a>
         </div>
 
@@ -29,15 +29,15 @@
                 <!-- Left Sidebar: Group List - Full Height -->
                 <aside class="w-full lg:w-80 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col min-w-0">
                     <div class="flex-shrink-0 p-4 border-b border-gray-200 bg-gray-50">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-3">Groups</h2>
+                        <h2 class="text-lg font-semibold text-gray-900 mb-3">{{ t('telegram_crawler.groups') }}</h2>
                         <div class="mb-3">
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Category filter</label>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">{{ t('telegram_crawler.category_filter') }}</label>
                             <select
                                 v-model="groupCategoryFilter"
                                 @change="loadGroups(true)"
                                 class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md"
                             >
-                                <option value="">All</option>
+                                <option value="">{{ t('telegram_crawler.all') }}</option>
                                 <option v-for="c in telegramGroupCategories" :key="c.id" :value="c.id">{{ c.name }}</option>
                             </select>
                         </div>
@@ -45,10 +45,10 @@
                             type="button"
                             @click="loadGroups(true)"
                             :disabled="groupsLoading"
-                            title="Refresh from Telegram"
+                            :title="t('telegram_crawler.refresh_from_telegram')"
                             class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
                         >
-                            {{ groupsLoading ? 'Loading...' : 'Refresh' }}
+                            {{ groupsLoading ? t('settings.loading') : t('common.refresh') }}
                         </button>
                         <p v-if="groupsError" class="text-red-600 text-sm mt-2">{{ groupsError }}</p>
                     </div>
@@ -80,7 +80,7 @@
                                 <div class="flex-1 min-w-0">
                                     <div class="font-medium text-sm truncate flex items-center gap-1">
                                         {{ g.title }}
-                                        <span v-if="showSendToGroups && !g.can_post" class="text-amber-600" title="Cannot post in this group">⚠</span>
+                                        <span v-if="showSendToGroups && !g.can_post" class="text-amber-600" :title="t('telegram_crawler.cannot_post_in_group')">⚠</span>
                                     </div>
                                     <div class="flex items-center justify-between mt-0.5 gap-1 flex-wrap">
                                         <span class="text-xs text-gray-500">
@@ -98,11 +98,11 @@
                         </div>
                         <p v-else-if="!groupsLoading && groups.length === 0" class="text-gray-500 text-sm p-4">
                             <template v-if="groupsRefreshedEmpty">
-                                No groups or channels found. Make sure you have joined groups/channels in Telegram.
-                                If you have groups, try reconnecting in <a :href="route('settings.index')" class="text-blue-600 hover:underline">Settings → Telegram</a>.
+                                {{ t('telegram_crawler.no_groups_found_help_1') }}
+                                {{ t('telegram_crawler.no_groups_found_help_2') }} <a :href="route('settings.index')" class="text-blue-600 hover:underline">{{ t('telegram_crawler.settings_telegram') }}</a>.
                             </template>
                             <template v-else>
-                                Groups will load automatically. Click Refresh to fetch from Telegram.
+                                {{ t('telegram_crawler.groups_auto_load_help') }}
                             </template>
                         </p>
                     </div>
@@ -112,22 +112,22 @@
                 <main class="flex-1 min-w-0 overflow-y-auto p-6 space-y-6">
                     <!-- Send Template to Groups -->
                     <div class="bg-white rounded-lg shadow p-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Send Template to Groups</h2>
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('telegram_crawler.send_template_to_groups') }}</h2>
                         <p class="text-sm text-gray-600 mb-4">
                             Select groups from the list and send the template directly to them.
                         </p>
                         <div class="flex flex-wrap gap-3 items-end">
                             <div class="min-w-[200px]">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Template</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('sidebar.templates') }}</label>
                                 <select
                                     v-model="sendToGroupsTemplateId"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
-                                    <option value="">Select template...</option>
+                                    <option value="">{{ t('telegram_crawler.select_template') }}</option>
                                     <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}{{ t.image ? ' 📷' : '' }}</option>
                                 </select>
                                 <div v-if="selectedSendToGroupsTemplate?.image" class="mt-2 p-2 border border-gray-200 rounded-lg bg-gray-50">
-                                    <p class="text-xs text-gray-500 mb-1">Template image preview:</p>
+                                    <p class="text-xs text-gray-500 mb-1">{{ t('telegram_crawler.template_image_preview') }}</p>
                                     <img :src="selectedSendToGroupsTemplate.image" alt="Template" class="max-h-32 rounded object-cover" />
                                 </div>
                             </div>
@@ -136,7 +136,7 @@
                                 @click="showSendToGroups = !showSendToGroups"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
                             >
-                                {{ showSendToGroups ? 'Cancel' : 'Select Groups' }}
+                                {{ showSendToGroups ? t('common.cancel') : t('telegram_crawler.select_groups') }}
                             </button>
                             <button
                                 v-if="showSendToGroups"
@@ -145,16 +145,16 @@
                                 :disabled="sendToGroupsStarting || selectedGroupIds.size === 0 || !sendToGroupsTemplateId"
                                 class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium"
                             >
-                                {{ sendToGroupsStarting ? 'Sending...' : `Send to ${selectedGroupIds.size} groups` }}
+                                {{ sendToGroupsStarting ? t('settings.sending') : t('telegram_crawler.send_to_n_groups').replace(':count', String(selectedGroupIds.size)) }}
                             </button>
                         </div>
                         <div v-if="sendId" class="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
-                            <p class="font-medium text-gray-700 mb-2">Send to groups status</p>
+                            <p class="font-medium text-gray-700 mb-2">{{ t('telegram_crawler.send_to_groups_status') }}</p>
                             <p v-if="sendStatus.error" class="text-red-600 mb-2">{{ sendStatus.error }}</p>
                             <div class="flex gap-4 text-sm">
                                 <span>Sent: {{ sendStatus.sent ?? 0 }}</span>
                                 <span>Failed: {{ sendStatus.failed ?? 0 }}</span>
-                                <span>Status: {{ sendStatus.status || 'Pending...' }}</span>
+                                <span>{{ t('common.status') }}: {{ sendStatus.status || t('telegram_crawler.pending') }}</span>
                             </div>
                             <div v-if="sendStatus.results?.length" class="mt-2 max-h-40 overflow-y-auto space-y-1 text-xs">
                                 <div
@@ -162,7 +162,7 @@
                                     :key="i"
                                     :class="r.status === 'sent' ? 'text-green-700' : 'text-red-700'"
                                 >
-                                    Group {{ r.group_id }}: {{ r.status === 'sent' ? '✓ Sent' : '✗ ' + (r.error || 'Error') }}
+                                    {{ t('telegram_crawler.group') }} {{ r.group_id }}: {{ r.status === 'sent' ? '✓ ' + t('telegram_crawler.sent') : '✗ ' + (r.error || t('common.error')) }}
                                 </div>
                             </div>
                         </div>
@@ -170,17 +170,17 @@
 
                     <!-- Forward Post to Groups -->
                     <div class="bg-white rounded-lg shadow p-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Forward Post to Groups</h2>
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('telegram_crawler.forward_post_to_groups') }}</h2>
                         <p class="text-sm text-gray-600 mb-4">
                             Enter a Telegram post link and select groups. The post will be forwarded to selected groups. View stats stay on the original post.
                         </p>
                         <div class="flex flex-wrap gap-3 items-end">
                             <div class="min-w-[280px] flex-1">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Post link</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('telegram_crawler.post_link') }}</label>
                                 <input
                                     v-model="forwardPostLink"
                                     type="text"
-                                    placeholder="t.me/channel/123 or t.me/c/1234567890/123"
+                                    :placeholder="t('telegram_crawler.post_link_placeholder')"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
@@ -189,7 +189,7 @@
                                 @click="showSendToGroups = !showSendToGroups"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
                             >
-                                {{ showSendToGroups ? 'Cancel' : 'Select Groups' }}
+                                {{ showSendToGroups ? t('common.cancel') : t('telegram_crawler.select_groups') }}
                             </button>
                             <button
                                 v-if="showSendToGroups"
@@ -198,16 +198,16 @@
                                 :disabled="forwardStarting || selectedGroupIds.size === 0 || !forwardPostLink.trim()"
                                 class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 text-sm font-medium"
                             >
-                                {{ forwardStarting ? 'Forwarding...' : `Forward to ${selectedGroupIds.size} groups` }}
+                                {{ forwardStarting ? t('telegram_crawler.forwarding') : t('telegram_crawler.forward_to_n_groups').replace(':count', String(selectedGroupIds.size)) }}
                             </button>
                         </div>
                         <div v-if="forwardId" class="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
-                            <p class="font-medium text-gray-700 mb-2">Forward status</p>
+                            <p class="font-medium text-gray-700 mb-2">{{ t('telegram_crawler.forward_status') }}</p>
                             <p v-if="forwardStatus.error" class="text-red-600 mb-2">{{ forwardStatus.error }}</p>
                             <div class="flex gap-4 text-sm">
-                                <span>Sent: {{ forwardStatus.sent ?? 0 }}</span>
-                                <span>Failed: {{ forwardStatus.failed ?? 0 }}</span>
-                                <span>Status: {{ forwardStatus.status || 'Pending...' }}</span>
+                                <span>{{ t('telegram_crawler.sent') }}: {{ forwardStatus.sent ?? 0 }}</span>
+                                <span>{{ t('telegram_crawler.failed') }}: {{ forwardStatus.failed ?? 0 }}</span>
+                                <span>{{ t('common.status') }}: {{ forwardStatus.status || t('telegram_crawler.pending') }}</span>
                             </div>
                             <div v-if="forwardStatus.results?.length" class="mt-2 max-h-40 overflow-y-auto space-y-1 text-xs">
                                 <div
@@ -215,7 +215,7 @@
                                     :key="i"
                                     :class="r.status === 'sent' ? 'text-green-700' : 'text-red-700'"
                                 >
-                                    Group {{ r.group_id }}: {{ r.status === 'sent' ? '✓ Forwarded' : '✗ ' + (r.error || 'Error') }}
+                                    {{ t('telegram_crawler.group') }} {{ r.group_id }}: {{ r.status === 'sent' ? '✓ ' + t('telegram_crawler.forwarded') : '✗ ' + (r.error || t('common.error')) }}
                                 </div>
                             </div>
                         </div>
@@ -223,27 +223,27 @@
 
                     <!-- Sync Contacts from Telegram -->
                     <div class="bg-white rounded-lg shadow p-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Sync Contact Info from Telegram</h2>
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('telegram_crawler.sync_contacts_from_telegram') }}</h2>
                         <p class="text-sm text-gray-600 mb-4">
-                            Fetch full profile data (name, phone, avatar) from Telegram for customers extracted via crawl or inbox. Updates existing contacts.
+                            {{ t('telegram_crawler.sync_contacts_help') }}
                         </p>
                         <!-- Queue status -->
                         <div class="mb-4 p-3 bg-gray-50 rounded-lg text-sm flex items-center gap-4">
-                            <span>صف: <strong>{{ queueStatus.pending_jobs ?? 0 }}</strong> در انتظار</span>
-                            <span v-if="(queueStatus.failed_jobs ?? 0) > 0" class="text-red-600">شکست: <strong>{{ queueStatus.failed_jobs }}</strong></span>
-                            <button type="button" @click="fetchQueueStatus" class="text-blue-600 hover:underline text-xs">بروزرسانی</button>
+                            <span>{{ t('telegram_crawler.queue_pending_label').replace(':count', String(queueStatus.pending_jobs ?? 0)) }}</span>
+                            <span v-if="(queueStatus.failed_jobs ?? 0) > 0" class="text-red-600">{{ t('telegram_crawler.queue_failed_label').replace(':count', String(queueStatus.failed_jobs ?? 0)) }}</span>
+                            <button type="button" @click="fetchQueueStatus" class="text-blue-600 hover:underline text-xs">{{ t('common.refresh') }}</button>
                         </div>
                         <div class="flex flex-wrap items-center gap-3 mb-4">
                             <label class="flex items-center gap-2 text-sm cursor-pointer">
                                 <input type="checkbox" v-model="syncContactsRunNow" class="rounded border-gray-300" />
-                                <span>اجرای فوری (بدون Queue)</span>
+                                <span>{{ t('telegram_crawler.run_now_no_queue') }}</span>
                             </label>
                             <span v-if="syncContactsRunNow" class="text-xs text-amber-600">
-                                درخواست تا اتمام sync منتظر می‌ماند. برای مخاطبین زیاد ممکن است timeout شود.
+                                {{ t('telegram_crawler.run_now_warning') }}
                             </span>
                         </div>
                         <p v-if="!syncContactsRunNow && (queueStatus.pending_jobs ?? 0) > 0" class="text-xs text-amber-600 mb-2">
-                            {{ queueStatus.pending_jobs }} Job در صف است. اگر مدتی است پردازش نشده، گزینه «اجرای فوری» را فعال کنید یا دستی اجرا کنید: <code class="bg-gray-200 px-1 rounded">php artisan telegram:sync-contacts</code>
+                            {{ t('telegram_crawler.jobs_in_queue_help').replace(':count', String(queueStatus.pending_jobs ?? 0)).replace(':command', 'php artisan telegram:sync-contacts') }}
                         </p>
                         <button
                             type="button"
@@ -251,29 +251,29 @@
                             :disabled="!telegramConnected || syncContactsStarting"
                             class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 text-sm font-medium"
                         >
-                            {{ syncContactsStarting ? 'Starting...' : 'Sync Contacts from Telegram' }}
+                            {{ syncContactsStarting ? t('telegram_crawler.starting') : t('telegram_crawler.sync_contacts_from_telegram') }}
                         </button>
                         <div v-if="syncId" class="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
-                            <p class="font-medium text-gray-700 mb-2">Sync status</p>
+                            <p class="font-medium text-gray-700 mb-2">{{ t('telegram_crawler.sync_status') }}</p>
                             <p v-if="syncStatus.error" class="text-red-600 mb-2">{{ syncStatus.error }}</p>
                             <div class="flex gap-4 text-sm">
-                                <span>Processed: {{ syncStatus.processed ?? 0 }}{{ syncStatus.total ? ' / ' + syncStatus.total : '' }}</span>
-                                <span>Updated: {{ syncStatus.updated ?? 0 }}</span>
-                                <span v-if="syncStatus.failed">Failed: {{ syncStatus.failed }}</span>
-                                <span>Status: {{ syncStatus.status || 'Pending...' }}</span>
+                                <span>{{ t('telegram_crawler.processed_count').replace(':count', String(syncStatus.processed ?? 0)).replace(':total', syncStatus.total ? String(syncStatus.total) : '') }}</span>
+                                <span>{{ t('telegram_crawler.updated_count').replace(':count', String(syncStatus.updated ?? 0)) }}</span>
+                                <span v-if="syncStatus.failed">{{ t('telegram_crawler.failed_count').replace(':count', String(syncStatus.failed ?? 0)) }}</span>
+                                <span>{{ t('common.status') }}: {{ syncStatus.status || t('telegram_crawler.pending') }}</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Send to Group Members -->
                     <div class="bg-white rounded-lg shadow p-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Send to Group Members</h2>
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('telegram_crawler.send_to_group_members') }}</h2>
                         <p class="text-sm text-gray-600 mb-4">
-                            Identify members who posted in the group and send them a direct message. Template content is sent in the group's language when set.
+                            {{ t('telegram_crawler.send_to_group_members_help') }}
                         </p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Posts to crawl</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('telegram_crawler.posts_to_crawl') }}</label>
                                 <input
                                     v-model.number="limit"
                                     type="number"
@@ -284,26 +284,26 @@
                             </div>
                         </div>
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Template (optional, uses group language)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('telegram_crawler.template_optional_group_language') }}</label>
                             <select
                                 v-model="templateId"
                                 @change="onTemplateChange"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value="">No template (write message below)</option>
+                                <option value="">{{ t('telegram_crawler.no_template_write_below') }}</option>
                                 <option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}{{ t.image ? ' 📷' : '' }}</option>
                             </select>
                             <div v-if="selectedCrawlTemplate?.image" class="mt-2 p-2 border border-gray-200 rounded-lg bg-gray-50">
-                                <p class="text-xs text-gray-500 mb-1">Template image preview:</p>
+                                <p class="text-xs text-gray-500 mb-1">{{ t('telegram_crawler.template_image_preview') }}</p>
                                 <img :src="selectedCrawlTemplate.image" alt="Template" class="max-h-32 rounded object-cover" />
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Message for authors *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('telegram_crawler.message_for_authors_required') }}</label>
                             <textarea
                                 v-model="messageText"
                                 rows="5"
-                                placeholder="Message to send to post authors..."
+                                :placeholder="t('telegram_crawler.message_for_authors_placeholder')"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             ></textarea>
                             <p class="text-xs text-gray-500 mt-1">Variables: {name}, {company}</p>
@@ -317,25 +317,25 @@
                             :disabled="crawlStarting || !selectedGroupId || !messageText.trim()"
                             class="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
                         >
-                            {{ crawlStarting ? 'Starting...' : 'Send to Members' }}
+                            {{ crawlStarting ? t('telegram_crawler.starting') : t('telegram_crawler.send_to_members') }}
                         </button>
-                        <p v-if="!selectedGroupId && groups.length && !showSendToGroups" class="text-amber-600 text-sm mt-2">Select a group from the sidebar (exit "Select Groups" mode first).</p>
+                        <p v-if="!selectedGroupId && groups.length && !showSendToGroups" class="text-amber-600 text-sm mt-2">{{ t('telegram_crawler.select_group_from_sidebar') }}</p>
                     </div>
 
                     <!-- Progress Panel -->
                     <div v-if="crawlId" class="bg-white rounded-lg shadow p-6">
-                        <h3 class="text-lg font-semibold mb-4">Send to Members Progress</h3>
+                        <h3 class="text-lg font-semibold mb-4">{{ t('telegram_crawler.send_to_members_progress') }}</h3>
                         <p v-if="crawlStatus.status === 'pending'" class="text-sm text-amber-600 mb-4">
-                            Job queued. Make sure <code class="bg-amber-100 px-1 rounded">php artisan queue:work</code> is running.
+                            {{ t('telegram_crawler.job_queued_make_sure_worker') }} <code class="bg-amber-100 px-1 rounded">php artisan queue:work</code> {{ t('telegram_crawler.is_running') }}.
                         </p>
                         <div class="space-y-4">
                             <div v-if="crawlStatus.phase" class="flex items-center gap-2">
                                 <span class="text-sm font-medium text-gray-600">{{ phaseLabel }}</span>
-                                <span v-if="crawlStatus.phase === 'identifying_authors' && crawlStatus.messages_scanned" class="text-sm text-gray-500">({{ crawlStatus.messages_scanned }} messages scanned)</span>
+                                <span v-if="crawlStatus.phase === 'identifying_authors' && crawlStatus.messages_scanned" class="text-sm text-gray-500">({{ crawlStatus.messages_scanned }} {{ t('telegram_crawler.messages_scanned') }})</span>
                             </div>
                             <div v-if="crawlStatus.total" class="space-y-1">
                                 <div class="flex justify-between text-sm">
-                                    <span>{{ crawlStatus.processed || 0 }} / {{ crawlStatus.total }} authors</span>
+                                    <span>{{ crawlStatus.processed || 0 }} / {{ crawlStatus.total }} {{ t('telegram_crawler.authors') }}</span>
                                     <span v-if="crawlStatus.total">{{ Math.round(((crawlStatus.processed || 0) / crawlStatus.total) * 100) }}%</span>
                                 </div>
                                 <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -347,32 +347,32 @@
                             </div>
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                 <div class="bg-gray-50 rounded p-3">
-                                    <span class="text-gray-500 block">Status</span>
+                                    <span class="text-gray-500 block">{{ t('common.status') }}</span>
                                     <span class="font-medium">{{ statusLabel }}</span>
                                 </div>
                                 <div v-if="crawlStatus.processed !== undefined" class="bg-gray-50 rounded p-3">
-                                    <span class="text-gray-500 block">Processed</span>
+                                    <span class="text-gray-500 block">{{ t('telegram_crawler.processed') }}</span>
                                     <span class="font-medium">{{ crawlStatus.processed }}</span>
                                 </div>
                                 <div v-if="crawlStatus.sent !== undefined" class="bg-green-50 rounded p-3">
-                                    <span class="text-gray-500 block">Sent</span>
+                                    <span class="text-gray-500 block">{{ t('telegram_crawler.sent') }}</span>
                                     <span class="font-medium text-green-700">{{ crawlStatus.sent }}</span>
                                 </div>
                                 <div v-if="crawlStatus.skipped !== undefined" class="bg-amber-50 rounded p-3">
-                                    <span class="text-gray-500 block">Skipped</span>
+                                    <span class="text-gray-500 block">{{ t('telegram_crawler.skipped') }}</span>
                                     <span class="font-medium text-amber-700">{{ crawlStatus.skipped }}</span>
                                 </div>
                             </div>
                             <p v-if="crawlStatus.error" class="text-red-600 text-sm">{{ crawlStatus.error }}</p>
 
                             <p v-else-if="(crawlStatus.status === 'completed' || crawlStatus.phase === 'identifying_authors' || crawlStatus.phase === 'sending_messages') && (crawlStatus.messages_scanned ?? 0) === 0 && !crawlStatus.messages_preview?.length" class="mt-4 text-amber-600 text-sm">
-                                No messages were crawled.
+                                {{ t('telegram_crawler.no_messages_crawled') }}
                             </p>
 
                             <!-- Crawled messages list -->
                             <div v-else-if="crawlStatus.messages_preview?.length" class="mt-6 pt-4 border-t">
                                 <h4 class="text-sm font-semibold text-gray-700 mb-2">
-                                    Crawled messages ({{ crawlStatus.messages_preview.length }})
+                                    {{ t('telegram_crawler.crawled_messages') }} ({{ crawlStatus.messages_preview.length }})
                                 </h4>
                                 <div class="max-h-[24rem] overflow-y-auto space-y-2 text-sm">
                                     <div
@@ -383,8 +383,8 @@
                                         <div class="flex items-start gap-2 p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer" @click="toggleRaw(i)">
                                             <span class="text-gray-400 shrink-0">#{{ m.id }}</span>
                                             <span class="text-xs text-amber-600 shrink-0">{{ m.from_type || '?' }}</span>
-                                            <span class="truncate flex-1 min-w-0">{{ m.text || '(no text)' }}</span>
-                                            <a v-if="m.link" :href="m.link" target="_blank" rel="noopener" class="text-blue-600 hover:underline shrink-0" @click.stop>Open</a>
+                                            <span class="truncate flex-1 min-w-0">{{ m.text || t('telegram_crawler.no_text') }}</span>
+                                            <a v-if="m.link" :href="m.link" target="_blank" rel="noopener" class="text-blue-600 hover:underline shrink-0" @click.stop>{{ t('telegram_crawler.open') }}</a>
                                             <span class="text-xs text-gray-400">{{ expandedRawIndices.has(i) ? '▼' : '▶' }} JSON</span>
                                         </div>
                                         <pre v-if="expandedRawIndices.has(i) && m.raw_json" class="p-3 text-xs bg-gray-900 text-gray-100 overflow-x-auto whitespace-pre-wrap break-all m-0">{{ m.raw_json }}</pre>
@@ -394,7 +394,7 @@
                                 <!-- Authors that received messages -->
                                 <div v-if="crawlStatus.authors_sent?.length" class="mt-6 pt-4 border-t">
                                     <h4 class="text-sm font-semibold text-gray-700 mb-2">
-                                        Authors messaged ({{ crawlStatus.authors_sent.length }})
+                                        {{ t('telegram_crawler.authors_messaged') }} ({{ crawlStatus.authors_sent.length }})
                                     </h4>
                                     <div class="max-h-48 overflow-y-auto space-y-1.5 text-sm">
                                         <div
@@ -408,7 +408,7 @@
                                             <span v-else class="text-red-600">✗</span>
                                             <span class="font-mono text-xs">{{ a.user_id }}</span>
                                             <span class="text-xs">
-                                                {{ a.status === 'sent' ? 'Sent' : a.status === 'skipped' ? 'Skipped (already messaged)' : 'Failed: ' + (a.error || '') }}
+                                                {{ a.status === 'sent' ? t('telegram_crawler.sent') : a.status === 'skipped' ? t('telegram_crawler.skipped_already_messaged') : t('telegram_crawler.failed_with').replace(':error', a.error || '') }}
                                             </span>
                                         </div>
                                     </div>
@@ -427,6 +427,9 @@ import { ref, watch, onUnmounted, computed, onMounted } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import axios from 'axios';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
     telegramConnected: { type: Boolean, default: false },
@@ -483,12 +486,12 @@ const phaseLabel = computed(() => {
     const p = crawlStatus.value.phase;
     if (!p) return '';
     const labels = {
-        queued: 'Job queued, waiting for worker...',
-        fetching_messages: 'Fetching messages from group...',
-        identifying_authors: 'Identifying unique authors from posts...',
-        sending_messages: 'Sending messages to authors...',
-        completed: 'Completed',
-        error: 'Error',
+        queued: t('telegram_crawler.phase_queued'),
+        fetching_messages: t('telegram_crawler.phase_fetching_messages'),
+        identifying_authors: t('telegram_crawler.phase_identifying_authors'),
+        sending_messages: t('telegram_crawler.phase_sending_messages'),
+        completed: t('telegram_crawler.phase_completed'),
+        error: t('common.error'),
     };
     return labels[p] || p;
 });
@@ -496,11 +499,11 @@ const phaseLabel = computed(() => {
 const statusLabel = computed(() => {
     const s = crawlStatus.value.status || 'pending';
     const labels = {
-        pending: 'Waiting for worker...',
-        queued: 'Waiting for worker...',
-        running: 'Running',
-        completed: 'Completed',
-        error: 'Error',
+        pending: t('telegram_crawler.waiting_for_worker'),
+        queued: t('telegram_crawler.waiting_for_worker'),
+        running: t('telegram_crawler.running'),
+        completed: t('telegram_crawler.completed'),
+        error: t('common.error'),
     };
     return labels[s] || s;
 });
@@ -531,7 +534,7 @@ const loadGroups = async (refresh = false) => {
             groupsRefreshedEmpty.value = true;
         }
     } catch (e) {
-        groupsError.value = e.response?.data?.error || e.message || (e.code === 'ECONNABORTED' ? 'Request timed out. Try again.' : 'Failed to load groups');
+        groupsError.value = e.response?.data?.error || e.message || (e.code === 'ECONNABORTED' ? t('telegram_crawler.request_timed_out') : t('telegram_crawler.failed_to_load_groups'));
     } finally {
         groupsLoading.value = false;
     }
@@ -563,7 +566,7 @@ const startCrawl = async () => {
         crawlId.value = res.data.crawl_id;
         crawlPollTimer = setInterval(pollCrawlStatus, 2000);
     } catch (e) {
-        groupsError.value = e.response?.data?.error || e.message || 'Failed to start crawl';
+        groupsError.value = e.response?.data?.error || e.message || t('telegram_crawler.failed_to_start_crawl');
     } finally {
         crawlStarting.value = false;
     }
@@ -597,7 +600,7 @@ const sendToSelectedGroups = async () => {
         sendId.value = res.data.send_id;
         sendPollTimer = setInterval(pollSendStatus, 2000);
     } catch (e) {
-        groupsError.value = e.response?.data?.error || e.message || 'Failed to send';
+        groupsError.value = e.response?.data?.error || e.message || t('telegram_crawler.failed_to_send');
     } finally {
         sendToGroupsStarting.value = false;
     }
@@ -631,7 +634,7 @@ const forwardToSelectedGroups = async () => {
         forwardId.value = res.data.forward_id;
         forwardPollTimer = setInterval(pollForwardStatus, 2000);
     } catch (e) {
-        groupsError.value = e.response?.data?.error || e.message || 'Failed to forward';
+        groupsError.value = e.response?.data?.error || e.message || t('telegram_crawler.failed_to_forward');
     } finally {
         forwardStarting.value = false;
     }
@@ -677,7 +680,7 @@ const startSyncContacts = async () => {
         syncPollTimer = setInterval(pollSyncStatus, 2000);
         fetchQueueStatus();
     } catch (e) {
-        groupsError.value = e.response?.data?.error || e.message || 'Failed to start sync';
+        groupsError.value = e.response?.data?.error || e.message || t('telegram_crawler.failed_to_start_sync');
     } finally {
         syncContactsStarting.value = false;
     }
