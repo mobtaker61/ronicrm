@@ -10,6 +10,8 @@ use App\Models\InstagramMessage;
 use App\Models\TelegramGroup;
 use App\Models\TelegramMessage;
 use App\Models\TelegramUserConnection;
+use App\Models\TikTokConnection;
+use App\Models\TikTokMessage;
 use App\Models\WhatsAppMessage;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -30,6 +32,7 @@ class DashboardController extends Controller
             'telegram_groups' => TelegramGroup::active()->count(),
             'telegram_connected' => TelegramUserConnection::where('status', 'connected')->exists(),
             'instagram_connected' => \App\Models\InstagramConnection::whereNotNull('access_token_encrypted')->exists(),
+            'tiktok_connected' => TikTokConnection::whereNotNull('access_token_encrypted')->exists(),
         ];
 
         // Unread inbox messages by channel
@@ -37,8 +40,9 @@ class DashboardController extends Controller
             'telegram' => TelegramMessage::where('direction', 'incoming')->whereNull('read_at')->count(),
             'whatsapp' => WhatsAppMessage::where('direction', 'incoming')->whereNull('read_at')->count(),
             'instagram' => InstagramMessage::where('direction', 'incoming')->whereNull('read_at')->count(),
+            'tiktok' => TikTokMessage::where('direction', 'incoming')->whereNull('read_at')->count(),
         ];
-        $stats['unread_inbox_total'] = $inboxUnread['telegram'] + $inboxUnread['whatsapp'] + $inboxUnread['instagram'];
+        $stats['unread_inbox_total'] = $inboxUnread['telegram'] + $inboxUnread['whatsapp'] + $inboxUnread['instagram'] + $inboxUnread['tiktok'];
 
         // Customer distribution by status
         $customersByStatus = Customer::selectRaw('status, count(*) as count')

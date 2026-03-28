@@ -82,7 +82,7 @@
             </div>
 
             <!-- Connections & Quick Actions -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 <Link
                     :href="route('inbox.index', { channel: 'telegram' })"
                     class="flex items-center justify-between p-4 bg-white rounded-lg shadow border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all"
@@ -137,6 +137,36 @@
                         </div>
                     </div>
                     <span v-if="inboxUnread.instagram > 0" class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">{{ inboxUnread.instagram }}</span>
+                </Link>
+                <Link
+                    :href="route('inbox.index', { channel: 'tiktok' })"
+                    class="flex items-center justify-between p-4 bg-white rounded-lg shadow border border-gray-100 hover:border-slate-300 hover:shadow-md transition-all"
+                >
+                    <div class="flex items-center">
+                        <div
+                            class="w-10 h-10 rounded-full flex items-center justify-center"
+                            :class="stats.tiktok_connected ? 'bg-slate-900' : 'bg-gray-100'"
+                        >
+                            <svg
+                                class="w-5 h-5"
+                                :class="stats.tiktok_connected ? 'text-cyan-400' : 'text-gray-400'"
+                                fill="currentColor"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"
+                                />
+                            </svg>
+                        </div>
+                        <div class="ltr:ml-3 rtl:mr-3">
+                            <p class="font-medium text-gray-900">{{ t('sidebar.tiktok') }}</p>
+                            <p class="text-sm" :class="stats.tiktok_connected ? 'text-green-600' : 'text-gray-500'">
+                                {{ stats.tiktok_connected ? t('dashboard.connected') : t('dashboard.not_connected') }}
+                            </p>
+                        </div>
+                    </div>
+                    <span v-if="inboxUnread.tiktok > 0" class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">{{ inboxUnread.tiktok }}</span>
                 </Link>
             </div>
 
@@ -353,12 +383,13 @@ defineProps({
             telegram_groups: 0,
             telegram_connected: false,
             instagram_connected: false,
+            tiktok_connected: false,
             unread_inbox_total: 0,
         }),
     },
     inboxUnread: {
         type: Object,
-        default: () => ({ telegram: 0, whatsapp: 0, instagram: 0 }),
+        default: () => ({ telegram: 0, whatsapp: 0, instagram: 0, tiktok: 0 }),
     },
     customersByStatus: {
         type: Object,

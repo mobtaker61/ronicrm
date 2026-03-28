@@ -3642,6 +3642,13 @@ class SeedDefaultTranslations extends Command
                     'tr' => 'Telegram',
                     'ku' => 'Telegram',
                 ],
+                'tiktok' => [
+                    'en' => 'TikTok',
+                    'fa' => 'تیک‌تاک',
+                    'ar' => 'TikTok',
+                    'tr' => 'TikTok',
+                    'ku' => 'TikTok',
+                ],
                 'crawler' => [
                     'en' => 'Crawler',
                     'fa' => 'کراولر',
