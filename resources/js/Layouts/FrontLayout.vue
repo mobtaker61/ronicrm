@@ -67,7 +67,7 @@
                         </Link>
                         <Link
                             v-else
-                            :href="registerTabUrl"
+                            :href="route('login')"
                             class="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 hover:bg-blue-700 transition-colors"
                         >
                             {{ navGetStarted }}
