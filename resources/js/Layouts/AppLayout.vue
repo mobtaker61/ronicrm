@@ -754,11 +754,22 @@ const switchLocale = async () => {
     if (!selectedLocale.value) {
         return;
     }
+    const code = selectedLocale.value;
+    const langMeta = languages.value.find((l) => String(l.code) === String(code));
+    if (langMeta && typeof document !== 'undefined') {
+        const dir = langMeta.direction === 'rtl' ? 'rtl' : 'ltr';
+        document.documentElement.setAttribute('dir', dir);
+        document.documentElement.setAttribute('lang', String(code).replace('_', '-'));
+    }
     try {
-        await window.axios.post('/i18n/locale', { locale: selectedLocale.value });
+        await window.axios.post('/i18n/locale', { locale: code });
         // Apply locale messages immediately without requiring hard refresh.
-        await loadLocaleMessages(selectedLocale.value, `/i18n/${selectedLocale.value}.json`);
-        router.reload({ preserveState: true, preserveScroll: true, only: ['i18n', 'languages'] });
+        await loadLocaleMessages(code, `/i18n/${code}.json`);
+        router.reload({
+            preserveState: true,
+            preserveScroll: true,
+            only: ['i18n', 'languages', 'html'],
+        });
     } catch (e) {
         // If setting locale fails, fallback to full reload.
         window.location.reload();
