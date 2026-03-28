@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('open_id')->index();
             $table->string('union_id')->nullable()->index();
             $table->string('display_name')->nullable();
-            $table->string('avatar_url')->nullable();
+            $table->text('avatar_url')->nullable();
             $table->text('access_token_encrypted');
             $table->text('refresh_token_encrypted')->nullable();
             $table->timestamp('token_expires_at')->nullable();
@@ -38,7 +38,7 @@ return new class extends Migration
             $table->string('from_display_name')->nullable();
             $table->text('message')->nullable();
             $table->string('message_type')->default('text');
-            $table->string('media_url')->nullable();
+            $table->text('media_url')->nullable();
             $table->string('media_mime_type')->nullable();
             $table->foreignId('customer_id')->nullable()->constrained('customers')->nullOnDelete();
             $table->enum('direction', ['incoming', 'outgoing'])->default('incoming');

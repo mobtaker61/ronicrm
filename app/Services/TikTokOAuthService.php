@@ -77,6 +77,9 @@ class TikTokOAuthService
         $profile = $this->fetchUserProfile($accessToken);
         $displayName = $profile['display_name'] ?? null;
         $avatarUrl = $profile['avatar_url'] ?? null;
+        if (is_string($avatarUrl) && strlen($avatarUrl) > 60000) {
+            $avatarUrl = mb_substr($avatarUrl, 0, 60000);
+        }
         $unionId = $profile['union_id'] ?? null;
 
         $connection = new TikTokConnection;
