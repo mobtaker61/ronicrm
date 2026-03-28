@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Language;
-use App\Models\TranslationKey;
+use App\Services\TranslationMapBuilder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
@@ -26,6 +26,9 @@ class BuildTranslationsJson extends Command
             File::makeDirectory($path, 0755, true);
         }
 
+        /** @var TranslationMapBuilder $builder */
+        $builder = app(TranslationMapBuilder::class);
+
         $languages = Language::query()
             ->when($locale !== '', fn ($q) => $q->where('code', $locale))
             ->where('is_active', true)
@@ -38,34 +41,8 @@ class BuildTranslationsJson extends Command
             return self::SUCCESS;
         }
 
-        $keys = TranslationKey::query()
-            ->orderBy('namespace')
-            ->orderBy('key')
-            ->get(['id', 'namespace', 'key']);
-
-        if ($keys->isEmpty()) {
-            $this->warn('No translation keys found. JSON files will be empty.');
-        }
-
         foreach ($languages as $lang) {
-            $map = [];
-
-            if ($keys->isNotEmpty()) {
-                $values = \App\Models\TranslationValue::query()
-                    ->where('language_id', $lang->id)
-                    ->whereIn('translation_key_id', $keys->pluck('id'))
-                    ->get(['translation_key_id', 'value'])
-                    ->keyBy('translation_key_id');
-
-                foreach ($keys as $k) {
-                    $fullKey = $k->namespace . '.' . $k->key;
-                    $val = $values->get($k->id)?->value;
-                    if ($val === null || trim((string) $val) === '') {
-                        continue;
-                    }
-                    $map[$fullKey] = $val;
-                }
-            }
+            $map = $builder->buildMapForLocale((string) $lang->code);
 
             $json = json_encode($map, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
             if ($json === false) {
@@ -76,10 +53,13 @@ class BuildTranslationsJson extends Command
             $outFile = rtrim($path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $lang->code . '.json';
             File::put($outFile, $json . PHP_EOL);
 
-            $this->info("Built: {$outFile} (" . count($map) . ' entries)');
+            $this->info("Built: {$outFile} (" . count($map) . ' entries, full key set with en fallback)');
         }
 
         if ($this->option('clear-cache')) {
+            foreach ($languages as $lang) {
+                Cache::forget('i18n_map_'.$lang->code);
+            }
             try {
                 Cache::tags(['i18n'])->flush();
                 $this->info('Cleared i18n cache (tag: i18n).');

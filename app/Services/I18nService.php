@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\File;
 
 class I18nService
 {
+    public function __construct(
+        protected TranslationMapBuilder $mapBuilder
+    ) {}
+
     public function getMap(string $locale): array
     {
         $locale = trim($locale);
@@ -18,14 +22,15 @@ class I18nService
         $cacheKey = "i18n_map_{$locale}";
 
         return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($locale) {
-            $fromDb = $this->buildFromDb($locale);
             $fromFile = $this->readFromFile($locale);
-            if ($fromFile === null) {
-                return $fromDb;
+            if ($fromFile !== null) {
+                $keyCount = TranslationKey::query()->count();
+                if ($keyCount > 0 && count($fromFile) === $keyCount) {
+                    return $fromFile;
+                }
             }
 
-            // Merge so DB fills missing keys and overrides stale JSON (translations:build-json cache).
-            return array_merge($fromFile, $fromDb);
+            return $this->mapBuilder->buildMapForLocale($locale);
         });
     }
 
@@ -50,38 +55,6 @@ class I18nService
         $raw = File::get($path);
         $decoded = json_decode($raw, true);
         return is_array($decoded) ? $decoded : [];
-    }
-
-    protected function buildFromDb(string $locale): array
-    {
-        $lang = \App\Models\Language::query()
-            ->where('code', $locale)
-            ->where('is_active', true)
-            ->first(['id']);
-        if (! $lang) {
-            return [];
-        }
-
-        $keys = TranslationKey::query()->get(['id', 'namespace', 'key']);
-        if ($keys->isEmpty()) {
-            return [];
-        }
-
-        $values = \App\Models\TranslationValue::query()
-            ->where('language_id', $lang->id)
-            ->whereIn('translation_key_id', $keys->pluck('id'))
-            ->get(['translation_key_id', 'value'])
-            ->keyBy('translation_key_id');
-
-        $map = [];
-        foreach ($keys as $k) {
-            $val = $values->get($k->id)?->value;
-            if ($val === null || trim((string) $val) === '') {
-                continue;
-            }
-            $map[$k->namespace.'.'.$k->key] = $val;
-        }
-        return $map;
     }
 }
 

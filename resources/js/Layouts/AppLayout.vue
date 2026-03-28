@@ -613,6 +613,13 @@ const currentLanguage = computed(() => {
 });
 
 const currentDir = computed(() => {
+    // Prefer server dir: it uses app locale + Language row, not the org-filtered `languages` list
+    // (SuperAdmin / restricted orgs may omit the active locale from `languages` while session stays fa).
+    const fromHtml = page.props.html?.dir;
+    if (fromHtml === 'rtl' || fromHtml === 'ltr') {
+        return fromHtml;
+    }
+
     return currentLanguage.value?.direction === 'rtl' ? 'rtl' : 'ltr';
 });
 
@@ -780,6 +787,22 @@ watch(
     (newValue) => {
         selectedLocale.value = newValue || null;
     }
+);
+
+watch(
+    () => [page.props.html?.dir, page.props.html?.lang],
+    ([dir, lang]) => {
+        if (typeof document === 'undefined') {
+            return;
+        }
+        if (dir === 'rtl' || dir === 'ltr') {
+            document.documentElement.setAttribute('dir', dir);
+        }
+        if (lang && typeof lang === 'string') {
+            document.documentElement.setAttribute('lang', lang);
+        }
+    },
+    { immediate: true }
 );
 
 watch(

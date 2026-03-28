@@ -9,6 +9,7 @@ use App\Models\TranslationValue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -31,9 +32,23 @@ class TranslationsController extends Controller
 
         $keys = TranslationKey::query()
             ->when($q !== '', function ($qb) use ($q) {
-                $qb->where('key', 'like', '%'.$q.'%')
-                    ->orWhere('namespace', 'like', '%'.$q.'%')
-                    ->orWhere('description', 'like', '%'.$q.'%');
+                $pattern = '%'.$q.'%';
+                $qb->where(function ($w) use ($pattern) {
+                    $w->where('key', 'like', $pattern)
+                        ->orWhere('namespace', 'like', $pattern)
+                        ->orWhere('description', 'like', $pattern);
+
+                    $grammar = DB::connection()->getQueryGrammar();
+                    $ns = $grammar->wrap('namespace');
+                    $keyCol = $grammar->wrap('key');
+                    $driver = DB::connection()->getDriverName();
+                    if (in_array($driver, ['mysql', 'mariadb', 'sqlsrv'], true)) {
+                        $w->orWhereRaw("CONCAT({$ns}, '.', {$keyCol}) LIKE ?", [$pattern]);
+                    } else {
+                        // sqlite, pgsql, etc. — string concat with ||
+                        $w->orWhereRaw("({$ns} || '.' || {$keyCol}) LIKE ?", [$pattern]);
+                    }
+                });
             })
             ->orderBy('namespace')
             ->orderBy('key')

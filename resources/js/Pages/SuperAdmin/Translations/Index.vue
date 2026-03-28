@@ -50,7 +50,7 @@
                         :key="k.id"
                         type="button"
                         @click="selectKey(k)"
-                        class="w-full text-left px-3 py-2 rounded-md border transition"
+                        class="w-full text-start px-3 py-2 rounded-md border transition"
                         :class="selectedKey?.id === k.id ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'"
                     >
                         <div class="text-sm font-medium text-gray-900 truncate">{{ k.full_key }}</div>
@@ -114,7 +114,7 @@
                             <div class="flex items-center justify-between mb-2">
                                 <div class="text-sm font-medium text-gray-900">
                                     {{ lang.name }} ({{ lang.code }})
-                                    <span v-if="lang.is_default" class="ml-2 text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{{ t('common.default') }}</span>
+                                    <span v-if="lang.is_default" class="ms-2 text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{{ t('common.default') }}</span>
                                 </div>
                                 <button
                                     type="button"

@@ -72,10 +72,11 @@ class SeedDefaultTranslations extends Command
             }
         }
 
-        $this->info("Seeded keys: {$seededKeys}");
+        $this->info("Seed map entries processed: {$seededKeys}");
         if (! $this->option('namespaceMapOnly')) {
             $this->info("Seeded values: {$seededValues}");
         }
+        $this->info('Translation keys in database (unique): '.TranslationKey::query()->count());
 
         return self::SUCCESS;
     }
