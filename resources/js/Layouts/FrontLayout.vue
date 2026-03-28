@@ -67,7 +67,7 @@
                         </Link>
                         <Link
                             v-else
-                            :href="route('login')"
+                            :href="registerTabUrl"
                             class="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 hover:bg-blue-700 transition-colors"
                         >
                             {{ navGetStarted }}
@@ -142,7 +142,7 @@
                         </Link>
                         <Link
                             v-else
-                            :href="route('login')"
+                            :href="registerTabUrl"
                             class="block text-center py-3 rounded-xl bg-blue-600 text-white font-semibold"
                             @click="mobileMenuOpen = false"
                         >
@@ -209,7 +209,7 @@
                         </Link>
                         <Link
                             v-else
-                            :href="route('login')"
+                            :href="registerTabUrl"
                             class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
                         >
                             {{ navGetStarted }}
@@ -267,7 +267,7 @@
                     />
                     <Link
                         v-if="!$page.props.auth?.user"
-                        :href="route('login')"
+                        :href="registerTabUrl"
                         class="block py-2 font-medium text-blue-600"
                         @click="mobileMenuOpen = false"
                     >
@@ -317,7 +317,7 @@
                                 <a :href="`${homeUrl}#pricing`" class="hover:text-white transition-colors">{{ navPricing }}</a>
                             </li>
                             <li>
-                                <Link :href="route('login')" class="hover:text-white transition-colors">{{ navGetStarted }}</Link>
+                                <Link :href="registerTabUrl" class="hover:text-white transition-colors">{{ navGetStarted }}</Link>
                             </li>
                         </ul>
                     </div>
@@ -372,7 +372,7 @@
                         <Link :href="route('front.welcome')" class="hover:text-blue-600 transition-colors">{{ navHome }}</Link>
                         <Link :href="route('front.privacy')" class="hover:text-blue-600 transition-colors">{{ navPrivacy }}</Link>
                         <Link :href="route('front.terms')" class="hover:text-blue-600 transition-colors">{{ navTerms }}</Link>
-                        <Link v-if="!$page.props.auth?.user" :href="route('login')" class="hover:text-blue-600 transition-colors">
+                        <Link v-if="!$page.props.auth?.user" :href="registerTabUrl" class="hover:text-blue-600 transition-colors">
                             {{ navGetStarted }}
                         </Link>
                     </nav>
@@ -421,6 +421,18 @@ const page = usePage();
 const mobileMenuOpen = ref(false);
 const year = new Date().getFullYear();
 const homeUrl = computed(() => route('front.welcome'));
+
+const registerTabUrl = computed(() => {
+    let base = '/login';
+    if (typeof window !== 'undefined' && typeof window.route === 'function') {
+        try {
+            base = window.route('login');
+        } catch {
+            /* ignore */
+        }
+    }
+    return base + (base.includes('?') ? '&' : '?') + 'tab=register';
+});
 
 const publicLocales = computed(() => page.props.publicLocales ?? []);
 const currentLocale = computed(() => String(page.props.i18n?.locale ?? ''));

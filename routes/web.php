@@ -12,6 +12,9 @@ Route::get('/terms-and-conditions', [FrontController::class, 'terms'])->name('fr
 
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
+Route::post('/register', [\App\Http\Controllers\Auth\RegisterController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('register');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 // Public customer card

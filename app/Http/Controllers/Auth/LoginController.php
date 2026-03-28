@@ -4,20 +4,23 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Inertia\Response;
 
 class LoginController extends Controller
 {
-    public function showLoginForm(): mixed
+    public function showLoginForm(Request $request): mixed
     {
         if (auth()->check()) {
             return redirect('/dashboard');
         }
 
-        return Inertia::render('Auth/Login');
+        $tab = $request->query('tab');
+        $initialTab = $tab === 'register' ? 'register' : 'login';
+
+        return Inertia::render('Auth/Login', [
+            'initialTab' => $initialTab,
+        ]);
     }
 
     public function login(Request $request)
@@ -29,7 +32,7 @@ class LoginController extends Controller
 
         // Determine if input is email or username
         $field = filter_var($request->email, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
-        
+
         $credentials = [
             $field => $request->email,
             'password' => $request->password,

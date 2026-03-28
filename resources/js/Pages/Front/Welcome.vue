@@ -217,7 +217,7 @@
                             {{ t('front.highlight_dashboard_desc') }}
                         </p>
                         <Link
-                            :href="route('login')"
+                            :href="registerUrl()"
                             class="mt-8 inline-flex items-center rounded-2xl border-2 border-gray-900 px-6 py-3 text-sm font-semibold text-gray-900 hover:bg-gray-900 hover:text-white transition-colors"
                         >
                             {{ t('front.highlight_read_more') }}
@@ -364,7 +364,7 @@
                             <li v-else class="text-sm text-gray-500">{{ t('front.pricing_no_limits') }}</li>
                         </ul>
                         <Link
-                            :href="route('login')"
+                            :href="registerUrl(plan.id)"
                             class="mt-8 block text-center rounded-2xl py-3.5 text-sm font-semibold transition-colors"
                             :class="
                                 idx === highlightedPlanIndex
@@ -398,7 +398,7 @@
                     </div>
                 </div>
                 <Link
-                    :href="route('login')"
+                    :href="registerUrl()"
                     class="mt-10 inline-flex items-center rounded-2xl border-2 border-gray-300 bg-white px-8 py-3 text-sm font-semibold text-gray-800 hover:border-gray-400 transition-colors"
                 >
                     {{ t('front.integration_view_all') }}
@@ -436,7 +436,7 @@
             <div class="max-w-4xl mx-auto px-4 text-center">
                 <h2 class="text-2xl sm:text-3xl font-bold">{{ t('front.cta_web_title') }}</h2>
                 <Link
-                    :href="route('login')"
+                    :href="registerUrl()"
                     class="mt-8 inline-flex items-center justify-center rounded-2xl bg-white px-10 py-4 text-sm font-bold text-blue-700 shadow-lg hover:bg-blue-50 transition-colors"
                 >
                     {{ t('front.cta_web_button') }}
@@ -545,9 +545,31 @@ function billingLabel(plan) {
     return `${plan.billing_period}${interval}`;
 }
 
+function loginBase() {
+    if (typeof window !== 'undefined' && typeof window.route === 'function') {
+        try {
+            return window.route('login');
+        } catch {
+            /* ignore */
+        }
+    }
+    return '/login';
+}
+
+function registerUrl(planId = null) {
+    let url = loginBase() + (loginBase().includes('?') ? '&' : '?') + 'tab=register';
+    if (planId != null) {
+        url += `&plan=${encodeURIComponent(String(planId))}`;
+    }
+    return url;
+}
+
 function goTryFree() {
-    const q = heroEmail.value ? `?email=${encodeURIComponent(heroEmail.value)}` : '';
-    window.location.href = route('login') + q;
+    let url = loginBase() + (loginBase().includes('?') ? '&' : '?') + 'tab=register';
+    if (heroEmail.value) {
+        url += `&email=${encodeURIComponent(heroEmail.value)}`;
+    }
+    window.location.href = url;
 }
 
 function onNewsletterSubmit() {

@@ -25,6 +25,7 @@ const routeHelper = (name, params = null, absolute = false) => {
         'front.terms': '/terms-and-conditions',
         'locale.set': '/locale',
         'login': '/login',
+        'register': '/register',
         'dashboard': '/dashboard',
         'settings.instagram.connect': '/settings/instagram/connect',
         'settings.instagram.callback': '/settings/instagram/callback',

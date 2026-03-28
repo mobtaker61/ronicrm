@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Language;
 use App\Models\TranslationKey;
 use App\Models\TranslationValue;
+use App\Support\TranslationSeedFragments\AuthRegisterKeys;
 use App\Support\TranslationSeedFragments\FrontLandingKeys;
 use Illuminate\Console\Command;
 
@@ -2172,6 +2173,7 @@ class SeedDefaultTranslations extends Command
                     'tr' => 'Giriş',
                     'ku' => 'چوونەژوورەوە',
                 ],
+                ...AuthRegisterKeys::definitions(),
             ],
             'media' => [
                 'folders' => [
