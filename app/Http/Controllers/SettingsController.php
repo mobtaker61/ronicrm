@@ -187,6 +187,7 @@ class SettingsController extends Controller
                 'webhook_verify_token' => '',
             ]),
             'instagramConnection' => $this->getInstagramConnectionForFront(),
+            'tiktokConnection' => $this->getTikTokConnectionForFront(),
             'googleContactsIntegration' => $this->getGoogleContactsIntegrationForFront(),
             'googleContactsRedirectUri' => config('services.google_contacts.redirect_uri'),
             'telegramConnection' => $this->getTelegramConnectionForFront(),
@@ -250,6 +251,26 @@ class SettingsController extends Controller
             'ig_username' => $conn->ig_username,
             'ig_profile_pic_url' => $conn->ig_profile_pic_url,
             'page_id' => $conn->page_id,
+            'token_expires_at' => $conn->token_expires_at?->toIso8601String(),
+            'token_valid' => ! $conn->isTokenExpired(),
+            'scopes' => $conn->scopes_json,
+            'webhook_verified_at' => $conn->webhook_verified_at?->toIso8601String(),
+            'last_webhook_event_at' => $conn->last_webhook_event_at?->toIso8601String(),
+        ];
+    }
+
+    protected function getTikTokConnectionForFront(): ?array
+    {
+        $conn = \App\Models\TikTokConnection::getActive();
+        if (! $conn) {
+            return null;
+        }
+
+        return [
+            'id' => $conn->id,
+            'open_id' => $conn->open_id,
+            'display_name' => $conn->display_name,
+            'avatar_url' => $conn->avatar_url,
             'token_expires_at' => $conn->token_expires_at?->toIso8601String(),
             'token_valid' => ! $conn->isTokenExpired(),
             'scopes' => $conn->scopes_json,

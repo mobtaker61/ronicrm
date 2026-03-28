@@ -32,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'wpwebhook',
             'instagram-webhook',
             'instagram-webhook/*',
+            'tiktok-webhook',
         ]);
 
         // Trust all proxies (needed for ngrok)

@@ -10,6 +10,7 @@ use App\Models\CustomerSocialMedia;
 use App\Models\InstagramMessage;
 use App\Models\SocialMediaType;
 use App\Models\TelegramMessage;
+use App\Models\TikTokMessage;
 use App\Models\WhatsAppMessage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,6 +27,9 @@ class InboxController extends Controller
     public function index(Request $request): Response
     {
         $channel = $request->get('channel', 'whatsapp');
+        if (! in_array($channel, ['whatsapp', 'telegram', 'instagram', 'tiktok'], true)) {
+            $channel = 'whatsapp';
+        }
         $selectedContact = $request->get('phone');
         if ($channel === 'telegram') {
             $selectedContact = $request->get('chat_id', $selectedContact);
@@ -39,6 +43,19 @@ class InboxController extends Controller
                     $igContact = $cust->contacts()->where('type', 'instagram')->first();
                     if ($igContact) {
                         $selectedContact = $igContact->value;
+                    }
+                }
+            }
+        }
+        if ($channel === 'tiktok') {
+            $selectedContact = $request->get('tiktok_open_id', $selectedContact);
+            $tiktokCustomerId = $request->get('customer_id');
+            if ($tiktokCustomerId && ! $selectedContact) {
+                $cust = Customer::find($tiktokCustomerId);
+                if ($cust) {
+                    $ttContact = $cust->contacts()->where('type', 'tiktok')->first();
+                    if ($ttContact) {
+                        $selectedContact = $ttContact->value;
                     }
                 }
             }
@@ -76,6 +93,7 @@ class InboxController extends Controller
                         'phone' => null,
                         'chat_id' => $tg?->value ?? ($tgHandle ? ($tgHandle->handle[0] === '@' ? $tgHandle->handle : '@'.$tgHandle->handle) : null),
                         'ig_user_id' => null,
+                        'tiktok_open_id' => null,
                         'avatar' => $customer->avatar ? asset('storage/'.$customer->avatar) : null,
                     ];
                 })->filter(fn ($r) => ! empty($r['chat_id']))->values()->all();
@@ -113,6 +131,45 @@ class InboxController extends Controller
                         'phone' => null,
                         'chat_id' => null,
                         'ig_user_id' => $ig?->value,
+                        'tiktok_open_id' => null,
+                        'avatar' => $customer->avatar ? asset('storage/'.$customer->avatar) : null,
+                    ];
+                })->values()->all();
+            } elseif ($channel === 'tiktok') {
+                $tiktokTypeId = SocialMediaType::where('name', 'TikTok')->value('id');
+                $byContact = Customer::query()
+                    ->whereHas('contacts', function ($cq) {
+                        $cq->where('type', 'tiktok');
+                    })
+                    ->where(function ($q) use ($searchTerm) {
+                        $q->where('name', 'like', '%'.$searchTerm.'%')
+                            ->orWhereHas('contacts', function ($cq) use ($searchTerm) {
+                                $cq->where('type', 'tiktok')->where('value', 'like', '%'.$searchTerm.'%');
+                            });
+                    })
+                    ->limit(20)
+                    ->get();
+                $byHandle = collect();
+                if ($tiktokTypeId) {
+                    $byHandle = Customer::query()
+                        ->whereHas('socialMedia', function ($sq) use ($tiktokTypeId, $searchTerm) {
+                            $sq->where('social_media_type_id', $tiktokTypeId)
+                                ->where('handle', 'like', '%'.$searchTerm.'%');
+                        })
+                        ->limit(20)
+                        ->get();
+                }
+                $merged = $byContact->merge($byHandle)->unique('id');
+                $searchResults = $merged->take(15)->map(function ($customer) {
+                    $tt = $customer->contacts()->where('type', 'tiktok')->first();
+
+                    return [
+                        'id' => $customer->id,
+                        'name' => $customer->name,
+                        'phone' => null,
+                        'chat_id' => null,
+                        'ig_user_id' => null,
+                        'tiktok_open_id' => $tt?->value,
                         'avatar' => $customer->avatar ? asset('storage/'.$customer->avatar) : null,
                     ];
                 })->values()->all();
@@ -139,6 +196,7 @@ class InboxController extends Controller
                         'phone' => $phoneContact?->value,
                         'chat_id' => null,
                         'ig_user_id' => null,
+                        'tiktok_open_id' => null,
                         'avatar' => $customer->avatar ? asset('storage/'.$customer->avatar) : null,
                     ];
                 })->filter(fn ($r) => ! empty($r['phone']))->values()->all();
@@ -221,6 +279,45 @@ class InboxController extends Controller
                     }
                 }
             }
+        } elseif ($channel === 'tiktok') {
+            $tiktokCustomerId = $request->get('customer_id');
+            $conversations = $this->buildTikTokConversations();
+            $messages = [];
+            $selectedCustomer = null;
+            if ($selectedContact) {
+                $messages = TikTokMessage::forOpenId($selectedContact)
+                    ->orderBy('created_at', 'asc')
+                    ->get()
+                    ->map(function ($msg) {
+                        return [
+                            'id' => $msg->id,
+                            'message' => $msg->message,
+                            'message_type' => $msg->message_type,
+                            'media_url' => $msg->media_url,
+                            'direction' => $msg->direction,
+                            'status' => $msg->status,
+                            'created_at' => $msg->created_at,
+                            'read_at' => $msg->read_at,
+                        ];
+                    });
+                $this->scheduleMarkConversationReadAfterResponse('tiktok', $selectedContact);
+                $selectedCustomer = $this->findCustomerByTiktokOpenId($selectedContact);
+                if ($selectedCustomer) {
+                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                    if ($selectedCustomer->avatar) {
+                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
+                    }
+                }
+            }
+            if (! $selectedCustomer && ! empty($tiktokCustomerId)) {
+                $selectedCustomer = Customer::find($tiktokCustomerId);
+                if ($selectedCustomer) {
+                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                    if ($selectedCustomer->avatar) {
+                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
+                    }
+                }
+            }
         } else {
             $conversations = $this->buildWhatsAppConversations();
             $messages = [];
@@ -277,6 +374,7 @@ class InboxController extends Controller
             'selectedPhone' => $channel === 'whatsapp' ? $selectedContact : null,
             'selectedChatId' => $channel === 'telegram' ? $selectedContact : null,
             'selectedIgUserId' => $channel === 'instagram' ? $selectedContact : null,
+            'selectedTikTokOpenId' => $channel === 'tiktok' ? $selectedContact : null,
             'searchResults' => $searchResults,
             'selectedCustomer' => $selectedCustomer ?? null,
             'templates' => $templates,
@@ -305,6 +403,8 @@ class InboxController extends Controller
             $conversations->push([
                 'phone' => $phone,
                 'chat_id' => null,
+                'ig_user_id' => null,
+                'tiktok_open_id' => null,
                 'name' => $displayName,
                 'customer_id' => $customer?->id,
                 'avatar' => $customer?->avatar ? asset('storage/'.$customer->avatar) : null,
@@ -334,6 +434,8 @@ class InboxController extends Controller
             $conversations->push([
                 'phone' => null,
                 'chat_id' => $chatId,
+                'ig_user_id' => null,
+                'tiktok_open_id' => null,
                 'name' => $displayName,
                 'customer_id' => $customer?->id,
                 'avatar' => $customer?->avatar ? asset('storage/'.$customer->avatar) : null,
@@ -364,6 +466,38 @@ class InboxController extends Controller
                 'phone' => null,
                 'chat_id' => null,
                 'ig_user_id' => $igUserId,
+                'tiktok_open_id' => null,
+                'name' => $displayName,
+                'customer_id' => $customer?->id,
+                'avatar' => $customer?->avatar ? asset('storage/'.$customer->avatar) : null,
+                'last_message' => $lastMessage?->message,
+                'last_message_at' => $lastMessage?->created_at,
+                'unread_count' => $unreadCount,
+                'message_count' => $messageCount,
+            ]);
+        }
+
+        return $conversations->sortByDesc('last_message_at')->values();
+    }
+
+    protected function buildTikTokConversations(): \Illuminate\Support\Collection
+    {
+        $incomingIds = TikTokMessage::incoming()->select('tiktok_open_id')->distinct()->pluck('tiktok_open_id');
+        $outgoingIds = TikTokMessage::where('direction', 'outgoing')->select('tiktok_open_id')->distinct()->pluck('tiktok_open_id');
+        $allIds = $incomingIds->merge($outgoingIds)->unique()->filter();
+
+        $conversations = collect();
+        foreach ($allIds as $openId) {
+            $customer = $this->findCustomerByTiktokOpenId($openId);
+            $lastMessage = TikTokMessage::forOpenId($openId)->latest()->first();
+            $unreadCount = TikTokMessage::forOpenId($openId)->where('direction', 'incoming')->whereNull('read_at')->count();
+            $messageCount = TikTokMessage::forOpenId($openId)->count();
+            $displayName = $customer ? $customer->name : ($lastMessage ? ($lastMessage->from_display_name ?? $openId) : $openId);
+            $conversations->push([
+                'phone' => null,
+                'chat_id' => null,
+                'ig_user_id' => null,
+                'tiktok_open_id' => $openId,
                 'name' => $displayName,
                 'customer_id' => $customer?->id,
                 'avatar' => $customer?->avatar ? asset('storage/'.$customer->avatar) : null,
@@ -414,6 +548,17 @@ class InboxController extends Controller
         return $msg?->customer;
     }
 
+    protected function findCustomerByTiktokOpenId(string $openId): ?Customer
+    {
+        $contact = CustomerContact::where('type', 'tiktok')->where('value', $openId)->first();
+        if ($contact) {
+            return $contact->customer;
+        }
+        $msg = TikTokMessage::where('tiktok_open_id', $openId)->whereNotNull('customer_id')->first();
+
+        return $msg?->customer;
+    }
+
     /**
      * Send a reply message (WhatsApp or Telegram).
      */
@@ -434,6 +579,8 @@ class InboxController extends Controller
             $rules['to_chat_id'] = 'required|string';
         } elseif ($channel === 'instagram') {
             $rules['to_ig_user_id'] = 'required|string';
+        } elseif ($channel === 'tiktok') {
+            $rules['to_tiktok_open_id'] = 'required|string';
         } else {
             $rules['to_phone'] = 'required|string';
         }
@@ -448,7 +595,12 @@ class InboxController extends Controller
             $fileType = 'text';
             if ($request->hasFile('media_file')) {
                 $file = $request->file('media_file');
-                $storedPath = $file->store($channel === 'telegram' ? 'telegram-media' : 'whatsapp-media', 'public');
+                $diskFolder = match ($channel) {
+                    'telegram' => 'telegram-media',
+                    'tiktok' => 'tiktok-media',
+                    default => 'whatsapp-media',
+                };
+                $storedPath = $file->store($diskFolder, 'public');
                 $mediaUrl = $this->getPublicFileUrl($storedPath, $request);
                 $fileType = $this->getFileType($file);
             }
@@ -529,6 +681,33 @@ class InboxController extends Controller
                 return redirect()->route('inbox.index', ['channel' => 'instagram', 'ig_user_id' => $toIgUserId])
                     ->with('error', 'Message saved but failed to send: '.($result['error'] ?? 'Unknown error'));
             }
+            if ($channel === 'tiktok') {
+                $toOpenId = $validated['to_tiktok_open_id'];
+                $tiktokService = app(\App\Services\TikTokMessagingService::class);
+                $result = $tiktokService->sendMessage($toOpenId, $messageToSend, $mediaUrl);
+                $customer = $this->findCustomerByTiktokOpenId($toOpenId);
+                $ttConn = \App\Models\TikTokConnection::getActive();
+                TikTokMessage::create([
+                    'tiktok_connection_id' => $ttConn?->id,
+                    'tiktok_message_id' => $result['message_id'] ?? null,
+                    'tiktok_open_id' => $toOpenId,
+                    'from_display_name' => null,
+                    'message' => $messageToSend ?: null,
+                    'message_type' => $mediaUrl ? $fileType : 'text',
+                    'media_url' => $mediaUrl,
+                    'media_mime_type' => $request->hasFile('media_file') ? $request->file('media_file')->getMimeType() : null,
+                    'customer_id' => $customer?->id,
+                    'direction' => 'outgoing',
+                    'status' => $result['success'] ? 'sent' : 'failed',
+                ]);
+                if ($result['success']) {
+                    return redirect()->route('inbox.index', ['channel' => 'tiktok', 'tiktok_open_id' => $toOpenId])
+                        ->with('success', 'Message sent successfully.')->with('refresh', true);
+                }
+
+                return redirect()->route('inbox.index', ['channel' => 'tiktok', 'tiktok_open_id' => $toOpenId])
+                    ->with('error', 'Message saved but failed to send: '.($result['error'] ?? 'Unknown error'));
+            }
 
             $whatsappService = app(\App\Services\WhatsAppService::class);
             $result = $whatsappService->sendMessage($validated['to_phone'], $messageToSend, $mediaUrl);
@@ -571,10 +750,42 @@ class InboxController extends Controller
             $rules['chat_id'] = 'required|string';
         } elseif ($channel === 'instagram') {
             $rules['ig_user_id'] = 'required|string';
+        } elseif ($channel === 'tiktok') {
+            $rules['tiktok_open_id'] = 'required|string';
         } else {
             $rules['phone'] = 'required|string';
         }
         $validated = $request->validate($rules);
+
+        if ($channel === 'tiktok') {
+            $openId = (string) $validated['tiktok_open_id'];
+            $customer = $this->findCustomerByTiktokOpenId($openId);
+            if ($customer) {
+                return redirect()->back()->with('error', 'Customer already exists for this TikTok user.');
+            }
+            $customer = Customer::create([
+                'name' => $validated['name'],
+                'type' => 'person',
+                'status' => 'lead',
+                'source' => 'tiktok',
+                'created_by' => Auth::id(),
+            ]);
+            $customer->contacts()->create([
+                'type' => 'tiktok',
+                'value' => $openId,
+                'is_primary' => true,
+            ]);
+            if (! empty($validated['email'])) {
+                $customer->contacts()->create([
+                    'type' => 'email',
+                    'value' => $validated['email'],
+                    'is_primary' => false,
+                ]);
+            }
+            TikTokMessage::where('tiktok_open_id', $openId)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
+
+            return redirect()->back()->with('success', 'Customer created successfully.');
+        }
 
         if ($channel === 'instagram') {
             $igUserId = (string) $validated['ig_user_id'];
@@ -666,34 +877,53 @@ class InboxController extends Controller
     }
 
     /**
-     * Assign Instagram conversation (ig_user_id) to an existing customer.
+     * Assign Instagram or TikTok conversation to an existing customer.
      */
     public function assignToCustomer(Request $request)
     {
         $validated = $request->validate([
-            'channel' => 'required|in:instagram',
-            'ig_user_id' => 'required|string',
+            'channel' => 'required|in:instagram,tiktok',
+            'ig_user_id' => 'nullable|required_if:channel,instagram|string',
+            'tiktok_open_id' => 'nullable|required_if:channel,tiktok|string',
             'customer_id' => 'required|integer|exists:customers,id',
         ]);
-        if ($validated['channel'] !== 'instagram') {
-            return redirect()->back()->with('error', 'Invalid channel.');
-        }
         $customer = Customer::findOrFail($validated['customer_id']);
-        $igUserId = (string) $validated['ig_user_id'];
-        $existing = CustomerContact::where('type', 'instagram')->where('value', $igUserId)->first();
+
+        if ($validated['channel'] === 'instagram') {
+            $igUserId = (string) $validated['ig_user_id'];
+            $existing = CustomerContact::where('type', 'instagram')->where('value', $igUserId)->first();
+            if ($existing) {
+                if ($existing->customer_id === $customer->id) {
+                    return redirect()->back()->with('info', 'Already assigned to this customer.');
+                }
+
+                return redirect()->back()->with('error', 'This Instagram user is already linked to another customer.');
+            }
+            $customer->contacts()->create([
+                'type' => 'instagram',
+                'value' => $igUserId,
+                'is_primary' => false,
+            ]);
+            InstagramMessage::where('ig_user_id', $igUserId)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
+
+            return redirect()->back()->with('success', 'Conversation assigned to customer.');
+        }
+
+        $openId = (string) $validated['tiktok_open_id'];
+        $existing = CustomerContact::where('type', 'tiktok')->where('value', $openId)->first();
         if ($existing) {
             if ($existing->customer_id === $customer->id) {
                 return redirect()->back()->with('info', 'Already assigned to this customer.');
             }
 
-            return redirect()->back()->with('error', 'This Instagram user is already linked to another customer.');
+            return redirect()->back()->with('error', 'This TikTok user is already linked to another customer.');
         }
         $customer->contacts()->create([
-            'type' => 'instagram',
-            'value' => $igUserId,
+            'type' => 'tiktok',
+            'value' => $openId,
             'is_primary' => false,
         ]);
-        InstagramMessage::where('ig_user_id', $igUserId)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
+        TikTokMessage::where('tiktok_open_id', $openId)->whereNull('customer_id')->update(['customer_id' => $customer->id]);
 
         return redirect()->back()->with('success', 'Conversation assigned to customer.');
     }
@@ -869,6 +1099,10 @@ class InboxController extends Controller
                     $q->update(['read_at' => now(), 'status' => 'read']);
                 } elseif ($channel === 'instagram') {
                     InstagramMessage::forIgUser($contactKey)
+                        ->whereNull('read_at')
+                        ->update(['read_at' => now(), 'status' => 'read']);
+                } elseif ($channel === 'tiktok') {
+                    TikTokMessage::forOpenId($contactKey)
                         ->whereNull('read_at')
                         ->update(['read_at' => now(), 'status' => 'read']);
                 } else {

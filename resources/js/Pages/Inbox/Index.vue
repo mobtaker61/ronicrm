@@ -37,6 +37,17 @@
                     >
                         {{ t('settings.tabs.instagram_inbox') }}
                     </a>
+                    <a
+                        :href="route('inbox.index', { channel: 'tiktok' })"
+                        :class="[
+                            'px-4 py-2 text-sm font-medium border-l border-gray-200 rtl:border-l-0 rtl:border-r',
+                            channel === 'tiktok'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white text-gray-700 hover:bg-gray-50'
+                        ]"
+                    >
+                        {{ t('settings.tabs.tiktok_inbox') }}
+                    </a>
                 </div>
             </div>
         </template>
@@ -58,7 +69,7 @@
                 <div class="w-[26%] min-w-[220px] max-w-[320px] bg-white border-r border-gray-200 rtl:border-r-0 rtl:border-l flex flex-col flex-shrink-0">
                     <!-- Instagram: درخواست اجازه نوتیفیکیشن (مرورگر فقط با کلیک کاربر اجازه می‌دهد) -->
                     <div
-                        v-if="channel === 'instagram' && notificationPermission === 'default'"
+                        v-if="(channel === 'instagram' || channel === 'tiktok') && notificationPermission === 'default'"
                         class="flex-shrink-0 px-4 py-2 bg-amber-50 border-b border-amber-200"
                     >
                         <button
@@ -77,7 +88,7 @@
                                 @input="searchCustomers"
                                 @focus="showSearchResults = true"
                                 type="text"
-                                :placeholder="channel === 'telegram' ? t('inbox.search_name_or_telegram') : (channel === 'instagram' ? t('inbox.search_name_or_instagram') : t('inbox.search_or_phone'))"
+                                :placeholder="channel === 'telegram' ? t('inbox.search_name_or_telegram') : (channel === 'instagram' ? t('inbox.search_name_or_instagram') : (channel === 'tiktok' ? t('inbox.search_name_or_tiktok') : t('inbox.search_or_phone')))"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                             
@@ -106,7 +117,7 @@
                                     </div>
                                     <div class="flex-1 min-w-0">
                                         <p class="text-sm font-semibold text-gray-900 truncate">{{ result.name }}</p>
-                                        <p class="text-xs text-gray-500">{{ result.phone || result.chat_id || result.ig_user_id }}</p>
+                                        <p class="text-xs text-gray-500">{{ result.phone || result.chat_id || result.ig_user_id || result.tiktok_open_id }}</p>
                                     </div>
                                 </div>
                                 
@@ -133,11 +144,11 @@
                     <div class="flex-1 overflow-y-auto">
                         <div
                             v-for="conv in filteredConversations"
-                            :key="conv.phone || conv.chat_id || conv.ig_user_id"
-                            @click="selectConversation(conv.phone || conv.chat_id || conv.ig_user_id)"
+                            :key="conv.phone || conv.chat_id || conv.ig_user_id || conv.tiktok_open_id"
+                            @click="selectConversation(conv.phone || conv.chat_id || conv.ig_user_id || conv.tiktok_open_id)"
                             :class="[
                                 'px-4 py-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors',
-                                selectedContact === (conv.phone || conv.chat_id || conv.ig_user_id) ? 'bg-blue-50 border-l-4 border-l-blue-600 rtl:border-l-0 rtl:border-r-4 rtl:border-r-blue-600' : ''
+                                selectedContact === (conv.phone || conv.chat_id || conv.ig_user_id || conv.tiktok_open_id) ? 'bg-blue-50 border-l-4 border-l-blue-600 rtl:border-l-0 rtl:border-r-4 rtl:border-r-blue-600' : ''
                             ]"
                         >
                             <div class="flex items-center space-x-3 rtl:space-x-reverse">
@@ -195,7 +206,7 @@
 
                 <!-- Messages Area (Middle) -->
                 <div class="flex-1 flex flex-col bg-gray-50 min-w-0">
-                    <div v-if="selectedContact || (channel === 'instagram' && selectedCustomer && !selectedIgUserId)" class="flex-1 flex flex-col min-h-0">
+                    <div v-if="selectedContact || ((channel === 'instagram' || channel === 'tiktok') && selectedCustomer && !selectedContact)" class="flex-1 flex flex-col min-h-0">
                         <!-- Conversation Header (Sticky) -->
                         <div class="flex-shrink-0 bg-white px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                             <div class="flex items-center space-x-3 rtl:space-x-reverse min-w-0">
@@ -214,7 +225,7 @@
                                     <h2 class="text-lg font-semibold text-gray-900 truncate">
                                         {{ getDisplayName(selectedConversation) || selectedCustomer?.name }}
                                     </h2>
-                                    <p v-if="!hasCustomer && !noConversationYet" class="text-sm text-gray-500 truncate">{{ channel === 'instagram' ? selectedIgUserId : (channel === 'telegram' ? selectedChatId : selectedPhone) }}</p>
+                                    <p v-if="!hasCustomer && !noConversationYet" class="text-sm text-gray-500 truncate">{{ channel === 'instagram' ? selectedIgUserId : (channel === 'tiktok' ? selectedTikTokOpenId : (channel === 'telegram' ? selectedChatId : selectedPhone)) }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center space-x-2 rtl:space-x-reverse flex-shrink-0">
@@ -228,6 +239,7 @@
                                 </template>
                                 <template v-else-if="!hasCustomer">
                                     <button
+                                        v-if="channel === 'instagram' || channel === 'tiktok'"
                                         @click="showAssignCustomerModal = true"
                                         class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap"
                                     >
@@ -250,12 +262,19 @@
                             </div>
                         </div>
 
-                        <!-- No conversation yet (Instagram: customer has handle but no messages) -->
+                        <!-- No conversation yet (Instagram / TikTok: customer has contact but no thread) -->
                         <div v-if="noConversationYet" class="flex-1 flex items-center justify-center p-8 bg-gray-50">
                             <div class="text-center max-w-md">
-                                <p class="text-gray-600 mb-2">{{ t('inbox.instagram_no_message_yet') }}</p>
-                                <p class="text-sm text-gray-500 mb-2">{{ t('inbox.instagram_no_message_help_1') }}</p>
-                                <p class="text-xs text-gray-400 mb-4">{{ t('inbox.instagram_no_message_help_2') }}</p>
+                                <template v-if="channel === 'tiktok'">
+                                    <p class="text-gray-600 mb-2">{{ t('inbox.tiktok_no_message_yet') }}</p>
+                                    <p class="text-sm text-gray-500 mb-2">{{ t('inbox.tiktok_no_message_help_1') }}</p>
+                                    <p class="text-xs text-gray-400 mb-4">{{ t('inbox.tiktok_no_message_help_2') }}</p>
+                                </template>
+                                <template v-else>
+                                    <p class="text-gray-600 mb-2">{{ t('inbox.instagram_no_message_yet') }}</p>
+                                    <p class="text-sm text-gray-500 mb-2">{{ t('inbox.instagram_no_message_help_1') }}</p>
+                                    <p class="text-xs text-gray-400 mb-4">{{ t('inbox.instagram_no_message_help_2') }}</p>
+                                </template>
                                 <Link :href="route('customers.show', selectedCustomer.id)" class="text-blue-600 hover:underline font-medium">{{ t('inbox.view_customer_card') }}</Link>
                             </div>
                         </div>
@@ -441,12 +460,19 @@
                                         ? t('inbox.empty_state_telegram')
                                         : (channel === 'instagram'
                                             ? t('inbox.empty_state_instagram')
-                                            : t('inbox.empty_state_whatsapp'))
+                                            : (channel === 'tiktok'
+                                                ? t('inbox.empty_state_tiktok')
+                                                : t('inbox.empty_state_whatsapp')))
                                 }}
                             </p>
                             <div v-if="channel === 'instagram'" class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 max-w-md mx-auto text-right">
                                 <p class="font-medium mb-1">{{ t('inbox.instagram_send_messages_title') }}</p>
                                 <p class="mb-2">{{ t('inbox.instagram_send_messages_help') }}</p>
+                                <a :href="route('settings.index')" class="text-amber-700 underline font-medium">{{ t('inbox.go_to_settings') }}</a>
+                            </div>
+                            <div v-if="channel === 'tiktok'" class="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 max-w-md mx-auto text-right">
+                                <p class="font-medium mb-1">{{ t('inbox.tiktok_send_messages_title') }}</p>
+                                <p class="mb-2">{{ t('inbox.tiktok_send_messages_help') }}</p>
                                 <a :href="route('settings.index')" class="text-amber-700 underline font-medium">{{ t('inbox.go_to_settings') }}</a>
                             </div>
                         </div>
@@ -472,7 +498,7 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <h2 class="text-xl font-bold text-gray-900 truncate">{{ selectedCustomer.name }}</h2>
-                                    <p class="text-sm text-gray-500">{{ channel === 'instagram' ? selectedIgUserId : (channel === 'telegram' ? selectedChatId : selectedPhone) }}</p>
+                                    <p class="text-sm text-gray-500">{{ channel === 'instagram' ? selectedIgUserId : (channel === 'tiktok' ? selectedTikTokOpenId : (channel === 'telegram' ? selectedChatId : selectedPhone)) }}</p>
                                 </div>
                             </div>
                             <Link
@@ -595,10 +621,10 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                {{ channel === 'telegram' ? t('inbox.telegram_chat_id') : (channel === 'instagram' ? t('inbox.instagram_user_id') : t('customers.phone')) }}
+                                {{ channel === 'telegram' ? t('inbox.telegram_chat_id') : (channel === 'instagram' ? t('inbox.instagram_user_id') : (channel === 'tiktok' ? t('inbox.tiktok_open_id_label') : t('customers.phone'))) }}
                             </label>
                             <input
-                                :value="channel === 'instagram' ? selectedIgUserId : (channel === 'telegram' ? selectedChatId : selectedPhone)"
+                                :value="channel === 'instagram' ? selectedIgUserId : (channel === 'tiktok' ? selectedTikTokOpenId : (channel === 'telegram' ? selectedChatId : selectedPhone))"
                                 type="text"
                                 disabled
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
@@ -728,6 +754,10 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    selectedTikTokOpenId: {
+        type: String,
+        default: null,
+    },
     searchResults: {
         type: Array,
         default: () => [],
@@ -746,6 +776,7 @@ const channel = computed(() => props.channel || 'whatsapp');
 const selectedContact = computed(() => {
     if (channel.value === 'telegram') return props.selectedChatId || null;
     if (channel.value === 'instagram') return props.selectedIgUserId || null;
+    if (channel.value === 'tiktok') return props.selectedTikTokOpenId || null;
     return props.selectedPhone || null;
 });
 
@@ -764,8 +795,11 @@ const messageTextarea = ref(null);
 const page = usePage();
 const instagramPollInterval = ref(null);
 const telegramPollInterval = ref(null);
+const tiktokPollInterval = ref(null);
 const instagramPollPrevCount = ref(0);
 const instagramPollPrevUnread = ref(0);
+const tiktokPollPrevCount = ref(0);
+const tiktokPollPrevUnread = ref(0);
 const notificationPermission = ref(typeof Notification !== 'undefined' ? Notification.permission : 'denied');
 
 const sendForm = useForm({
@@ -782,6 +816,7 @@ const customerForm = useForm({
     channel: props.channel || 'whatsapp',
     chat_id: props.selectedChatId || '',
     ig_user_id: props.selectedIgUserId || '',
+    tiktok_open_id: props.selectedTikTokOpenId || '',
 });
 
 // جستجو با حداقل ۲ کاراکتر و درخواست فقط searchResults از سرور
@@ -791,6 +826,7 @@ const searchCustomers = debounce(() => {
         const params = { search_phone: q, channel: channel.value };
         if (channel.value === 'telegram' && props.selectedChatId) params.chat_id = props.selectedChatId;
         if (channel.value === 'instagram' && props.selectedIgUserId) params.ig_user_id = props.selectedIgUserId;
+        if (channel.value === 'tiktok' && props.selectedTikTokOpenId) params.tiktok_open_id = props.selectedTikTokOpenId;
         if (channel.value === 'whatsapp' && props.selectedPhone) params.phone = props.selectedPhone;
         router.get(route('inbox.index'), params, {
             preserveState: true,
@@ -831,8 +867,9 @@ const filteredConversations = computed(() => {
         const phone = (c.phone || '').replace(/\D/g, '');
         const chatId = (c.chat_id || '').toString();
         const igUserId = (c.ig_user_id || '').toString();
+        const tiktokOpenId = (c.tiktok_open_id || '').toString();
         const qDigits = q.replace(/\D/g, '');
-        return name.includes(q) || (qDigits.length >= 2 && (phone.includes(qDigits) || chatId.includes(q) || igUserId.includes(q)));
+        return name.includes(q) || (qDigits.length >= 2 && (phone.includes(qDigits) || chatId.includes(q) || igUserId.includes(q) || tiktokOpenId.includes(q)));
     });
 });
 
@@ -840,13 +877,18 @@ const selectedConversation = computed(() => {
     return props.conversations.find(c =>
         (channel.value === 'telegram' && c.chat_id === props.selectedChatId) ||
         (channel.value === 'instagram' && c.ig_user_id === props.selectedIgUserId) ||
+        (channel.value === 'tiktok' && c.tiktok_open_id === props.selectedTikTokOpenId) ||
         (channel.value === 'whatsapp' && c.phone === props.selectedPhone)
     );
 });
 
 const getDisplayName = (conversation) => {
     if (!conversation) return selectedContact.value;
-    const id = channel.value === 'telegram' ? conversation.chat_id : (channel.value === 'instagram' ? conversation.ig_user_id : conversation.phone);
+    const id = channel.value === 'telegram'
+        ? conversation.chat_id
+        : (channel.value === 'instagram'
+            ? conversation.ig_user_id
+            : (channel.value === 'tiktok' ? conversation.tiktok_open_id : conversation.phone));
     if (conversation.name && conversation.name !== id) return conversation.name;
     return id || selectedContact.value;
 };
@@ -856,7 +898,9 @@ const hasCustomer = computed(() => {
 });
 
 const noConversationYet = computed(() => {
-    return channel.value === 'instagram' && props.selectedCustomer && !props.selectedIgUserId;
+    return (channel.value === 'instagram' || channel.value === 'tiktok')
+        && props.selectedCustomer
+        && !(channel.value === 'instagram' ? props.selectedIgUserId : props.selectedTikTokOpenId);
 });
 
 const openImageModal = (imageUrl) => {
@@ -936,7 +980,17 @@ const selectCustomerFromSearch = (customer) => {
         router.get(route('inbox.index'), { channel: 'instagram', customer_id: customer.id }, { preserveState: false });
         return;
     }
-    const id = channel.value === 'telegram' ? customer.chat_id : (channel.value === 'instagram' ? customer.ig_user_id : customer.phone);
+    if (channel.value === 'tiktok' && !customer.tiktok_open_id) {
+        showSearchResults.value = false;
+        searchPhone.value = '';
+        router.get(route('inbox.index'), { channel: 'tiktok', customer_id: customer.id }, { preserveState: false });
+        return;
+    }
+    const id = channel.value === 'telegram'
+        ? customer.chat_id
+        : (channel.value === 'instagram'
+            ? customer.ig_user_id
+            : (channel.value === 'tiktok' ? customer.tiktok_open_id : customer.phone));
     if (!id) return;
     showSearchResults.value = false;
     searchPhone.value = '';
@@ -953,6 +1007,7 @@ const selectConversation = (contactId) => {
     const params = { channel: channel.value };
     if (channel.value === 'telegram') params.chat_id = contactId;
     else if (channel.value === 'instagram') params.ig_user_id = contactId;
+    else if (channel.value === 'tiktok') params.tiktok_open_id = contactId;
     else params.phone = contactId;
     router.get(route('inbox.index'), params, {
         preserveState: true,
@@ -1022,6 +1077,8 @@ const sendMessage = () => {
         formData.append('to_chat_id', selectedContact.value);
     } else if (channel.value === 'instagram') {
         formData.append('to_ig_user_id', selectedContact.value);
+    } else if (channel.value === 'tiktok') {
+        formData.append('to_tiktok_open_id', selectedContact.value);
     } else {
         formData.append('to_phone', selectedContact.value);
     }
@@ -1067,6 +1124,7 @@ const createCustomer = () => {
     customerForm.channel = channel.value;
     customerForm.chat_id = channel.value === 'telegram' ? props.selectedChatId : '';
     customerForm.ig_user_id = channel.value === 'instagram' ? props.selectedIgUserId : '';
+    customerForm.tiktok_open_id = channel.value === 'tiktok' ? props.selectedTikTokOpenId : '';
     customerForm.post(route('inbox.create-customer'), {
         preserveState: true,
         preserveScroll: true,
@@ -1087,12 +1145,17 @@ const loadAssignCustomers = debounce(() => {
 }, 250);
 
 const submitAssignCustomer = () => {
-    if (!assignCustomerId.value || channel.value !== 'instagram' || !props.selectedIgUserId) return;
-    router.post(route('inbox.assign-customer'), {
-        channel: 'instagram',
-        ig_user_id: props.selectedIgUserId,
+    if (!assignCustomerId.value) return;
+    if (channel.value === 'instagram' && !props.selectedIgUserId) return;
+    if (channel.value === 'tiktok' && !props.selectedTikTokOpenId) return;
+    if (channel.value !== 'instagram' && channel.value !== 'tiktok') return;
+    const payload = {
+        channel: channel.value,
         customer_id: assignCustomerId.value,
-    }, {
+    };
+    if (channel.value === 'instagram') payload.ig_user_id = props.selectedIgUserId;
+    if (channel.value === 'tiktok') payload.tiktok_open_id = props.selectedTikTokOpenId;
+    router.post(route('inbox.assign-customer'), payload, {
         preserveState: false,
         onSuccess: () => {
             showAssignCustomerModal.value = false;
@@ -1185,6 +1248,38 @@ function runTelegramPoll() {
     });
 }
 
+function runTikTokPoll() {
+    const params = { channel: 'tiktok' };
+    if (props.selectedTikTokOpenId) params.tiktok_open_id = props.selectedTikTokOpenId;
+    else if (props.selectedCustomer?.id && !props.selectedTikTokOpenId) params.customer_id = props.selectedCustomer.id;
+    const convs = page.props.conversations || [];
+    tiktokPollPrevCount.value = (page.props.messages || []).length;
+    tiktokPollPrevUnread.value = convs.reduce((s, c) => s + (c.unread_count || 0), 0);
+    router.get(route('inbox.index'), params, {
+        preserveState: true,
+        preserveScroll: true,
+        only: ['conversations', 'messages', 'selectedCustomer'],
+        onFinish: () => {
+            setTimeout(() => {
+                if (document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                    const newMessages = page.props.messages || [];
+                    const newConvs = page.props.conversations || [];
+                    const newLen = newMessages.length;
+                    const newUnread = newConvs.reduce((s, c) => s + (c.unread_count || 0), 0);
+                    const hasNew = newLen > tiktokPollPrevCount.value || newUnread > tiktokPollPrevUnread.value;
+                    if (hasNew) {
+                        try {
+                            new Notification(t('inbox.new_tiktok_message'), { body: t('inbox.you_received_new_message') });
+                        } catch (_) {}
+                    }
+                    tiktokPollPrevCount.value = newLen;
+                    tiktokPollPrevUnread.value = newUnread;
+                }
+            }, 600);
+        },
+    });
+}
+
 onMounted(() => {
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
@@ -1211,6 +1306,11 @@ onMounted(() => {
         runTelegramPoll();
         telegramPollInterval.value = setInterval(runTelegramPoll, 15000);
     }
+
+    if (channel.value === 'tiktok') {
+        runTikTokPoll();
+        tiktokPollInterval.value = setInterval(runTikTokPoll, 15000);
+    }
 });
 
 onUnmounted(() => {
@@ -1219,6 +1319,9 @@ onUnmounted(() => {
     }
     if (telegramPollInterval.value) {
         clearInterval(telegramPollInterval.value);
+    }
+    if (tiktokPollInterval.value) {
+        clearInterval(tiktokPollInterval.value);
     }
 });
 </script>

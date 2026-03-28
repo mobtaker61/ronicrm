@@ -42,6 +42,9 @@ Route::post('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookControl
 Route::get('/instagram-webhook/{organization}', [\App\Http\Controllers\InstagramWebhookController::class, 'verify'])->name('instagram.webhook.verify.organization');
 Route::post('/instagram-webhook/{organization}', [\App\Http\Controllers\InstagramWebhookController::class, 'handle'])->middleware('throttle:120,1')->name('instagram.webhook.organization');
 
+Route::get('/tiktok-webhook', [\App\Http\Controllers\TikTokWebhookController::class, 'verify'])->name('tiktok.webhook.verify');
+Route::post('/tiktok-webhook', [\App\Http\Controllers\TikTokWebhookController::class, 'handle'])->middleware('throttle:120,1')->name('tiktok.webhook');
+
 // i18n (public JSON + session locale setter)
 Route::get('/i18n/{locale}.json', [\App\Http\Controllers\I18nController::class, 'json'])->name('i18n.json');
 Route::post('/locale', [\App\Http\Controllers\PublicLocaleController::class, 'update'])->name('locale.set');
@@ -161,6 +164,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/instagram/connect', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'connect'])->name('settings.instagram.connect');
     Route::get('/settings/instagram/callback', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'callback'])->name('settings.instagram.callback');
     Route::post('/settings/instagram/disconnect', [\App\Http\Controllers\Settings\InstagramConnectionController::class, 'disconnect'])->name('settings.instagram.disconnect');
+    Route::get('/settings/tiktok/connect', [\App\Http\Controllers\Settings\TikTokConnectionController::class, 'connect'])->name('settings.tiktok.connect');
+    Route::get('/settings/tiktok/callback', [\App\Http\Controllers\Settings\TikTokConnectionController::class, 'callback'])->name('settings.tiktok.callback');
+    Route::post('/settings/tiktok/disconnect', [\App\Http\Controllers\Settings\TikTokConnectionController::class, 'disconnect'])->name('settings.tiktok.disconnect');
 
     // Google Contacts (CRM → Google, one-way)
     Route::get('/settings/google-contacts/connect', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'connect'])->name('settings.google-contacts.connect');

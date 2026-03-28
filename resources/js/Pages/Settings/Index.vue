@@ -112,6 +112,18 @@
                         </button>
                         <button
                             v-if="canManageOrganizationSettings"
+                            @click="activeTab = 'tiktok'"
+                            :class="[
+                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
+                                activeTab === 'tiktok'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ]"
+                        >
+                            {{ t('settings.tabs.tiktok_inbox') }}
+                        </button>
+                        <button
+                            v-if="canManageOrganizationSettings"
                             @click="activeTab = 'google-contacts'"
                             :class="[
                                 'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
@@ -1420,6 +1432,50 @@
                     </div>
                 </div>
 
+                <!-- TikTok (Login Kit + Inbox) -->
+                <div v-if="activeTab === 'tiktok' && canManageOrganizationSettings" class="p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-6">{{ t('settings.tabs.tiktok_inbox') }}</h2>
+
+                    <div v-if="!tiktokConnection" class="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
+                        <p class="text-gray-700 mb-4">{{ t('settings.tiktok_connect_help') }}</p>
+                        <a :href="route('settings.tiktok.connect')" class="inline-flex items-center px-5 py-2.5 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800">
+                            {{ t('settings.connect_tiktok_account') }}
+                        </a>
+                    </div>
+
+                    <div v-else class="mb-8 p-6 border border-gray-200 rounded-lg bg-white">
+                        <div class="flex flex-wrap items-start gap-4">
+                            <img v-if="tiktokConnection.avatar_url" :src="tiktokConnection.avatar_url" alt="TikTok" class="w-16 h-16 rounded-full object-cover" />
+                            <div v-else class="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-2xl font-bold">{{ (tiktokConnection.display_name || 'TT').charAt(0).toUpperCase() }}</div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold text-gray-900">{{ tiktokConnection.display_name || t('settings.tiktok_account') }}</p>
+                                <p class="text-sm text-gray-500">{{ t('settings.tiktok_open_id') }}: {{ tiktokConnection.open_id }}</p>
+                                <p class="text-sm mt-1">
+                                    <span :class="tiktokConnection.token_valid ? 'text-green-600' : 'text-amber-600'">{{ tiktokConnection.token_valid ? t('settings.token_valid') : t('settings.token_expired') }}</span>
+                                    <span v-if="tiktokConnection.webhook_verified_at" class="text-gray-500 ltr:ml-2 rtl:mr-2"> · {{ t('settings.webhook_verified') }}</span>
+                                    <span v-if="tiktokConnection.last_webhook_event_at" class="text-gray-500 ltr:ml-2 rtl:mr-2"> · {{ t('settings.last_event') }}: {{ formatDate(tiktokConnection.last_webhook_event_at) }}</span>
+                                </p>
+                            </div>
+                            <form @submit.prevent="disconnectTiktok" class="inline">
+                                <button type="submit" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium">{{ t('settings.disconnect') }}</button>
+                            </form>
+                        </div>
+                        <p class="mt-4 text-sm text-gray-600">
+                            <a :href="route('inbox.index', { channel: 'tiktok' })" class="text-blue-600 hover:underline">{{ t('settings.open_inbox') }} →</a> {{ t('settings.tiktok_open_inbox_help') }}
+                        </p>
+                    </div>
+
+                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 space-y-3">
+                        <p class="font-medium">{{ t('settings.tiktok_webhook_url_label') }}</p>
+                        <div class="flex flex-wrap gap-2">
+                            <input :value="tiktokWebhookUrl" type="text" readonly class="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-600 text-sm" />
+                            <button type="button" @click="copyTiktokWebhookUrl" class="px-3 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 text-sm font-medium text-gray-700 whitespace-nowrap">{{ tiktokWebhookCopied ? t('settings.copied') + '!' : t('settings.copy') }}</button>
+                        </div>
+                        <p class="text-xs text-gray-500">{{ t('settings.tiktok_webhook_help') }}</p>
+                        <p class="text-xs text-gray-500">{{ t('settings.tiktok_messaging_env_hint') }}</p>
+                    </div>
+                </div>
+
                 <!-- Google Contacts (CRM → Google, one-way) -->
                 <div v-if="activeTab === 'google-contacts' && canManageOrganizationSettings" class="p-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-2">{{ t('settings.google_contacts_sync_title') }}</h2>
@@ -1790,6 +1846,10 @@ const props = defineProps({
         default: () => ({}),
     },
     instagramConnection: {
+        type: Object,
+        default: null,
+    },
+    tiktokConnection: {
         type: Object,
         default: null,
     },
@@ -2337,6 +2397,17 @@ const instagramForm = useForm({
 const instagramWebhookUrl = typeof window !== 'undefined' && window.location?.origin
     ? `${window.location.origin}/instagram-webhook`
     : 'https://yourdomain.com/instagram-webhook';
+const tiktokWebhookUrl = typeof window !== 'undefined' && window.location?.origin
+    ? `${window.location.origin}/tiktok-webhook`
+    : 'https://yourdomain.com/tiktok-webhook';
+const tiktokWebhookCopied = ref(false);
+const copyTiktokWebhookUrl = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(tiktokWebhookUrl);
+        tiktokWebhookCopied.value = true;
+        setTimeout(() => { tiktokWebhookCopied.value = false; }, 2000);
+    }
+};
 const instagramWebhookCopied = ref(false);
 const copyInstagramWebhookUrl = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
@@ -2444,6 +2515,11 @@ const saveInstagramSettings = () => {
 const disconnectInstagram = () => {
     if (!confirm(t('settings.disconnect_instagram_confirm'))) return;
     router.post(route('settings.instagram.disconnect'), {}, { preserveScroll: true });
+};
+
+const disconnectTiktok = () => {
+    if (!confirm(t('settings.disconnect_tiktok_confirm'))) return;
+    router.post(route('settings.tiktok.disconnect'), {}, { preserveScroll: true });
 };
 
 const googleRedirectUriDisplay = computed(() => {

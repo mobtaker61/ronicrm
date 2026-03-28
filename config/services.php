@@ -48,6 +48,15 @@ return [
         'graph_version' => env('META_GRAPH_VERSION', 'v24.0'),
     ],
 
+    'tiktok' => [
+        'client_key' => env('TIKTOK_CLIENT_KEY', ''),
+        'client_secret' => env('TIKTOK_CLIENT_SECRET', ''),
+        'redirect_uri' => env('TIKTOK_REDIRECT_URI', ''),
+        'scopes' => env('TIKTOK_SCOPES', 'user.info.basic'),
+        /** When TikTok approves Business Messaging, set the outbound send endpoint (HTTPS). */
+        'messaging_send_url' => env('TIKTOK_MESSAGING_SEND_URL', ''),
+    ],
+
     'telegram' => [
         'api_id' => env('TELEGRAM_API_ID', ''),
         'api_hash' => env('TELEGRAM_API_HASH', ''),

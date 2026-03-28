@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\InstagramMessage;
 use App\Models\TelegramMessage;
+use App\Models\TikTokMessage;
 use App\Models\WhatsAppMessage;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -50,6 +51,18 @@ class MarkInboxConversationReadJob implements ShouldQueue
                     ->whereNull('read_at')
                     ->update(['read_at' => now(), 'status' => 'read']);
                 Log::info('MarkInboxConversationReadJob: instagram marked read', [
+                    'contact' => $this->contactKey,
+                    'updated' => $updated,
+                ]);
+
+                return;
+            }
+
+            if ($this->channel === 'tiktok') {
+                $updated = TikTokMessage::forOpenId($this->contactKey)
+                    ->whereNull('read_at')
+                    ->update(['read_at' => now(), 'status' => 'read']);
+                Log::info('MarkInboxConversationReadJob: tiktok marked read', [
                     'contact' => $this->contactKey,
                     'updated' => $updated,
                 ]);
