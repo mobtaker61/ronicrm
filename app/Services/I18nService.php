@@ -18,12 +18,14 @@ class I18nService
         $cacheKey = "i18n_map_{$locale}";
 
         return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($locale) {
+            $fromDb = $this->buildFromDb($locale);
             $fromFile = $this->readFromFile($locale);
-            if ($fromFile !== null) {
-                return $fromFile;
+            if ($fromFile === null) {
+                return $fromDb;
             }
 
-            return $this->buildFromDb($locale);
+            // Merge so DB fills missing keys and overrides stale JSON (translations:build-json cache).
+            return array_merge($fromFile, $fromDb);
         });
     }
 
