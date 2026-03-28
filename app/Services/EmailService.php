@@ -107,6 +107,38 @@ class EmailService
     }
 
     /**
+     * ایمیل سیستمی از طریق پیکربندی پیش‌فرض (معمولاً MAIL_* در .env)، بدون SMTP سازمانی.
+     */
+    public function sendSystemHtmlEmail(string $to, string $subject, string $htmlContent, ?string $from = null): array
+    {
+        try {
+            $from = $from ?? config('mail.from.address');
+            $fromName = config('mail.from.name') ?: 'RoniCRM';
+            $htmlContent = is_string($htmlContent) ? html_entity_decode($htmlContent, ENT_QUOTES | ENT_HTML5, 'UTF-8') : '';
+            $bodyHtml = $this->wrapHtmlDocument($htmlContent);
+
+            Mail::html($bodyHtml, function ($message) use ($to, $subject, $from, $fromName) {
+                $message->to($to)
+                    ->subject($subject)
+                    ->from($from, $fromName);
+            });
+
+            return [
+                'success' => true,
+                'status' => 'sent',
+            ];
+        } catch (\Exception $e) {
+            Log::error('System email sending error: '.$e->getMessage());
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'status' => 'failed',
+            ];
+        }
+    }
+
+    /**
      * قرار دادن محتوا در قالب سند HTML تا در ایمیل به‌درستی رندر شود.
      * اگر محتوا شبیه HTML نبود (بدون تگ)، خط‌شکنی با \n به <br> تبدیل می‌شود تا در ایمیل به‌هم نریزد.
      */

@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             'username' => 'admin',
             'email' => 'admin@ronicrm.com',
             'password' => bcrypt('password'),
+            'email_verified_at' => now(),
         ]);
         $admin->assignRole(['super_admin', 'admin']);
 
@@ -36,6 +37,7 @@ class DatabaseSeeder extends Seeder
             'username' => 'user',
             'email' => 'user@ronicrm.com',
             'password' => bcrypt('password'),
+            'email_verified_at' => now(),
         ]);
         $user->assignRole('user');
 

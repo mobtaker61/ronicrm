@@ -4,7 +4,7 @@ namespace App\Support\TranslationSeedFragments;
 
 /**
  * Front (marketing) translation keys — merged into translations:seed-default under namespace "front".
- * Keep in sync with resources/js/Pages/Front and FrontLayout.vue.
+ * Keep in sync with resources/js/Pages/Front, FrontLayout.vue, and Auth/VerifyEmail.vue (public/auth flows).
  */
 final class FrontLandingKeys
 {
@@ -566,6 +566,139 @@ final class FrontLandingKeys
                 'ar' => 'عبر قناة دعم مؤسستك أو خيارات الاتصال في اتفاقك.',
                 'tr' => 'Kuruluşunuzun destek kanalı veya sözleşmenizdeki iletişim seçenekleri üzerinden.',
                 'ku' => 'لە ڕێگەی کەناڵی پاڵپشتی ڕێکخراوەکەت یان هەڵبژاردەکانی پەیوەندی لە ڕێکەوتنەکەتدا.',
+            ],
+            'verify_email_title' => [
+                'en' => 'Verify your email',
+                'fa' => 'تأیید ایمیل',
+                'ar' => 'تأكيد البريد الإلكتروني',
+                'tr' => 'E-postanızı doğrulayın',
+                'ku' => 'ئیمەیڵەکەت پشتڕاست بکەرەوە',
+            ],
+            'verify_email_subtitle' => [
+                'en' => 'We sent you a confirmation link. Open your inbox and click the link to activate your account.',
+                'fa' => 'یک لینک تأیید برای شما ارسال شد. صندوق ورودی را باز کنید و روی لینک بزنید تا حساب فعال شود.',
+                'ar' => 'أرسلنا رابط تأكيد. افتح بريدك واضغط الرابط لتفعيل حسابك.',
+                'tr' => 'Size bir onay bağlantısı gönderdik. Gelen kutunuzu açın ve hesabı etkinleştirmek için bağlantıya tıklayın.',
+                'ku' => 'لینکی پشتڕاستکردنەوەمان بۆ نارد. هاتووەکەت بکەرەوە و کلیک لەسەر لینک بکە بۆ چالاککردنی هەژمار.',
+            ],
+            'verify_email_sent_to' => [
+                'en' => 'Sent to:',
+                'fa' => 'ارسال شده به:',
+                'ar' => 'أُرسل إلى:',
+                'tr' => 'Gönderildi:',
+                'ku' => 'نێردرا بۆ:',
+            ],
+            'verify_email_inbox_hint' => [
+                'en' => 'If you do not see the email, check spam or junk folder.',
+                'fa' => 'اگر ایمیل را نمی‌بینید، پوشهٔ هرزنامه یا اسپم را هم بررسی کنید.',
+                'ar' => 'إذا لم ترَ الرسالة، تحقق من مجلد الرسائل غير المرغوب فيها.',
+                'tr' => 'E-postayı görmüyorsanız spam veya gereksiz klasörüne bakın.',
+                'ku' => 'ئەگەر ئیمەیڵ نەبینیت، سەیری سپام یان پۆشەی نەخوازراو بکە.',
+            ],
+            'verify_email_resend' => [
+                'en' => 'Resend verification email',
+                'fa' => 'ارسال مجدد ایمیل تأیید',
+                'ar' => 'إعادة إرسال بريد التحقق',
+                'tr' => 'Doğrulama e-postasını yeniden gönder',
+                'ku' => 'دووبارە ناردنی ئیمەیڵی پشتڕاستکردنەوە',
+            ],
+            'verify_email_resending' => [
+                'en' => 'Sending…',
+                'fa' => 'در حال ارسال…',
+                'ar' => 'جارٍ الإرسال…',
+                'tr' => 'Gönderiliyor…',
+                'ku' => 'لە ناردندایە…',
+            ],
+            'verify_email_logout' => [
+                'en' => 'Log out and use another account',
+                'fa' => 'خروج و ورود با حساب دیگر',
+                'ar' => 'تسجيل الخروج واستخدام حساب آخر',
+                'tr' => 'Çıkış yap ve başka hesap kullan',
+                'ku' => 'دەرچوون و هەژمارێکی تر بەکاربهێنە',
+            ],
+            'auth_forgot_password_link' => [
+                'en' => 'Forgot password?',
+                'fa' => 'رمز عبور را فراموش کرده‌اید؟',
+                'ar' => 'نسيت كلمة المرور؟',
+                'tr' => 'Şifrenizi mi unuttunuz?',
+                'ku' => 'تێپەڕەوشەت لەبیرچووە؟',
+            ],
+            'auth_forgot_password_title' => [
+                'en' => 'Forgot password',
+                'fa' => 'فراموشی رمز عبور',
+                'ar' => 'نسيت كلمة المرور',
+                'tr' => 'Şifremi unuttum',
+                'ku' => 'تێپەڕەوشەم لەبیرچووە',
+            ],
+            'auth_forgot_password_subtitle' => [
+                'en' => 'We will email you a reset link.',
+                'fa' => 'لینک بازنشانی به ایمیل شما ارسال می‌شود.',
+                'ar' => 'سنرسل رابط إعادة التعيين إلى بريدك.',
+                'tr' => 'Size sıfırlama bağlantısı e-postayla gönderilir.',
+                'ku' => 'لینکی ڕێستکردنەوە بۆ ئیمەیڵەکەت دەنێردرێت.',
+            ],
+            'auth_reset_password_title' => [
+                'en' => 'Set a new password',
+                'fa' => 'تنظیم رمز جدید',
+                'ar' => 'تعيين كلمة مرور جديدة',
+                'tr' => 'Yeni şifre belirle',
+                'ku' => 'تێپەڕەوشەی نوێ دابنێ',
+            ],
+            'auth_reset_password_subtitle' => [
+                'en' => 'Choose a strong password for your account.',
+                'fa' => 'یک رمز قوی برای حساب خود انتخاب کنید.',
+                'ar' => 'اختر كلمة مرور قوية لحسابك.',
+                'tr' => 'Hesabınız için güçlü bir şifre seçin.',
+                'ku' => 'تێپەڕەوشەیەکی بەهێز بۆ هەژمارەکەت هەڵبژێرە.',
+            ],
+            'auth_email' => [
+                'en' => 'Email',
+                'fa' => 'ایمیل',
+                'ar' => 'البريد الإلكتروني',
+                'tr' => 'E-posta',
+                'ku' => 'ئیمەیڵ',
+            ],
+            'auth_send_reset_link' => [
+                'en' => 'Send reset link',
+                'fa' => 'ارسال لینک بازنشانی',
+                'ar' => 'إرسال رابط إعادة التعيين',
+                'tr' => 'Sıfırlama bağlantısı gönder',
+                'ku' => 'لینکی ڕێستکردنەوە بنێرە',
+            ],
+            'auth_back_to_login' => [
+                'en' => 'Back to login',
+                'fa' => 'بازگشت به ورود',
+                'ar' => 'العودة إلى تسجيل الدخول',
+                'tr' => 'Girişe dön',
+                'ku' => 'گەڕانەوە بۆ چوونەژوورەوە',
+            ],
+            'auth_password' => [
+                'en' => 'Password',
+                'fa' => 'رمز عبور',
+                'ar' => 'كلمة المرور',
+                'tr' => 'Şifre',
+                'ku' => 'تێپەڕەوشە',
+            ],
+            'auth_password_confirmation' => [
+                'en' => 'Confirm password',
+                'fa' => 'تکرار رمز عبور',
+                'ar' => 'تأكيد كلمة المرور',
+                'tr' => 'Şifreyi onayla',
+                'ku' => 'پشتڕاستکردنەوەی تێپەڕەوشە',
+            ],
+            'auth_set_new_password' => [
+                'en' => 'Save password',
+                'fa' => 'ذخیره رمز',
+                'ar' => 'حفظ كلمة المرور',
+                'tr' => 'Şifreyi kaydet',
+                'ku' => 'تێپەڕەوشە پاشەکەوت بکە',
+            ],
+            'auth_saving' => [
+                'en' => 'Saving…',
+                'fa' => 'در حال ذخیره…',
+                'ar' => 'جارٍ الحفظ…',
+                'tr' => 'Kaydediliyor…',
+                'ku' => 'لە پاشەکەوتکردندایە…',
             ],
         ];
     }

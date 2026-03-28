@@ -94,6 +94,7 @@ const routeHelper = (name, params = null, absolute = false) => {
         'superadmin.languages.index': '/superadmin/languages',
         'superadmin.organizations.index': '/superadmin/organizations',
         'superadmin.plans.index': '/superadmin/plans',
+        'superadmin.platform-notifications.index': '/superadmin/platform-notifications',
         'superadmin.subscriptions.index': '/superadmin/subscriptions',
         'organizations.current.update': '/organizations/current',
         'settings.organizations.store': '/settings/organizations',

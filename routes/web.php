@@ -17,6 +17,13 @@ Route::post('/register', [\App\Http\Controllers\Auth\RegisterController::class, 
     ->name('register');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
+Route::get('/forgot-password', [\App\Http\Controllers\Auth\ForgotPasswordController::class, 'create'])->name('password.request');
+Route::post('/forgot-password', [\App\Http\Controllers\Auth\ForgotPasswordController::class, 'store'])
+    ->middleware('throttle:5,1')
+    ->name('password.email');
+Route::get('/reset-password/{token}', [\App\Http\Controllers\Auth\ResetPasswordController::class, 'create'])->name('password.reset');
+Route::post('/reset-password', [\App\Http\Controllers\Auth\ResetPasswordController::class, 'store'])->name('password.store');
+
 // Public customer card
 Route::get('/c/{shareKey}', [\App\Http\Controllers\PublicCustomerCardController::class, 'show'])->name('public.customer.card');
 Route::post('/c/{shareKey}/share-via-whatsapp', [\App\Http\Controllers\PublicCustomerCardController::class, 'shareViaWhatsApp'])->name('public.customer.share-via-whatsapp');
@@ -41,6 +48,17 @@ Route::post('/locale', [\App\Http\Controllers\PublicLocaleController::class, 'up
 Route::post('/i18n/locale', [\App\Http\Controllers\I18nController::class, 'setLocale'])->middleware('auth')->name('i18n.locale.set');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/email/verify', [\App\Http\Controllers\Auth\EmailVerificationController::class, 'notice'])->name('verification.notice');
+    Route::post('/email/verification-notification', [\App\Http\Controllers\Auth\EmailVerificationController::class, 'send'])
+        ->middleware('throttle:6,1')
+        ->name('verification.send');
+});
+
+Route::get('/email/verify/{id}/{hash}', [\App\Http\Controllers\Auth\EmailVerificationController::class, 'verify'])
+    ->middleware(['auth', 'signed', 'throttle:6,1'])
+    ->name('verification.verify');
+
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/organizations/current', [\App\Http\Controllers\CurrentOrganizationController::class, 'update'])->name('organizations.current.update');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -199,6 +217,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/superadmin/plans', [\App\Http\Controllers\SuperAdmin\PlansController::class, 'store'])->name('superadmin.plans.store');
     Route::put('/superadmin/plans/{plan}', [\App\Http\Controllers\SuperAdmin\PlansController::class, 'update'])->name('superadmin.plans.update');
     Route::delete('/superadmin/plans/{plan}', [\App\Http\Controllers\SuperAdmin\PlansController::class, 'destroy'])->name('superadmin.plans.destroy');
+    Route::get('/superadmin/platform-notifications', [\App\Http\Controllers\SuperAdmin\PlatformNotificationsController::class, 'index'])->name('superadmin.platform-notifications.index');
+    Route::put('/superadmin/platform-notifications', [\App\Http\Controllers\SuperAdmin\PlatformNotificationsController::class, 'update'])->name('superadmin.platform-notifications.update');
     Route::get('/superadmin/subscriptions', [\App\Http\Controllers\SuperAdmin\OrganizationSubscriptionsController::class, 'index'])->name('superadmin.subscriptions.index');
     Route::put('/superadmin/subscriptions/organizations/{organization}', [\App\Http\Controllers\SuperAdmin\OrganizationSubscriptionsController::class, 'update'])->name('superadmin.subscriptions.organizations.update');
     Route::post('/superadmin/subscriptions/organizations/{organization}/payments', [\App\Http\Controllers\SuperAdmin\OrganizationSubscriptionsController::class, 'addPayment'])->name('superadmin.subscriptions.organizations.payments.store');

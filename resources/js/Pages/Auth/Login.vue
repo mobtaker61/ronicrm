@@ -47,6 +47,12 @@
 
                 <!-- Login -->
                 <div v-show="activeTab === 'login'">
+                    <div
+                        v-if="$page.props.flash?.success"
+                        class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+                    >
+                        {{ $page.props.flash.success }}
+                    </div>
                     <form class="space-y-5" @submit.prevent="submitLogin">
                         <div>
                             <label for="login-email" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -79,6 +85,9 @@
                             />
                             <p v-if="loginForm.errors.password" class="mt-1.5 text-sm text-red-600">
                                 {{ loginForm.errors.password }}
+                            </p>
+                            <p class="mt-2 text-right text-sm">
+                                <a href="/forgot-password" class="font-medium text-blue-600 hover:text-blue-700">{{ t('front.auth_forgot_password_link') }}</a>
                             </p>
                         </div>
                         <div class="flex items-center">

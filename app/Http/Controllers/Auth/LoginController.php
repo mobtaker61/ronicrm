@@ -41,6 +41,11 @@ class LoginController extends Controller
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
 
+            $user = Auth::user();
+            if ($user && ! $user->hasVerifiedEmail()) {
+                return redirect()->intended(route('verification.notice'));
+            }
+
             return redirect()->intended(route('dashboard'));
         }
 

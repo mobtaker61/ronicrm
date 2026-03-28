@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
+use Illuminate\Auth\Passwords\CanResetPassword;
+use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
+use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -10,10 +13,10 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable
+class User extends Authenticatable implements CanResetPasswordContract, MustVerifyEmailContract
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use CanResetPassword, HasFactory, MustVerifyEmailTrait, Notifiable, HasRoles;
 
     /**
      * The attributes that are mass assignable.
@@ -74,6 +77,15 @@ class User extends Authenticatable
         return $this->hasRole('super_admin') || $this->hasRole('admin');
     }
 
+    public function hasVerifiedEmail(): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return ! is_null($this->email_verified_at);
+    }
+
     public function hasOrganizationRole(string $role, ?int $organizationId = null): bool
     {
         $orgId = $organizationId ?? $this->current_organization_id;
@@ -108,5 +120,15 @@ class User extends Authenticatable
     public function canAccessSettings(?int $organizationId = null): bool
     {
         return $this->canManageOrganizationSettings($organizationId);
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\Auth\ResetPasswordNotification($token));
+    }
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new \App\Notifications\Auth\VerifyEmailNotification);
     }
 }

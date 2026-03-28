@@ -41,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('campaigns:process')->everyMinute();
         $schedule->command('telegram:process-scheduled-sends')->everyMinute();
         // وقتی telegram:listen-incoming روشن است، polling خاموش می‌شود (دریافت از EventHandler).
+        $schedule->command('subscriptions:send-reminder-emails')->dailyAt('08:30');
         $schedule->command('telegram:fetch-incoming')
             ->everyMinute()
             ->withoutOverlapping(25)

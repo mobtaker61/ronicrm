@@ -7,12 +7,16 @@ use App\Models\Language;
 use App\Models\Organization;
 use App\Models\Plan;
 use App\Models\User;
+use App\Notifications\OwnerNewRegistrationNotification;
 use App\Services\SubscriptionService;
+use App\Support\PlatformNotificationSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 
@@ -84,7 +88,24 @@ class RegisterController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard');
+        $organization = Organization::query()->find($user->current_organization_id);
+        if ($organization) {
+            $settings = PlatformNotificationSettings::get();
+            if ($settings['email_owner_new_registration']) {
+                foreach (PlatformNotificationSettings::ownerEmails() as $ownerEmail) {
+                    try {
+                        Notification::route('mail', $ownerEmail)
+                            ->notify(new OwnerNewRegistrationNotification($user, $organization));
+                    } catch (\Throwable $e) {
+                        Log::warning('Owner registration notification failed: '.$e->getMessage());
+                    }
+                }
+            }
+        }
+
+        $user->sendEmailVerificationNotification();
+
+        return redirect()->route('verification.notice');
     }
 
     protected function uniqueOrganizationSlug(string $name): string

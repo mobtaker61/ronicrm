@@ -421,6 +421,7 @@
                             <Link :href="getRoute('superadmin.translations.index')" :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12', isCurrentRoute('/superadmin/translations') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">{{ t('superadmin.translations') }}</Link>
                             <Link :href="getRoute('superadmin.organizations.index')" :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12', isCurrentRoute('/superadmin/organizations') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">{{ t('superadmin.organizations') }}</Link>
                             <Link :href="getRoute('superadmin.plans.index')" :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12', isCurrentRoute('/superadmin/plans') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">{{ t('superadmin.plans') }}</Link>
+                            <Link :href="getRoute('superadmin.platform-notifications.index')" :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12', isCurrentRoute('/superadmin/platform-notifications') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">{{ t('superadmin.platform_notifications') }}</Link>
                             <Link :href="getRoute('superadmin.subscriptions.index')" :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12', isCurrentRoute('/superadmin/subscriptions') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">{{ t('superadmin.subscriptions') }}</Link>
                         </div>
                     </div>
@@ -676,6 +677,7 @@ const getRoute = (name) => {
         'superadmin.translations.index': '/superadmin/translations',
         'superadmin.organizations.index': '/superadmin/organizations',
         'superadmin.plans.index': '/superadmin/plans',
+        'superadmin.platform-notifications.index': '/superadmin/platform-notifications',
         'superadmin.subscriptions.index': '/superadmin/subscriptions',
     };
     return routes[name] || '/';
