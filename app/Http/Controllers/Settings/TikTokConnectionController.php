@@ -8,6 +8,7 @@ use App\Services\TikTokOAuthService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class TikTokConnectionController extends Controller
@@ -34,8 +35,12 @@ class TikTokConnectionController extends Controller
         if ($redirectUri === '') {
             $redirectUri = route('settings.tiktok.callback');
         }
-        $request->session()->put('tiktok_oauth_state', $state);
-        $request->session()->put('tiktok_oauth_redirect_uri', $redirectUri);
+        // Cache (not session): after redirect from tiktok.com the session cookie is often missing or new → "Invalid state".
+        Cache::put(
+            'tiktok_oauth:'.$state,
+            ['redirect_uri' => $redirectUri],
+            now()->addMinutes(15)
+        );
         $url = $service->getAuthorizationUrl($state, $redirectUri);
 
         return redirect()->away($url);
@@ -43,8 +48,9 @@ class TikTokConnectionController extends Controller
 
     public function callback(Request $request): RedirectResponse
     {
-        $state = $request->session()->pull('tiktok_oauth_state');
-        if (! $state || $request->input('state') !== $state) {
+        $incomingState = (string) $request->input('state', '');
+        $payload = $incomingState !== '' ? Cache::pull('tiktok_oauth:'.$incomingState) : null;
+        if (! is_array($payload) || empty($payload['redirect_uri'])) {
             return redirect()->route('settings.index')->with('error', 'Invalid state. Please try connecting again.');
         }
         if ($request->has('error')) {
@@ -55,8 +61,8 @@ class TikTokConnectionController extends Controller
             return redirect()->route('settings.index')->with('error', 'No authorization code received.');
         }
         $service = app(TikTokOAuthService::class);
-        $redirectUri = $request->session()->pull('tiktok_oauth_redirect_uri');
-        if (! is_string($redirectUri) || trim($redirectUri) === '') {
+        $redirectUri = trim((string) $payload['redirect_uri']);
+        if ($redirectUri === '') {
             $redirectUri = trim((string) config('services.tiktok.redirect_uri', ''));
         }
         if ($redirectUri === '') {
