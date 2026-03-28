@@ -60,6 +60,6 @@ class PlatformNotificationsController extends Controller
 
         Setting::set(PlatformNotificationSettings::SETTING_KEY, $normalized);
 
-        return redirect()->back()->with('success', 'تنظیمات اعلان‌های پلتفرم ذخیره شد.');
+        return redirect()->back()->with('success', __('flash.superadmin_notifications_saved'));
     }
 }

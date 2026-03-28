@@ -121,18 +121,40 @@ createInertiaApp({
     setup({ el, App, props, plugin }) {
         const app = createApp({ render: () => h(App, props) });
         const i18n = useI18n();
+
+        function applyDocumentLangDir(page) {
+            if (typeof document === 'undefined') {
+                return;
+            }
+            const html = page?.props?.html;
+            const loc = page?.props?.i18n?.locale;
+            if (html?.lang) {
+                document.documentElement.setAttribute('lang', html.lang);
+            } else if (loc) {
+                document.documentElement.setAttribute('lang', String(loc).replace('_', '-'));
+            }
+            document.documentElement.setAttribute('dir', html?.dir === 'rtl' ? 'rtl' : 'ltr');
+        }
+
         const syncI18nFromPage = (page) => {
             const locale = page?.props?.i18n?.locale;
             const jsonUrl = page?.props?.i18n?.json_url;
             if (locale && jsonUrl) {
                 i18n.load(locale, jsonUrl);
             }
+            applyDocumentLangDir(page);
         };
 
         syncI18nFromPage(props?.initialPage);
-        router.on('navigate', (event) => {
-            syncI18nFromPage(event?.detail?.page);
-        });
+
+        const onInertiaPage = (event) => {
+            const page = event?.detail?.page;
+            if (page) {
+                syncI18nFromPage(page);
+            }
+        };
+        // success: بعد از بارگذاری کامل صفحه (شامل redirect بعد از عوض کردن زبان)
+        router.on('success', onInertiaPage);
         
         // Make route helper available globally in templates
         app.config.globalProperties.route = routeHelper;

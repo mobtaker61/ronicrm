@@ -1,5 +1,5 @@
 <template>
-    <div class="min-h-screen flex flex-col bg-white text-gray-900 font-sans antialiased">
+    <div class="min-h-screen flex flex-col bg-white text-gray-900 font-sans antialiased" :dir="htmlDir">
         <!-- Marketing header (landing / future blog, features, etc.) -->
         <header
             v-if="variant === 'marketing'"
@@ -390,6 +390,7 @@ import LocaleDropdown from '@/Components/Front/LocaleDropdown.vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
+
 defineProps({
     appName: { type: String, default: 'RoniCRM' },
     /** marketing: full nav + dark footer; minimal: compact header/footer for legal pages */
@@ -418,6 +419,7 @@ defineProps({
 });
 
 const page = usePage();
+const htmlDir = computed(() => (page.props.html?.dir === 'rtl' ? 'rtl' : 'ltr'));
 const mobileMenuOpen = ref(false);
 const year = new Date().getFullYear();
 const homeUrl = computed(() => route('front.welcome'));

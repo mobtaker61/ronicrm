@@ -52,6 +52,17 @@ class HandleInertiaRequests extends Middleware
                     ->value('code') ?: config('app.locale', 'en')),
                 'json_url' => fn () => route('i18n.json', ['locale' => app()->getLocale()]),
             ],
+            'html' => [
+                'lang' => fn () => str_replace('_', '-', app()->getLocale()),
+                'dir' => function () {
+                    $code = app()->getLocale();
+                    $direction = \App\Models\Language::query()
+                        ->where('code', $code)
+                        ->value('direction');
+
+                    return $direction === 'rtl' ? 'rtl' : 'ltr';
+                },
+            ],
             'publicLocales' => fn () => \App\Models\Language::query()
                 ->where('is_active', true)
                 ->orderBy('sort_order')

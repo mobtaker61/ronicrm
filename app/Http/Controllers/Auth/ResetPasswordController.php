@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
@@ -16,7 +17,7 @@ class ResetPasswordController extends Controller
 {
     public function create(Request $request, string $token): Response|RedirectResponse
     {
-        if (auth()->check()) {
+        if (Auth::check()) {
             return redirect()->route('dashboard');
         }
 
@@ -47,9 +48,9 @@ class ResetPasswordController extends Controller
         );
 
         if ($status === Password::PASSWORD_RESET) {
-            return redirect()->route('login')->with('success', 'رمز عبور با موفقیت به‌روزرسانی شد. می‌توانید وارد شوید.');
+            return redirect()->route('login')->with('success', __('flash.password_updated'));
         }
 
-        return back()->withErrors(['email' => 'امکان تغییر رمز نبود. لینک ممکن است منقضی یا نامعتبر باشد.']);
+        return back()->withErrors(['email' => __('flash.password_reset_failed')]);
     }
 }

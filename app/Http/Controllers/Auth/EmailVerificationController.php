@@ -34,7 +34,7 @@ class EmailVerificationController extends Controller
 
         $request->user()->sendEmailVerificationNotification();
 
-        return back()->with('success', 'لینک تأیید به ایمیل شما ارسال شد.');
+        return back()->with('success', __('flash.verification_resent'));
     }
 
     public function verify(EmailVerificationRequest $request): RedirectResponse
@@ -52,6 +52,6 @@ class EmailVerificationController extends Controller
             }
         }
 
-        return redirect()->route('dashboard')->with('success', 'ایمیل شما تأیید شد. خوش آمدید.');
+        return redirect()->route('dashboard')->with('success', __('flash.email_verified_welcome'));
     }
 }
