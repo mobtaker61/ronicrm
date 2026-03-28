@@ -1,5 +1,15 @@
 <template>
-    <FrontLayout app-name="RoniCRM">
+    <FrontLayout
+        variant="minimal"
+        app-name="RoniCRM"
+        :nav-home="t('front.nav_home')"
+        :nav-privacy="t('front.privacy_policy')"
+        :nav-terms="t('front.terms_title')"
+        :nav-get-started="t('front.nav_get_started')"
+        :nav-dashboard="t('front.nav_dashboard')"
+        :locale-switch-aria="t('front.locale_switch_aria')"
+        :footer-rights="t('front.footer_rights')"
+    >
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
             <h1 class="text-3xl font-bold text-gray-900 mb-8">{{ t('front.privacy_policy_title') }}</h1>
             <p class="text-sm text-gray-500 mb-8">{{ t('front.last_updated_feb_2025') }}</p>

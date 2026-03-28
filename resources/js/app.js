@@ -23,6 +23,7 @@ const routeHelper = (name, params = null, absolute = false) => {
         'front.welcome': '/',
         'front.privacy': '/privacy-policy',
         'front.terms': '/terms-and-conditions',
+        'locale.set': '/locale',
         'login': '/login',
         'dashboard': '/dashboard',
         'settings.instagram.connect': '/settings/instagram/connect',

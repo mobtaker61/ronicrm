@@ -34,6 +34,7 @@ Route::post('/instagram-webhook/{organization}', [\App\Http\Controllers\Instagra
 
 // i18n (public JSON + session locale setter)
 Route::get('/i18n/{locale}.json', [\App\Http\Controllers\I18nController::class, 'json'])->name('i18n.json');
+Route::post('/locale', [\App\Http\Controllers\PublicLocaleController::class, 'update'])->name('locale.set');
 Route::post('/i18n/locale', [\App\Http\Controllers\I18nController::class, 'setLocale'])->middleware('auth')->name('i18n.locale.set');
 
 Route::middleware('auth')->group(function () {

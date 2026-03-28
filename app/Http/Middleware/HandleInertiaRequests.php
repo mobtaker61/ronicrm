@@ -52,6 +52,14 @@ class HandleInertiaRequests extends Middleware
                     ->value('code') ?: config('app.locale', 'en')),
                 'json_url' => fn () => route('i18n.json', ['locale' => app()->getLocale()]),
             ],
+            'publicLocales' => fn () => \App\Models\Language::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['code', 'name'])
+                ->map(fn ($l) => ['code' => (string) $l->code, 'name' => (string) $l->name])
+                ->values()
+                ->all(),
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
@@ -124,6 +132,7 @@ class HandleInertiaRequests extends Middleware
                 $service = app(\App\Services\SubscriptionService::class);
                 $sub = $service->getOrCreateForOrganization((int) $orgId);
                 $status = $service->computeStatus($sub);
+
                 return [
                     'status' => $status,
                     'remaining_days' => $service->remainingDays($sub),

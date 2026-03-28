@@ -5,8 +5,8 @@ namespace App\Console\Commands;
 use App\Models\Language;
 use App\Models\TranslationKey;
 use App\Models\TranslationValue;
+use App\Support\TranslationSeedFragments\FrontLandingKeys;
 use Illuminate\Console\Command;
-use Illuminate\Support\Arr;
 
 class SeedDefaultTranslations extends Command
 {
@@ -121,6 +121,7 @@ class SeedDefaultTranslations extends Command
             if ($this->option('fallback-to-en')) {
                 return $english !== '' ? $english : null;
             }
+
             return null;
         }
 
@@ -5712,11 +5713,11 @@ class SeedDefaultTranslations extends Command
             ],
             'front' => [
                 'welcome_title' => [
-                    'en' => 'Welcome to RoniCRM',
-                    'fa' => 'به RoniCRM خوش آمدید',
-                    'ar' => 'مرحبًا بك في RoniCRM',
-                    'tr' => 'RoniCRM\'e Hoş Geldiniz',
-                    'ku' => 'بەخێربێیت بۆ RoniCRM',
+                    'en' => 'Think smarter about your CRM',
+                    'fa' => 'CRM را هوشمندتر مدیریت کنید',
+                    'ar' => 'فكّر بذكاء في إدارة علاقات عملائك',
+                    'tr' => 'CRM’nizi daha akıllıca yönetin',
+                    'ku' => 'بە زیرەکیتر CRM بەڕێوەببە',
                 ],
                 'welcome_subtitle' => [
                     'en' => 'Customer relationship management in one place: organize contacts, run marketing campaigns, and communicate via WhatsApp, Telegram, and Instagram from a single dashboard.',
@@ -6033,6 +6034,7 @@ class SeedDefaultTranslations extends Command
                     'tr' => 'RoniCRM, Roni Plus tarafından işletilmektedir. Ayrıca RoniCRM web sitesinde (örn. ronicrm.com) yer alan iletişim bilgilerini kullanabilirsiniz.',
                     'ku' => 'RoniCRM لەلایەن Roni Plus بەڕێوەدەبرێت. هەروەها دەتوانیت زانیاری پەیوەندیی لە وێبسایتی RoniCRM (وەک ronicrm.com) بەکاربهێنیت.',
                 ],
+                ...FrontLandingKeys::definitions(),
                 'back_to_home' => [
                     'en' => 'Back to home',
                     'fa' => 'بازگشت به خانه',
@@ -7766,4 +7768,3 @@ class SeedDefaultTranslations extends Command
         ];
     }
 }
-

@@ -18,13 +18,27 @@
             <div class="flex flex-col h-full">
                 <!-- Logo -->
                 <div class="flex items-center justify-between h-16 px-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700">
-                    <div :class="['flex items-center gap-3', isRtl ? 'flex-row-reverse' : '']">
-                        <div class="bg-white rounded-lg p-2">
-                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div :class="['flex items-center gap-3 min-w-0']">
+                        <div
+                            class="flex-shrink-0 bg-white rounded-lg p-1.5 h-10 w-10 flex items-center justify-center overflow-hidden shadow-sm"
+                        >
+                            <img
+                                v-if="currentOrganizationLogoUrl"
+                                :src="currentOrganizationLogoUrl"
+                                :alt="currentOrganizationName"
+                                class="max-h-full max-w-full object-contain"
+                            />
+                            <svg
+                                v-else
+                                class="w-6 h-6 text-blue-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                             </svg>
                         </div>
-                        <h1 class="text-xl font-bold text-white truncate max-w-[170px]">{{ currentOrganizationName }}</h1>
+                        <h1 class="text-xl font-bold text-white truncate min-w-0">{{ currentOrganizationName }}</h1>
                     </div>
                     <button
                         @click="sidebarOpen = false"
@@ -550,10 +564,16 @@ const openMenus = ref({
     superadmin: false,
 });
 const currentOrganizationName = computed(() => {
+    const fromProps = page.props.currentOrganization?.name;
+    if (fromProps) {
+        return fromProps;
+    }
     const orgId = page.props.auth?.user?.current_organization_id;
     const current = organizations.value.find((organization) => String(organization.id) === String(orgId));
     return current?.name || 'RoniCRM';
 });
+
+const currentOrganizationLogoUrl = computed(() => page.props.currentOrganization?.logo_url || null);
 const isCampaignsSectionActive = computed(() => {
     return isCurrentRoute('/campaigns') || isCurrentRoute('/campaign-templates');
 });
