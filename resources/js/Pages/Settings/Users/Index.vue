@@ -7,7 +7,7 @@
                     <p v-if="userManagementScope === 'organization'" class="text-sm text-gray-500 mt-1">{{ t('settings.users_org_scope_hint') }}</p>
                 </div>
                 <Link
-                    :href="route('settings.index')"
+                    :href="route('settings.index', { tab: 'organization' })"
                     class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                     {{ t('settings.back_to_settings') }}

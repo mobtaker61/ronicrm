@@ -27,18 +27,23 @@ class SettingsController extends Controller
 
     public function index(): Response
     {
+        if (request()->query('tab') === 'users') {
+            return redirect()->route('settings.users.index');
+        }
+        if (request()->query('tab') === 'subscription') {
+            return redirect()->route('settings.index', ['tab' => 'organization']);
+        }
+
         $canManageOrganizationSettings = Auth::user()->canManageOrganizationSettings();
         $canManageSystemSettings = Auth::user()->isSuperAdmin();
         $isSuperAdmin = Auth::user()->isSuperAdmin();
         $authUser = Auth::user();
 
-        $userManagementScope = 'none';
         $users = [];
         $roles = [];
         $organizations = [];
 
         if ($authUser->hasGlobalAdminAccess()) {
-            $userManagementScope = 'global';
             $users = \App\Models\User::with('roles')->orderBy('name')->get()->map(function ($user) {
                 return [
                     'id' => $user->id,
@@ -57,7 +62,6 @@ class SettingsController extends Controller
                 ];
             });
         } elseif ($canManageOrganizationSettings && $authUser->current_organization_id) {
-            $userManagementScope = 'organization';
             $org = \App\Models\Organization::query()
                 ->with(['users' => fn ($q) => $q->orderBy('name')])
                 ->find($authUser->current_organization_id);
@@ -126,12 +130,9 @@ class SettingsController extends Controller
             }
         }
 
-        $allowedTabs = ['smtp', 'ronibot', 'telegram', 'instagram', 'google-contacts'];
+        $allowedTabs = ['smtp', 'ronibot', 'telegram', 'instagram', 'tiktok', 'google-contacts'];
         if ($canManageOrganizationSettings) {
-            $allowedTabs = array_merge(['organization', 'subscription'], $allowedTabs);
-        }
-        if ($userManagementScope !== 'none') {
-            $allowedTabs[] = 'users';
+            $allowedTabs[] = 'organization';
         }
         $defaultTab = $canManageOrganizationSettings ? 'organization' : 'smtp';
         $initialTab = in_array(request()->query('tab'), $allowedTabs, true)
@@ -141,7 +142,6 @@ class SettingsController extends Controller
         return Inertia::render('Settings/Index', [
             'initialTab' => $initialTab,
             'isAdmin' => $canManageSystemSettings,
-            'userManagementScope' => $userManagementScope,
             'canManageOrganizationSettings' => $canManageOrganizationSettings,
             'canManageSystemSettings' => $canManageSystemSettings,
             'users' => $users,

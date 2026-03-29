@@ -1,7 +1,7 @@
 <template>
     <AppLayout>
         <template #header>
-            {{ t('sidebar.settings') }}
+            {{ settingsPageTitle }}
         </template>
 
         <div class="space-y-6">
@@ -22,121 +22,7 @@
                 </ul>
             </div>
 
-            <!-- Tabs -->
             <div class="bg-white rounded-lg shadow">
-                <div class="border-b border-gray-200">
-                    <nav class="flex flex-wrap -mb-px">
-                        <button
-                            v-if="canManageOrganizationSettings"
-                            @click="activeTab = 'organization'"
-                            :class="[
-                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-                                activeTab === 'organization'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            ]"
-                        >
-                            {{ t('settings.tabs.organization') }}
-                        </button>
-                        <button
-                            v-if="canManageOrganizationSettings"
-                            @click="activeTab = 'subscription'"
-                            :class="[
-                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-                                activeTab === 'subscription'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            ]"
-                        >
-                            {{ t('settings.tabs.subscription') }}
-                        </button>
-                        <button
-                            v-if="userManagementScope !== 'none'"
-                            @click="activeTab = 'users'"
-                            :class="[
-                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-                                activeTab === 'users'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            ]"
-                        >
-                            {{ t('settings.tabs.users') }}
-                        </button>
-                        <button
-                            v-if="canManageOrganizationSettings"
-                            @click="activeTab = 'smtp'"
-                            :class="[
-                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-                                activeTab === 'smtp'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            ]"
-                        >
-                            {{ t('settings.tabs.smtp') }}
-                        </button>
-                        <button
-                            v-if="canManageOrganizationSettings"
-                            @click="activeTab = 'ronibot'"
-                            :class="[
-                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-                                activeTab === 'ronibot'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            ]"
-                        >
-                            {{ t('settings.tabs.ronibot') }}
-                        </button>
-                        <button
-                            v-if="canManageOrganizationSettings"
-                            @click="activeTab = 'telegram'"
-                            :class="[
-                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-                                activeTab === 'telegram'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            ]"
-                        >
-                            {{ t('settings.tabs.telegram_inbox') }}
-                        </button>
-                        <button
-                            v-if="canManageOrganizationSettings"
-                            @click="activeTab = 'instagram'"
-                            :class="[
-                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-                                activeTab === 'instagram'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            ]"
-                        >
-                            {{ t('settings.tabs.instagram_inbox') }}
-                        </button>
-                        <button
-                            v-if="canManageOrganizationSettings"
-                            @click="activeTab = 'tiktok'"
-                            :class="[
-                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-                                activeTab === 'tiktok'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            ]"
-                        >
-                            {{ t('settings.tabs.tiktok_inbox') }}
-                        </button>
-                        <button
-                            v-if="canManageOrganizationSettings"
-                            @click="activeTab = 'google-contacts'"
-                            :class="[
-                                'px-6 py-4 text-sm font-medium border-b-2 transition-colors',
-                                activeTab === 'google-contacts'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            ]"
-                        >
-                            {{ t('settings.tabs.google_contacts') }}
-                        </button>
-                    </nav>
-                </div>
-
                 <!-- Social Media Tab (moved to SuperAdmin menu) -->
                 <div v-if="activeTab === 'social-media' && isAdmin" class="p-6 hidden">
                     <div class="flex justify-between items-center mb-6">
@@ -467,266 +353,6 @@
                                     {{ languageSaving ? t('settings.saving') : t('common.save') }}
                                 </button>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Users Management Tab -->
-                <div v-if="activeTab === 'users' && userManagementScope !== 'none'" class="p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <div>
-                            <h2 class="text-xl font-bold text-gray-900">{{ t('settings.users_management') }}</h2>
-                            <p v-if="userManagementScope === 'organization'" class="text-sm text-gray-500 mt-1">{{ t('settings.users_org_scope_hint') }}</p>
-                        </div>
-                        <button
-                            @click="showCreateUserModal = true"
-                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-                        >
-                            {{ t('settings.add_new_user') }}
-                        </button>
-                    </div>
-
-                    <!-- Users List -->
-                    <div class="bg-white rounded-lg shadow overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.name') }}</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.username') }}</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.email') }}</th>
-                                        <th
-                                            v-if="userManagementScope === 'global'"
-                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
-                                            {{ t('common.roles') }}
-                                        </th>
-                                        <template v-else>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('settings.org_role') }}</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.status') }}</th>
-                                        </template>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.created') }}</th>
-                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('common.actions') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
-                                    <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50">
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-9 h-9 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
-                                                    <img
-                                                        v-if="user.avatar_url"
-                                                        :src="user.avatar_url"
-                                                        alt="Avatar"
-                                                        class="w-full h-full object-cover"
-                                                    />
-                                                    <span v-else class="text-xs font-semibold text-gray-500">{{ getInitials(user.name) }}</span>
-                                                </div>
-                                                <div class="text-sm font-medium text-gray-900">{{ user.name }}</div>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm text-gray-500">{{ user.username || '-' }}</div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm text-gray-500">{{ user.email }}</div>
-                                        </td>
-                                        <td v-if="userManagementScope === 'global'" class="px-6 py-4 whitespace-nowrap">
-                                            <div class="flex flex-wrap gap-1">
-                                                <span
-                                                    v-for="role in user.roles"
-                                                    :key="role"
-                                                    class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full"
-                                                >
-                                                    {{ role }}
-                                                </span>
-                                                <span v-if="!user.roles || user.roles.length === 0" class="text-sm text-gray-400">{{ t('settings.no_roles') }}</span>
-                                            </div>
-                                        </td>
-                                        <template v-else>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <span class="text-sm text-gray-900">{{ formatOrgRole(user.role_in_org) }}</span>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <span
-                                                    class="px-2 py-1 text-xs rounded-full"
-                                                    :class="user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'"
-                                                >
-                                                    {{ user.status === 'active' ? t('common.active') : t('common.inactive') }}
-                                                </span>
-                                            </td>
-                                        </template>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm text-gray-500">{{ formatDate(user.created_at) }}</div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button
-                                                @click="editUser(user)"
-                                                class="text-blue-600 hover:text-blue-900 ltr:mr-4 rtl:ml-4"
-                                            >
-                                                {{ t('common.edit') }}
-                                            </button>
-                                            <button
-                                                @click="deleteUser(user)"
-                                                :disabled="user.id === $page.props.auth?.user?.id"
-                                                :class="[
-                                                    'text-red-600 hover:text-red-900',
-                                                    user.id === $page.props.auth?.user?.id ? 'opacity-50 cursor-not-allowed' : ''
-                                                ]"
-                                            >
-                                                {{ userManagementScope === 'organization' ? t('settings.remove_from_organization') : t('common.delete') }}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div v-if="!users || users.length === 0" class="px-6 py-8 text-center text-gray-500">
-                            <p>{{ t('settings.no_users_found') }}</p>
-                        </div>
-                    </div>
-
-                    <!-- Create/Edit User Modal -->
-                    <div
-                        v-if="showCreateUserModal || showEditUserModal"
-                        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-                        @click.self="closeUserModal"
-                    >
-                        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-                            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                                <h3 class="text-lg font-semibold text-gray-900">
-                                    {{ showEditUserModal ? t('settings.edit_user') : t('settings.create_new_user') }}
-                                </h3>
-                                <button
-                                    @click="closeUserModal"
-                                    class="text-gray-400 hover:text-gray-500"
-                                >
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <form @submit.prevent="saveUser" class="p-6 space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.name') }} *</label>
-                                    <input
-                                        v-model="userForm.name"
-                                        type="text"
-                                        required
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <div v-if="userForm.errors.name" class="mt-1 text-sm text-red-600">{{ userForm.errors.name }}</div>
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.username') }} *</label>
-                                    <input
-                                        v-model="userForm.username"
-                                        type="text"
-                                        required
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <div v-if="userForm.errors.username" class="mt-1 text-sm text-red-600">{{ userForm.errors.username }}</div>
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.email') }} *</label>
-                                    <input
-                                        v-model="userForm.email"
-                                        type="email"
-                                        required
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <div v-if="userForm.errors.email" class="mt-1 text-sm text-red-600">{{ userForm.errors.email }}</div>
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                                        {{ t('auth.password') }} {{ showEditUserModal ? t('settings.leave_blank_keep_current') : '*' }}
-                                    </label>
-                                    <input
-                                        v-model="userForm.password"
-                                        type="password"
-                                        :required="!showEditUserModal"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <div v-if="userForm.errors.password" class="mt-1 text-sm text-red-600">{{ userForm.errors.password }}</div>
-                                </div>
-
-                                <div v-if="!showEditUserModal || userForm.password">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.confirm_password_required') }}</label>
-                                    <input
-                                        v-model="userForm.password_confirmation"
-                                        type="password"
-                                        :required="!showEditUserModal || !!userForm.password"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                    <div v-if="userForm.errors.password_confirmation" class="mt-1 text-sm text-red-600">{{ userForm.errors.password_confirmation }}</div>
-                                </div>
-
-                                <div v-if="userManagementScope === 'global'">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('common.roles') }}</label>
-                                    <div v-if="roles && roles.length > 0" class="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-40 overflow-y-auto">
-                                        <label
-                                            v-for="role in roles"
-                                            :key="role.id"
-                                            class="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer hover:bg-gray-100 p-2 rounded"
-                                        >
-                                            <input
-                                                v-model="userForm.roles"
-                                                type="checkbox"
-                                                :value="role.name"
-                                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                            />
-                                            <span class="text-sm text-gray-700 font-medium">{{ role.name }}</span>
-                                        </label>
-                                    </div>
-                                    <div v-else class="text-sm text-gray-500 italic">{{ t('settings.no_roles_available') }}</div>
-                                    <div v-if="userForm.errors.roles" class="mt-1 text-sm text-red-600">{{ userForm.errors.roles }}</div>
-                                </div>
-                                <div v-else class="space-y-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.org_role') }} *</label>
-                                        <select v-model="userForm.role_in_org" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                                            <option value="org_admin">{{ t('settings.org_admin') }}</option>
-                                            <option value="org_manager">{{ t('settings.org_manager') }}</option>
-                                            <option value="org_agent">{{ t('settings.org_agent') }}</option>
-                                        </select>
-                                        <div v-if="userForm.errors.role_in_org" class="mt-1 text-sm text-red-600">{{ userForm.errors.role_in_org }}</div>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('common.status') }} *</label>
-                                        <select v-model="userForm.status" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                                            <option value="active">{{ t('common.active') }}</option>
-                                            <option value="inactive">{{ t('common.inactive') }}</option>
-                                        </select>
-                                        <div v-if="userForm.errors.status" class="mt-1 text-sm text-red-600">{{ userForm.errors.status }}</div>
-                                    </div>
-                                    <label class="flex items-center gap-2">
-                                        <input v-model="userForm.is_default" type="checkbox" class="rounded border-gray-300 text-blue-600" />
-                                        <span class="text-sm text-gray-700">{{ t('settings.default_organization_for_user') }}</span>
-                                    </label>
-                                </div>
-
-                                <div class="flex justify-end space-x-3 rtl:space-x-reverse pt-4">
-                                    <button
-                                        type="button"
-                                        @click="closeUserModal"
-                                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                                    >
-                                        {{ t('common.cancel') }}
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        :disabled="userForm.processing"
-                                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                                    >
-                                        {{ userForm.processing ? t('settings.saving') : t('common.save') }}
-                                    </button>
-                                </div>
-                            </form>
                         </div>
                     </div>
                 </div>
@@ -1561,49 +1187,10 @@
                     </div>
                 </div>
 
-                <!-- Subscription Tab -->
-                <div v-if="activeTab === 'subscription' && canManageOrganizationSettings" class="p-6">
-                    <h2 class="text-xl font-bold text-gray-900 mb-2">{{ t('settings.subscription') }}</h2>
-                    <p class="text-sm text-gray-500 mb-6">{{ t('settings.subscription_description') }}</p>
-
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <span class="text-gray-500">{{ t('settings.subscription_status') }}</span>
-                                <span class="font-medium ltr:ml-2 rtl:mr-2" :class="subscriptionStatusClass">{{ props.subscriptionSummary?.status || '-' }}</span>
-                            </div>
-                            <div>
-                                <span class="text-gray-500">{{ t('settings.subscription_remaining_days') }}</span>
-                                <span class="font-medium ltr:ml-2 rtl:mr-2">{{ props.subscriptionSummary?.remaining_days ?? '-' }}</span>
-                            </div>
-                            <div>
-                                <span class="text-gray-500">{{ t('settings.subscription_plan') }}</span>
-                                <span class="font-medium ltr:ml-2 rtl:mr-2">{{ props.subscriptionSummary?.plan?.name || '-' }}</span>
-                            </div>
-                            <div>
-                                <span class="text-gray-500">{{ t('settings.subscription_ends_at') }}</span>
-                                <span class="font-medium ltr:ml-2 rtl:mr-2">{{ formatIsoDate(props.subscriptionSummary?.ends_at) || '-' }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-3">
-                        <input v-model.number="renewMonths" type="number" min="1" max="24" class="w-28 px-3 py-2 border rounded-md" />
-                        <button
-                            type="button"
-                            @click="renewSubscription"
-                            :disabled="renewingSubscription"
-                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                        >
-                            {{ renewingSubscription ? t('common.renewing') : t('settings.renew') }}
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Organization profile tab -->
+                <!-- Organization profile + subscription -->
                 <div v-if="activeTab === 'organization' && canManageOrganizationSettings && organizationProfile" class="p-6">
-                    <h2 class="text-xl font-bold text-gray-900 mb-2">{{ t('settings.organization_profile') }}</h2>
-                    <p class="text-sm text-gray-500 mb-6">{{ t('settings.organization_profile_help') }}</p>
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">{{ t('settings.tabs.organization_subscription') }}</h2>
+                    <p class="text-sm text-gray-500 mb-6">{{ t('settings.organization_subscription_help') }}</p>
 
                     <form @submit.prevent="saveOrganizationProfile" class="space-y-6 max-w-3xl">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1698,6 +1285,44 @@
                             </button>
                         </div>
                     </form>
+
+                    <div class="border-t border-gray-200 mt-10 pt-8 max-w-3xl">
+                        <h3 class="text-lg font-bold text-gray-900 mb-2">{{ t('settings.subscription') }}</h3>
+                        <p class="text-sm text-gray-500 mb-6">{{ t('settings.subscription_description') }}</p>
+
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span class="text-gray-500">{{ t('settings.subscription_status') }}</span>
+                                    <span class="font-medium ltr:ml-2 rtl:mr-2" :class="subscriptionStatusClass">{{ props.subscriptionSummary?.status || '-' }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-500">{{ t('settings.subscription_remaining_days') }}</span>
+                                    <span class="font-medium ltr:ml-2 rtl:mr-2">{{ props.subscriptionSummary?.remaining_days ?? '-' }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-500">{{ t('settings.subscription_plan') }}</span>
+                                    <span class="font-medium ltr:ml-2 rtl:mr-2">{{ props.subscriptionSummary?.plan?.name || '-' }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-500">{{ t('settings.subscription_ends_at') }}</span>
+                                    <span class="font-medium ltr:ml-2 rtl:mr-2">{{ formatIsoDate(props.subscriptionSummary?.ends_at) || '-' }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <input v-model.number="renewMonths" type="number" min="1" max="24" class="w-28 px-3 py-2 border rounded-md" />
+                            <button
+                                type="button"
+                                @click="renewSubscription"
+                                :disabled="renewingSubscription"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {{ renewingSubscription ? t('common.renewing') : t('settings.renew') }}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1873,10 +1498,6 @@ const props = defineProps({
         type: Object,
         default: null,
     },
-    userManagementScope: {
-        type: String,
-        default: 'none',
-    },
     organizationProfile: {
         type: Object,
         default: null,
@@ -1884,6 +1505,32 @@ const props = defineProps({
 });
 
 const activeTab = ref(props.initialTab || 'smtp');
+
+watch(
+    () => props.initialTab,
+    (v) => {
+        if (v) {
+            activeTab.value = v;
+        }
+    }
+);
+
+const settingsPageTitle = computed(() => {
+    const tab = activeTab.value;
+    const map = {
+        organization: () => t('settings.tabs.organization_subscription'),
+        smtp: () => t('settings.tabs.smtp'),
+        ronibot: () => t('settings.tabs.ronibot'),
+        telegram: () => t('settings.tabs.telegram_inbox'),
+        instagram: () => t('settings.tabs.instagram_inbox'),
+        tiktok: () => t('settings.tabs.tiktok_inbox'),
+        'google-contacts': () => t('settings.tabs.google_contacts'),
+    };
+    if (map[tab]) {
+        return map[tab]();
+    }
+    return t('sidebar.settings');
+});
 const showAddModal = ref(false);
 const page = usePage();
 const isSuperAdmin = computed(() => {
@@ -2005,10 +1652,6 @@ async function deleteTelegramGroupCategory(cat) {
 const editingType = ref(null);
 const testEmail = ref('');
 
-// User Management
-const showCreateUserModal = ref(false);
-const showEditUserModal = ref(false);
-const editingUser = ref(null);
 const editingOrganization = ref(null);
 const showMembersModal = ref(false);
 const selectedOrganizationForMembers = ref(null);
@@ -2022,18 +1665,6 @@ const organizationForm = useForm({
 
 const memberForm = useForm({
     user_id: '',
-    role_in_org: 'org_agent',
-    status: 'active',
-    is_default: false,
-});
-
-const userForm = useForm({
-    name: '',
-    username: '',
-    email: '',
-    password: '',
-    password_confirmation: '',
-    roles: [],
     role_in_org: 'org_agent',
     status: 'active',
     is_default: false,
@@ -2717,20 +2348,6 @@ const testRonibot = () => {
     });
 };
 
-// User Management Functions
-const formatOrgRole = (role) => {
-    if (role === 'org_admin') {
-        return t('settings.org_admin');
-    }
-    if (role === 'org_manager') {
-        return t('settings.org_manager');
-    }
-    if (role === 'org_agent') {
-        return t('settings.org_agent');
-    }
-    return role || '—';
-};
-
 function saveOrganizationProfile() {
     organizationProfileForm.post(route('settings.organization-profile.update'), {
         forceFormData: true,
@@ -2743,68 +2360,6 @@ function onOrganizationLogoChange(e) {
     organizationProfileForm.logo = f || null;
     organizationProfileForm.remove_logo = false;
 }
-
-const editUser = (user) => {
-    editingUser.value = user;
-    userForm.name = user.name;
-    userForm.username = user.username;
-    userForm.email = user.email;
-    userForm.password = '';
-    userForm.password_confirmation = '';
-    if (props.userManagementScope === 'organization') {
-        userForm.roles = [];
-        userForm.role_in_org = user.role_in_org || 'org_agent';
-        userForm.status = user.status || 'active';
-        userForm.is_default = !!user.is_default;
-    } else {
-        userForm.roles = user.roles || [];
-    }
-    showEditUserModal.value = true;
-};
-
-const deleteUser = (user) => {
-    const msg =
-        props.userManagementScope === 'organization'
-            ? t('settings.confirm_remove_user_from_org').replace(':name', user.name)
-            : t('settings.confirm_delete_user').replace(':name', user.name);
-    if (confirm(msg)) {
-        router.delete(route('settings.users.destroy', user.id), {
-            preserveState: true,
-            preserveScroll: true,
-        });
-    }
-};
-
-const saveUser = () => {
-    if (showEditUserModal.value && editingUser.value) {
-        userForm.put(route('settings.users.update', editingUser.value.id), {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                closeUserModal();
-            },
-        });
-    } else {
-        userForm.post(route('settings.users.store'), {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                closeUserModal();
-            },
-        });
-    }
-};
-
-const closeUserModal = () => {
-    showCreateUserModal.value = false;
-    showEditUserModal.value = false;
-    editingUser.value = null;
-    userForm.reset();
-    userForm.role_in_org = 'org_agent';
-    userForm.status = 'active';
-    userForm.is_default = false;
-    userForm.clearErrors();
-};
 
 const editOrganization = (organization) => {
     editingOrganization.value = organization;

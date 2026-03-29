@@ -121,6 +121,21 @@ class HandleInertiaRequests extends Middleware
                     ->where('organizations.id', $request->user()->current_organization_id)
                     ->first()?->pivot?->role_in_org
                 : null,
+            'canManageOrganizationSettings' => fn () => (bool) ($request->user()?->canManageOrganizationSettings()),
+            'userManagementScope' => fn () => (function () use ($request) {
+                $user = $request->user();
+                if (! $user) {
+                    return 'none';
+                }
+                if ($user->hasGlobalAdminAccess()) {
+                    return 'global';
+                }
+                if ($user->canManageOrganizationSettings() && $user->current_organization_id) {
+                    return 'organization';
+                }
+
+                return 'none';
+            })(),
             'languages' => fn () => $request->user()
                 ? (function () use ($request) {
                     $q = \App\Models\Language::query()

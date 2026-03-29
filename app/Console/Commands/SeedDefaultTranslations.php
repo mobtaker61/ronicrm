@@ -3642,6 +3642,20 @@ class SeedDefaultTranslations extends Command
                     'tr' => 'Telegram',
                     'ku' => 'Telegram',
                 ],
+                'tools' => [
+                    'en' => 'Tools',
+                    'fa' => 'ابزارها',
+                    'ar' => 'الأدوات',
+                    'tr' => 'Araçlar',
+                    'ku' => 'ئامرازەکان',
+                ],
+                'channels' => [
+                    'en' => 'Channels',
+                    'fa' => 'کانال‌ها',
+                    'ar' => 'القنوات',
+                    'tr' => 'Kanallar',
+                    'ku' => 'کەناڵەکان',
+                ],
                 'tiktok' => [
                     'en' => 'TikTok',
                     'fa' => 'تیک‌تاک',
@@ -3841,11 +3855,11 @@ class SeedDefaultTranslations extends Command
                     'ku' => 'Aboneyat',
                 ],
                 'organization_subscriptions' => [
-                    'en' => 'Organization Subscriptions',
-                    'fa' => 'Organization Subscriptions',
-                    'ar' => 'Organization Subscriptions',
-                    'tr' => 'Organization Subscriptions',
-                    'ku' => 'Organization Subscriptions',
+                    'en' => 'Organization',
+                    'fa' => 'Organization',
+                    'ar' => 'Organization',
+                    'tr' => 'Organization',
+                    'ku' => 'Organization',
                 ],
                 'organization_subscriptions.search_placeholder' => [
                     'en' => 'Search organization name/slug…',
@@ -3988,6 +4002,20 @@ class SeedDefaultTranslations extends Command
                     'ar' => 'المؤسسة',
                     'tr' => 'Kuruluş',
                     'ku' => 'ڕێکخراو',
+                ],
+                'tabs.organization_subscription' => [
+                    'en' => 'Organization',
+                    'fa' => 'سازمان',
+                    'ar' => 'المؤسسة',
+                    'tr' => 'Kuruluş',
+                    'ku' => 'ڕێکخراو',
+                ],
+                'organization_subscription_help' => [
+                    'en' => 'Company profile, billing address, and subscription status in one place.',
+                    'fa' => 'پروفایل سازمان، آدرس و وضعیت اشتراک در یک صفحه.',
+                    'ar' => 'ملف المؤسسة والعنوان وحالة الاشتراك في صفحة واحدة.',
+                    'tr' => 'Kuruluş profili, adres ve abonelik durumu tek sayfada.',
+                    'ku' => 'پرۆفایلی ڕێکخراو، ناونیشان و دۆخی بەشداربوون لە یەک پەڕە.',
                 ],
                 'tabs.users' => [
                     'en' => 'User management',

@@ -7,6 +7,7 @@ use App\Models\CampaignTemplate;
 use App\Models\Customer;
 use App\Models\Industry;
 use App\Models\InstagramMessage;
+use App\Models\Setting;
 use App\Models\TelegramGroup;
 use App\Models\TelegramMessage;
 use App\Models\TelegramUserConnection;
@@ -33,6 +34,14 @@ class DashboardController extends Controller
             'telegram_connected' => TelegramUserConnection::where('status', 'connected')->exists(),
             'instagram_connected' => \App\Models\InstagramConnection::whereNotNull('access_token_encrypted')->exists(),
             'tiktok_connected' => TikTokConnection::whereNotNull('access_token_encrypted')->exists(),
+            'whatsapp_connected' => (function () {
+                $r = Setting::getForOrganization('ronibot', []);
+                if (! is_array($r)) {
+                    return false;
+                }
+
+                return ! empty($r['enabled']) && ! empty($r['appkey']);
+            })(),
         ];
 
         // Unread inbox messages by channel

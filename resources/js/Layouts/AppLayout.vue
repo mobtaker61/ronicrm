@@ -67,6 +67,21 @@
                         {{ t('sidebar.dashboard') }}
                     </Link>
 
+                    <Link
+                        :href="getRoute('inbox.index')"
+                        :class="[
+                            'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                            isCurrentRoute('/inbox')
+                                ? 'bg-blue-50 text-blue-700' 
+                                : 'text-gray-700 hover:bg-gray-100'
+                        ]"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        {{ t('sidebar.inbox') }}
+                    </Link>
+
                     <div>
                         <button
                             type="button"
@@ -254,21 +269,6 @@
                         </div>
                     </div>
 
-                    <Link
-                        :href="getRoute('inbox.index')"
-                        :class="[
-                            'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors',
-                            isCurrentRoute('/inbox')
-                                ? 'bg-blue-50 text-blue-700' 
-                                : 'text-gray-700 hover:bg-gray-100'
-                        ]"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                        {{ t('sidebar.inbox') }}
-                    </Link>
-
                     <div>
                         <button
                             type="button"
@@ -330,68 +330,155 @@
                         </div>
                     </div>
 
-                    <Link
-                        :href="getRoute('media.index')"
-                        :class="[
-                            'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors',
-                            isCurrentRoute('/media')
-                                ? 'bg-blue-50 text-blue-700' 
-                                : 'text-gray-700 hover:bg-gray-100'
-                        ]"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        {{ t('sidebar.media') }}
-                    </Link>
+                    <div>
+                        <button
+                            type="button"
+                            @click="toggleMenu('tools')"
+                            :class="[
+                                'w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                                isToolsSectionActive
+                                    ? 'bg-blue-50 text-blue-700'
+                                    : 'text-gray-700 hover:bg-gray-100'
+                            ]"
+                        >
+                            <span class="flex items-center gap-3">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                {{ t('sidebar.tools') }}
+                            </span>
+                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': isMenuOpen('tools') }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div v-if="isMenuOpen('tools')" class="mt-1 space-y-1">
+                            <Link
+                                :href="getRoute('media.index')"
+                                :class="[
+                                    'flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12',
+                                    isCurrentRoute('/media')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                {{ t('sidebar.media') }}
+                            </Link>
+                            <Link
+                                :href="getRoute('reports.index')"
+                                :class="[
+                                    'flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12',
+                                    isCurrentRoute('/reports')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                </svg>
+                                {{ t('sidebar.reports') }}
+                            </Link>
+                            <Link
+                                :href="getRoute('scrap-tasks.index')"
+                                :class="[
+                                    'flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12',
+                                    isCurrentRoute('/scrap-tasks')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                                </svg>
+                                {{ t('sidebar.web_scraping') }}
+                            </Link>
+                        </div>
+                    </div>
 
-
-                    <Link
-                        :href="getRoute('reports.index')"
-                        :class="[
-                            'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors',
-                            isCurrentRoute('/reports')
-                                ? 'bg-blue-50 text-blue-700' 
-                                : 'text-gray-700 hover:bg-gray-100'
-                        ]"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                        {{ t('sidebar.reports') }}
-                    </Link>
-
-                    <Link
-                        :href="getRoute('scrap-tasks.index')"
-                        :class="[
-                            'flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
-                            isCurrentRoute('/scrap-tasks')
-                                ? 'bg-blue-50 text-blue-700' 
-                                : 'text-gray-700 hover:bg-gray-100'
-                        ]"
-                    >
-                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                        </svg>
-                        {{ t('sidebar.web_scraping') }}
-                    </Link>
-
-                    <Link
-                        v-if="canAccessSettings"
-                        :href="getRoute('settings.index')"
-                        :class="[
-                            'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors',
-                            isCurrentRoute('/settings')
-                                ? 'bg-blue-50 text-blue-700' 
-                                : 'text-gray-700 hover:bg-gray-100'
-                        ]"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        {{ t('sidebar.settings') }}
-                    </Link>
+                    <div v-if="canAccessSettings">
+                        <button
+                            type="button"
+                            @click="toggleMenu('settingsMenu')"
+                            :class="[
+                                'w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                                isSettingsSubtreeActive
+                                    ? 'bg-blue-50 text-blue-700'
+                                    : 'text-gray-700 hover:bg-gray-100'
+                            ]"
+                        >
+                            <span class="flex items-center gap-3">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                {{ t('sidebar.settings') }}
+                            </span>
+                            <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': isMenuOpen('settingsMenu') }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div v-if="isMenuOpen('settingsMenu')" class="mt-1 space-y-1">
+                            <Link
+                                v-if="canManageOrganizationSettings"
+                                :href="settingsTabUrl('organization')"
+                                :class="[
+                                    'flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12',
+                                    isSettingsOrganizationNavActive
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                {{ t('settings.tabs.organization_subscription') }}
+                            </Link>
+                            <Link
+                                v-if="showUserManagementNav"
+                                :href="getRoute('settings.users.index')"
+                                :class="[
+                                    'flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12',
+                                    isCurrentRoute('/settings/users')
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                {{ t('settings.tabs.users') }}
+                            </Link>
+                            <div v-if="canManageOrganizationSettings" class="space-y-1">
+                                <button
+                                    type="button"
+                                    @click="toggleMenu('channelsNested')"
+                                    :class="[
+                                        'w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12',
+                                        isChannelsMenuSectionActive
+                                            ? 'bg-blue-50 text-blue-700'
+                                            : 'text-gray-600 hover:bg-gray-50'
+                                    ]"
+                                >
+                                    <span>{{ t('sidebar.channels') }}</span>
+                                    <svg class="w-4 h-4 flex-shrink-0 transition-transform" :class="{ 'rotate-180': isMenuOpen('channelsNested') }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <div v-if="isMenuOpen('channelsNested')" class="space-y-1">
+                                    <Link
+                                        v-for="item in channelNavItems"
+                                        :key="item.tab"
+                                        :href="settingsTabUrl(item.tab)"
+                                        :class="[
+                                            'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ltr:pl-16 rtl:pr-16',
+                                            isSettingsTabNavActive(item.tab)
+                                                ? 'bg-blue-50 text-blue-700'
+                                                : 'text-gray-700 hover:bg-gray-100'
+                                        ]"
+                                    >
+                                        {{ t(item.labelKey) }}
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- SuperAdmin -->
                     <div v-if="isSuperAdmin" class="pt-3 mt-3 border-t border-gray-200">
@@ -562,8 +649,20 @@ const openMenus = ref({
     commerce: false,
     campaigns: false,
     telegram: false,
+    tools: false,
+    settingsMenu: false,
+    channelsNested: false,
     superadmin: false,
 });
+
+const channelNavItems = [
+    { tab: 'smtp', labelKey: 'settings.tabs.smtp' },
+    { tab: 'ronibot', labelKey: 'settings.tabs.ronibot' },
+    { tab: 'telegram', labelKey: 'settings.tabs.telegram_inbox' },
+    { tab: 'instagram', labelKey: 'settings.tabs.instagram_inbox' },
+    { tab: 'tiktok', labelKey: 'settings.tabs.tiktok_inbox' },
+    { tab: 'google-contacts', labelKey: 'settings.tabs.google_contacts' },
+];
 const currentOrganizationName = computed(() => {
     const fromProps = page.props.currentOrganization?.name;
     if (fromProps) {
@@ -593,6 +692,67 @@ const isTelegramSectionActive = computed(() => {
         || isCurrentRoute('/telegram-groups')
         || isCurrentRoute('/telegram/scheduled-sends');
 });
+const isToolsSectionActive = computed(() => {
+    return isCurrentRoute('/media')
+        || isCurrentRoute('/reports')
+        || isCurrentRoute('/scrap-tasks');
+});
+const canManageOrganizationSettings = computed(() => Boolean(page.props.canManageOrganizationSettings));
+const showUserManagementNav = computed(() => (page.props.userManagementScope || 'none') !== 'none');
+
+function settingsQueryTab() {
+    const raw = String(page.url || '');
+    if (!raw.includes('?')) {
+        return null;
+    }
+    return new URLSearchParams(raw.split('?')[1] || '').get('tab');
+}
+
+const isSettingsOrganizationNavActive = computed(() => {
+    if (!canManageOrganizationSettings.value) {
+        return false;
+    }
+    const path = String(page.url || '').split('?')[0];
+    if (path !== '/settings') {
+        return false;
+    }
+    const t = settingsQueryTab();
+    return t === 'organization' || t === null || t === '';
+});
+
+const isChannelsMenuSectionActive = computed(() => {
+    if (!canManageOrganizationSettings.value) {
+        return false;
+    }
+    const path = String(page.url || '').split('?')[0];
+    if (path !== '/settings') {
+        return false;
+    }
+    const t = settingsQueryTab() || '';
+    return ['smtp', 'ronibot', 'telegram', 'instagram', 'tiktok', 'google-contacts'].includes(t);
+});
+
+const isSettingsSubtreeActive = computed(() => {
+    return isSettingsOrganizationNavActive.value
+        || isCurrentRoute('/settings/users')
+        || isChannelsMenuSectionActive.value;
+});
+
+function isSettingsTabNavActive(tab) {
+    return settingsQueryTab() === tab;
+}
+
+function settingsTabUrl(tab) {
+    if (typeof window !== 'undefined' && window.route) {
+        try {
+            return window.route('settings.index', { tab });
+        } catch (e) {
+            // fall through
+        }
+    }
+    return `/settings?tab=${encodeURIComponent(tab)}`;
+}
+
 const canAccessSettings = computed(() => {
     const roles = page.props.auth?.user?.roles || [];
     const currentOrganizationRole = page.props.currentOrganizationRole || null;
@@ -678,6 +838,7 @@ const getRoute = (name) => {
         'reports.index': '/reports',
         'scrap-tasks.index': '/scrap-tasks',
         'settings.index': '/settings',
+        'settings.users.index': '/settings/users',
         'profile.index': '/profile',
         'superadmin.social-media-platforms.index': '/superadmin/social-media-platforms',
         'superadmin.languages.index': '/superadmin/languages',
@@ -726,6 +887,12 @@ const isMenuRouteActive = (menuKey) => {
             return isCampaignsSectionActive.value;
         case 'telegram':
             return isTelegramSectionActive.value;
+        case 'tools':
+            return isToolsSectionActive.value;
+        case 'settingsMenu':
+            return isSettingsSubtreeActive.value;
+        case 'channelsNested':
+            return isChannelsMenuSectionActive.value;
         case 'superadmin':
             return isSuperAdminSectionActive.value;
         default:
