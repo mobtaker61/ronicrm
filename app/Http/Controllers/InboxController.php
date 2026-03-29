@@ -26,17 +26,51 @@ class InboxController extends Controller
      */
     public function index(Request $request): Response
     {
-        $channel = $request->get('channel', 'whatsapp');
-        if (! in_array($channel, ['whatsapp', 'telegram', 'instagram', 'tiktok'], true)) {
-            $channel = 'whatsapp';
+        $channel = $request->get('channel', 'all');
+        if (! in_array($channel, ['all', 'whatsapp', 'telegram', 'instagram', 'tiktok'], true)) {
+            $channel = 'all';
         }
-        $selectedContact = $request->get('phone');
-        if ($channel === 'telegram') {
-            $selectedContact = $request->get('chat_id', $selectedContact);
-        }
-        if ($channel === 'instagram') {
-            $selectedContact = $request->get('ig_user_id', $selectedContact);
-            $instagramCustomerId = $request->get('customer_id');
+
+        $messageChannel = null;
+        $selectedContact = null;
+        $instagramCustomerId = $request->get('customer_id');
+        $tiktokCustomerId = $request->get('customer_id');
+
+        if ($channel === 'all') {
+            if ($request->filled('tiktok_open_id')) {
+                $selectedContact = $request->get('tiktok_open_id');
+                $messageChannel = 'tiktok';
+            } elseif ($request->filled('ig_user_id')) {
+                $selectedContact = $request->get('ig_user_id');
+                $messageChannel = 'instagram';
+            } elseif ($request->filled('chat_id')) {
+                $selectedContact = $request->get('chat_id');
+                $messageChannel = 'telegram';
+            } elseif ($request->filled('phone')) {
+                $selectedContact = $request->get('phone');
+                $messageChannel = 'whatsapp';
+            } elseif ($request->filled('customer_id')) {
+                $cust = Customer::find($request->get('customer_id'));
+                if ($cust) {
+                    $igContact = $cust->contacts()->where('type', 'instagram')->first();
+                    if ($igContact) {
+                        $selectedContact = $igContact->value;
+                        $messageChannel = 'instagram';
+                    } else {
+                        $ttContact = $cust->contacts()->where('type', 'tiktok')->first();
+                        if ($ttContact) {
+                            $selectedContact = $ttContact->value;
+                            $messageChannel = 'tiktok';
+                        }
+                    }
+                }
+            }
+        } elseif ($channel === 'telegram') {
+            $messageChannel = 'telegram';
+            $selectedContact = $request->get('chat_id', $request->get('phone'));
+        } elseif ($channel === 'instagram') {
+            $messageChannel = 'instagram';
+            $selectedContact = $request->get('ig_user_id', $request->get('phone'));
             if ($instagramCustomerId && ! $selectedContact) {
                 $cust = Customer::find($instagramCustomerId);
                 if ($cust) {
@@ -46,10 +80,9 @@ class InboxController extends Controller
                     }
                 }
             }
-        }
-        if ($channel === 'tiktok') {
-            $selectedContact = $request->get('tiktok_open_id', $selectedContact);
-            $tiktokCustomerId = $request->get('customer_id');
+        } elseif ($channel === 'tiktok') {
+            $messageChannel = 'tiktok';
+            $selectedContact = $request->get('tiktok_open_id', $request->get('phone'));
             if ($tiktokCustomerId && ! $selectedContact) {
                 $cust = Customer::find($tiktokCustomerId);
                 if ($cust) {
@@ -59,7 +92,11 @@ class InboxController extends Controller
                     }
                 }
             }
+        } else {
+            $messageChannel = 'whatsapp';
+            $selectedContact = $request->get('phone');
         }
+
         $searchPhone = trim((string) $request->get('search_phone', ''));
 
         $searchResults = [];
@@ -67,7 +104,9 @@ class InboxController extends Controller
             $searchTerm = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchPhone);
             $phoneDigits = preg_replace('/[^0-9]/', '', $searchPhone);
 
-            if ($channel === 'telegram') {
+            if ($channel === 'all') {
+                $searchResults = $this->buildUnifiedInboxSearchResults($searchTerm, $phoneDigits);
+            } elseif ($channel === 'telegram') {
                 $telegramTypeId = SocialMediaType::where('name', 'Telegram')->value('id');
                 $query = Customer::query()
                     ->where(function ($q) use ($searchTerm, $telegramTypeId) {
@@ -203,155 +242,150 @@ class InboxController extends Controller
             }
         }
 
-        if ($channel === 'telegram') {
+        if ($channel === 'all') {
+            $conversations = $this->buildAllConversations();
+        } elseif ($channel === 'telegram') {
             $conversations = $this->buildTelegramConversations();
-            $messages = [];
-            $selectedCustomer = null;
-            if ($selectedContact) {
-                $telegramRows = TelegramMessage::forChat($selectedContact)
-                    ->orderBy('created_at', 'asc')
-                    ->get();
-
-                $messages = $telegramRows
-                    ->map(function ($msg) {
-                        return [
-                            'id' => $msg->id,
-                            'message' => $msg->message,
-                            'message_type' => $msg->message_type,
-                            'media_url' => $msg->media_url,
-                            'direction' => $msg->direction,
-                            'status' => $msg->status,
-                            'created_at' => $msg->created_at,
-                            'read_at' => $msg->read_at,
-                        ];
-                    });
-
-                $unreadIds = $telegramRows
-                    ->where('direction', 'incoming')
-                    ->whereNull('read_at')
-                    ->pluck('id')
-                    ->values()
-                    ->all();
-                $this->scheduleMarkConversationReadAfterResponse('telegram', $selectedContact, $unreadIds);
-                $selectedCustomer = $this->findCustomerByTelegramChatId($selectedContact);
-                if ($selectedCustomer) {
-                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
-                    if ($selectedCustomer->avatar) {
-                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
-                    }
-                }
-            }
         } elseif ($channel === 'instagram') {
             $conversations = $this->buildInstagramConversations();
-            $messages = [];
-            $selectedCustomer = null;
-            if ($selectedContact) {
-                $messages = InstagramMessage::forIgUser($selectedContact)
-                    ->orderBy('created_at', 'asc')
-                    ->get()
-                    ->map(function ($msg) {
-                        return [
-                            'id' => $msg->id,
-                            'message' => $msg->message,
-                            'message_type' => $msg->message_type,
-                            'media_url' => $msg->media_url,
-                            'direction' => $msg->direction,
-                            'status' => $msg->status,
-                            'created_at' => $msg->created_at,
-                            'read_at' => $msg->read_at,
-                        ];
-                    });
-                $this->scheduleMarkConversationReadAfterResponse('instagram', $selectedContact);
-                $selectedCustomer = $this->findCustomerByInstagramId($selectedContact);
-                if ($selectedCustomer) {
-                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
-                    if ($selectedCustomer->avatar) {
-                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
-                    }
-                }
-            }
-            if (! $selectedCustomer && ! empty($instagramCustomerId)) {
-                $selectedCustomer = Customer::find($instagramCustomerId);
-                if ($selectedCustomer) {
-                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
-                    if ($selectedCustomer->avatar) {
-                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
-                    }
-                }
-            }
         } elseif ($channel === 'tiktok') {
-            $tiktokCustomerId = $request->get('customer_id');
             $conversations = $this->buildTikTokConversations();
-            $messages = [];
-            $selectedCustomer = null;
-            if ($selectedContact) {
-                $messages = TikTokMessage::forOpenId($selectedContact)
-                    ->orderBy('created_at', 'asc')
-                    ->get()
-                    ->map(function ($msg) {
-                        return [
-                            'id' => $msg->id,
-                            'message' => $msg->message,
-                            'message_type' => $msg->message_type,
-                            'media_url' => $msg->media_url,
-                            'direction' => $msg->direction,
-                            'status' => $msg->status,
-                            'created_at' => $msg->created_at,
-                            'read_at' => $msg->read_at,
-                        ];
-                    });
-                $this->scheduleMarkConversationReadAfterResponse('tiktok', $selectedContact);
-                $selectedCustomer = $this->findCustomerByTiktokOpenId($selectedContact);
-                if ($selectedCustomer) {
-                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
-                    if ($selectedCustomer->avatar) {
-                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
-                    }
-                }
-            }
-            if (! $selectedCustomer && ! empty($tiktokCustomerId)) {
-                $selectedCustomer = Customer::find($tiktokCustomerId);
-                if ($selectedCustomer) {
-                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
-                    if ($selectedCustomer->avatar) {
-                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
-                    }
-                }
-            }
         } else {
             $conversations = $this->buildWhatsAppConversations();
-            $messages = [];
-            $selectedCustomer = null;
-            if ($selectedContact) {
-                $messages = WhatsAppMessage::where(function ($q) use ($selectedContact) {
-                    $q->where('from_phone', $selectedContact)->orWhere('to_phone', $selectedContact);
-                })
-                    ->orderBy('created_at', 'asc')
-                    ->get()
-                    ->map(function ($msg) {
-                        $mediaUrl = $msg->media_url;
-                        if ($mediaUrl && ! str_starts_with($mediaUrl, 'http')) {
-                            $mediaUrl = asset('storage/'.ltrim($mediaUrl, '/'));
-                        }
+        }
 
-                        return [
-                            'id' => $msg->id,
-                            'message' => $msg->message,
-                            'message_type' => $msg->message_type,
-                            'media_url' => $mediaUrl,
-                            'direction' => $msg->direction,
-                            'status' => $msg->status,
-                            'created_at' => $msg->created_at,
-                            'read_at' => $msg->read_at,
-                        ];
-                    });
-                $this->scheduleMarkConversationReadAfterResponse('whatsapp', $selectedContact);
-                $selectedCustomer = $this->findCustomerByPhone($selectedContact);
-                if ($selectedCustomer) {
-                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
-                    if ($selectedCustomer->avatar) {
-                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
+        $messages = [];
+        $selectedCustomer = null;
+
+        if ($messageChannel === 'telegram' && $selectedContact) {
+            $telegramRows = TelegramMessage::forChat($selectedContact)
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            $messages = $telegramRows
+                ->map(function ($msg) {
+                    return [
+                        'id' => $msg->id,
+                        'message' => $msg->message,
+                        'message_type' => $msg->message_type,
+                        'media_url' => $msg->media_url,
+                        'direction' => $msg->direction,
+                        'status' => $msg->status,
+                        'created_at' => $msg->created_at,
+                        'read_at' => $msg->read_at,
+                    ];
+                });
+
+            $unreadIds = $telegramRows
+                ->where('direction', 'incoming')
+                ->whereNull('read_at')
+                ->pluck('id')
+                ->values()
+                ->all();
+            $this->scheduleMarkConversationReadAfterResponse('telegram', $selectedContact, $unreadIds);
+            $selectedCustomer = $this->findCustomerByTelegramChatId($selectedContact);
+            if ($selectedCustomer) {
+                $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                if ($selectedCustomer->avatar) {
+                    $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
+                }
+            }
+        } elseif ($messageChannel === 'instagram' && $selectedContact) {
+            $messages = InstagramMessage::forIgUser($selectedContact)
+                ->orderBy('created_at', 'asc')
+                ->get()
+                ->map(function ($msg) {
+                    return [
+                        'id' => $msg->id,
+                        'message' => $msg->message,
+                        'message_type' => $msg->message_type,
+                        'media_url' => $msg->media_url,
+                        'direction' => $msg->direction,
+                        'status' => $msg->status,
+                        'created_at' => $msg->created_at,
+                        'read_at' => $msg->read_at,
+                    ];
+                });
+            $this->scheduleMarkConversationReadAfterResponse('instagram', $selectedContact);
+            $selectedCustomer = $this->findCustomerByInstagramId($selectedContact);
+            if ($selectedCustomer) {
+                $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                if ($selectedCustomer->avatar) {
+                    $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
+                }
+            }
+        } elseif ($messageChannel === 'tiktok' && $selectedContact) {
+            $messages = TikTokMessage::forOpenId($selectedContact)
+                ->orderBy('created_at', 'asc')
+                ->get()
+                ->map(function ($msg) {
+                    return [
+                        'id' => $msg->id,
+                        'message' => $msg->message,
+                        'message_type' => $msg->message_type,
+                        'media_url' => $msg->media_url,
+                        'direction' => $msg->direction,
+                        'status' => $msg->status,
+                        'created_at' => $msg->created_at,
+                        'read_at' => $msg->read_at,
+                    ];
+                });
+            $this->scheduleMarkConversationReadAfterResponse('tiktok', $selectedContact);
+            $selectedCustomer = $this->findCustomerByTiktokOpenId($selectedContact);
+            if ($selectedCustomer) {
+                $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                if ($selectedCustomer->avatar) {
+                    $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
+                }
+            }
+        } elseif ($messageChannel === 'whatsapp' && $selectedContact) {
+            $messages = WhatsAppMessage::where(function ($q) use ($selectedContact) {
+                $q->where('from_phone', $selectedContact)->orWhere('to_phone', $selectedContact);
+            })
+                ->orderBy('created_at', 'asc')
+                ->get()
+                ->map(function ($msg) {
+                    $mediaUrl = $msg->media_url;
+                    if ($mediaUrl && ! str_starts_with($mediaUrl, 'http')) {
+                        $mediaUrl = asset('storage/'.ltrim($mediaUrl, '/'));
                     }
+
+                    return [
+                        'id' => $msg->id,
+                        'message' => $msg->message,
+                        'message_type' => $msg->message_type,
+                        'media_url' => $mediaUrl,
+                        'direction' => $msg->direction,
+                        'status' => $msg->status,
+                        'created_at' => $msg->created_at,
+                        'read_at' => $msg->read_at,
+                    ];
+                });
+            $this->scheduleMarkConversationReadAfterResponse('whatsapp', $selectedContact);
+            $selectedCustomer = $this->findCustomerByPhone($selectedContact);
+            if ($selectedCustomer) {
+                $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                if ($selectedCustomer->avatar) {
+                    $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
+                }
+            }
+        }
+
+        if (! $selectedCustomer && ! empty($instagramCustomerId) && $messageChannel === 'instagram') {
+            $selectedCustomer = Customer::find($instagramCustomerId);
+            if ($selectedCustomer) {
+                $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                if ($selectedCustomer->avatar) {
+                    $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
+                }
+            }
+        }
+        if (! $selectedCustomer && ! empty($tiktokCustomerId) && $messageChannel === 'tiktok') {
+            $selectedCustomer = Customer::find($tiktokCustomerId);
+            if ($selectedCustomer) {
+                $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                if ($selectedCustomer->avatar) {
+                    $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
                 }
             }
         }
@@ -369,12 +403,13 @@ class InboxController extends Controller
 
         return Inertia::render('Inbox/Index', [
             'channel' => $channel,
+            'messageChannel' => $messageChannel,
             'conversations' => $conversations,
             'messages' => $messages,
-            'selectedPhone' => $channel === 'whatsapp' ? $selectedContact : null,
-            'selectedChatId' => $channel === 'telegram' ? $selectedContact : null,
-            'selectedIgUserId' => $channel === 'instagram' ? $selectedContact : null,
-            'selectedTikTokOpenId' => $channel === 'tiktok' ? $selectedContact : null,
+            'selectedPhone' => $request->filled('phone') ? $request->get('phone') : null,
+            'selectedChatId' => $request->filled('chat_id') ? $request->get('chat_id') : null,
+            'selectedIgUserId' => $request->filled('ig_user_id') ? $request->get('ig_user_id') : null,
+            'selectedTikTokOpenId' => $request->filled('tiktok_open_id') ? $request->get('tiktok_open_id') : null,
             'searchResults' => $searchResults,
             'selectedCustomer' => $selectedCustomer ?? null,
             'templates' => $templates,
@@ -509,6 +544,87 @@ class InboxController extends Controller
         }
 
         return $conversations->sortByDesc('last_message_at')->values();
+    }
+
+    protected function buildAllConversations(): \Illuminate\Support\Collection
+    {
+        return $this->buildWhatsAppConversations()
+            ->map(fn ($c) => array_merge($c, ['channel' => 'whatsapp']))
+            ->concat($this->buildTelegramConversations()->map(fn ($c) => array_merge($c, ['channel' => 'telegram'])))
+            ->concat($this->buildInstagramConversations()->map(fn ($c) => array_merge($c, ['channel' => 'instagram'])))
+            ->concat($this->buildTikTokConversations()->map(fn ($c) => array_merge($c, ['channel' => 'tiktok'])))
+            ->sortByDesc(fn ($c) => $c['last_message_at'] ?? null)
+            ->values();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function buildUnifiedInboxSearchResults(string $searchTerm, string $phoneDigits): array
+    {
+        $telegramTypeId = SocialMediaType::where('name', 'Telegram')->value('id');
+        $instagramTypeId = SocialMediaType::where('name', 'Instagram')->value('id');
+        $tiktokTypeId = SocialMediaType::where('name', 'TikTok')->value('id');
+
+        $query = Customer::query()
+            ->where(function ($q) use ($searchTerm, $phoneDigits, $telegramTypeId, $instagramTypeId, $tiktokTypeId) {
+                $q->where('name', 'like', '%'.$searchTerm.'%');
+                $q->orWhereHas('contacts', function ($cq) use ($searchTerm) {
+                    $cq->where('value', 'like', '%'.$searchTerm.'%');
+                });
+                if (strlen($phoneDigits) >= 2) {
+                    $q->orWhereHas('contacts', function ($cq) use ($phoneDigits) {
+                        $cq->where(function ($cq) {
+                            $cq->where('type', 'phone')->orWhere('type', 'whatsapp');
+                        })->where('value', 'like', '%'.$phoneDigits.'%');
+                    });
+                }
+                if ($telegramTypeId) {
+                    $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchTerm);
+                    $q->orWhereHas('socialMedia', function ($sq) use ($escaped, $telegramTypeId) {
+                        $sq->where('social_media_type_id', $telegramTypeId)
+                            ->where('handle', 'like', '%'.$escaped.'%');
+                    });
+                }
+                if ($instagramTypeId) {
+                    $q->orWhereHas('socialMedia', function ($sq) use ($searchTerm, $instagramTypeId) {
+                        $sq->where('social_media_type_id', $instagramTypeId)
+                            ->where('handle', 'like', '%'.$searchTerm.'%');
+                    });
+                }
+                if ($tiktokTypeId) {
+                    $q->orWhereHas('socialMedia', function ($sq) use ($searchTerm, $tiktokTypeId) {
+                        $sq->where('social_media_type_id', $tiktokTypeId)
+                            ->where('handle', 'like', '%'.$searchTerm.'%');
+                    });
+                }
+            });
+
+        return $query->limit(15)->get()->map(function ($customer) use ($telegramTypeId) {
+            $phoneContact = $customer->contacts()->where(function ($q) {
+                $q->where('type', 'phone')->orWhere('type', 'whatsapp');
+            })->first();
+            $tg = $customer->contacts()->where('type', 'telegram')->first();
+            $ig = $customer->contacts()->where('type', 'instagram')->first();
+            $tt = $customer->contacts()->where('type', 'tiktok')->first();
+            $tgHandle = $telegramTypeId
+                ? $customer->socialMedia()->where('social_media_type_id', $telegramTypeId)->first()
+                : null;
+
+            $chatId = $tg?->value ?? ($tgHandle ? (($tgHandle->handle[0] ?? '') === '@' ? $tgHandle->handle : '@'.$tgHandle->handle) : null);
+
+            return [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'phone' => $phoneContact?->value,
+                'chat_id' => $chatId,
+                'ig_user_id' => $ig?->value,
+                'tiktok_open_id' => $tt?->value,
+                'avatar' => $customer->avatar ? asset('storage/'.$customer->avatar) : null,
+            ];
+        })->filter(function ($r) {
+            return ! empty($r['phone']) || ! empty($r['chat_id']) || ! empty($r['ig_user_id']) || ! empty($r['tiktok_open_id']);
+        })->values()->all();
     }
 
     protected function findCustomerByTelegramChatId(string $chatId): ?Customer
