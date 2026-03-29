@@ -7,15 +7,12 @@
 
         <div class="relative z-10 w-full max-w-md">
             <div class="mb-8 text-center">
-                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 shadow-lg shadow-blue-600/30">
-                    <svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                        />
-                    </svg>
+                <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-lg shadow-black/20 ring-1 ring-white/20">
+                    <img
+                        src="/brand/logo-icon-512px.png"
+                        alt=""
+                        class="h-12 w-12 object-contain"
+                    />
                 </div>
                 <h1 class="text-2xl font-bold tracking-tight text-white sm:text-3xl">
                     {{ activeTab === 'login' ? t('auth.welcome_back') : t('auth.tab_register') }}
@@ -227,7 +224,7 @@
             </div>
 
             <p class="mt-8 text-center text-xs text-blue-200/60">
-                RoniCRM
+                <a href="https://ronicrm.com" target="_blank" class="font-semibold text-blue-600 hover:text-blue-700">RoniCRM</a>
             </p>
         </div>
     </div>

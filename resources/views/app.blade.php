@@ -7,6 +7,9 @@
 
         <title inertia>{{ config('app.name', 'RoniCRM') }}</title>
 
+        <link rel="icon" type="image/png" sizes="512x512" href="{{ asset('brand/logo-icon-512px.png') }}">
+        <link rel="apple-touch-icon" href="{{ asset('brand/logo-icon-512px.png') }}">
+
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />

@@ -7,18 +7,12 @@
         >
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16 lg:h-[4.25rem]">
-                    <Link :href="route('front.welcome')" class="flex items-center gap-3 shrink-0">
-                        <div class="rounded-2xl bg-blue-600 p-2 shadow-sm shadow-blue-600/20">
-                            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                                />
-                            </svg>
-                        </div>
-                        <span class="text-lg font-bold tracking-tight text-gray-900">{{ appName }}</span>
+                    <Link :href="route('front.welcome')" class="flex items-center gap-3 shrink-0 min-w-0">
+                        <img
+                            :src="brandLogoFull"
+                            :alt="appName"
+                            class="h-9 w-auto max-w-[min(200px,55vw)] object-contain object-left"
+                        />
                     </Link>
 
                     <nav class="hidden lg:flex items-center justify-center gap-8 flex-1 px-8">
@@ -160,18 +154,12 @@
         >
             <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
-                    <Link :href="route('front.welcome')" class="flex items-center gap-3">
-                        <div class="bg-blue-600 rounded-lg p-2">
-                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                                />
-                            </svg>
-                        </div>
-                        <span class="text-lg font-bold text-gray-900">{{ appName }}</span>
+                    <Link :href="route('front.welcome')" class="flex items-center gap-3 min-w-0">
+                        <img
+                            :src="brandLogoFull"
+                            :alt="appName"
+                            class="h-8 w-auto max-w-[180px] object-contain object-left"
+                        />
                     </Link>
                     <nav class="hidden sm:flex items-center gap-5">
                         <Link
@@ -288,18 +276,12 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-16">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12">
                     <div class="sm:col-span-2 lg:col-span-1">
-                        <div class="flex items-center gap-2 mb-4">
-                            <div class="rounded-xl bg-blue-600 p-1.5">
-                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                                    />
-                                </svg>
-                            </div>
-                            <span class="text-lg font-bold text-white">{{ appName }}</span>
+                        <div class="mb-4">
+                            <img
+                                :src="brandLogoFull"
+                                :alt="appName"
+                                class="h-8 w-auto max-w-[200px] object-contain object-left opacity-95"
+                            />
                         </div>
                         <p class="text-sm leading-relaxed text-slate-400 max-w-sm">
                             {{ footerTagline }}
@@ -390,6 +372,7 @@ import LocaleDropdown from '@/Components/Front/LocaleDropdown.vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
+const brandLogoFull = '/brand/logo-full-96px.png';
 
 defineProps({
     appName: { type: String, default: 'RoniCRM' },
