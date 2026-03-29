@@ -9,7 +9,7 @@
                 <div class="flex items-center justify-between h-16 lg:h-[4.25rem]">
                     <Link :href="route('front.welcome')" class="flex items-center gap-3 shrink-0 min-w-0">
                         <img
-                            :src="brandLogoFullDark"
+                            :src="brandLogoFull"
                             :alt="appName"
                             class="h-9 w-auto max-w-[min(200px,55vw)] object-contain object-left"
                         />
@@ -278,7 +278,7 @@
                     <div class="sm:col-span-2 lg:col-span-1">
                         <div class="mb-4">
                             <img
-                                :src="brandLogoFull"
+                                :src="brandLogoFullDark"
                                 :alt="appName"
                                 class="h-8 w-auto max-w-[200px] object-contain object-left opacity-95"
                             />
