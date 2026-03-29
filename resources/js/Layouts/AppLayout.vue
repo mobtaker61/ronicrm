@@ -30,7 +30,7 @@
                             />
                             <img
                                 v-else
-                                :src="brandLogoFull"
+                                :src="brandIcon"
                                 alt=""
                                 class="max-h-9 w-auto max-w-[140px] object-contain object-left"
                             />
@@ -635,6 +635,7 @@ import { useI18n } from '@/composables/useI18n';
 const sidebarOpen = ref(true);
 /** Default branding when organization has no custom logo (public/) */
 const brandLogoFull = '/brand/logo-full-96px.png';
+const brandIcon = '/brand/logo-icon-512px.png';
 const page = usePage();
 const { load: loadLocaleMessages } = useI18n();
 const organizations = computed(() => page.props.organizations || []);
