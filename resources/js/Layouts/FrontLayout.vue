@@ -9,7 +9,7 @@
                 <div class="flex items-center justify-between h-16 lg:h-[4.25rem]">
                     <Link :href="route('front.welcome')" class="flex items-center gap-3 shrink-0 min-w-0">
                         <img
-                            :src="brandLogoFull"
+                            :src="brandLogoFullDark"
                             :alt="appName"
                             class="h-9 w-auto max-w-[min(200px,55vw)] object-contain object-left"
                         />
@@ -373,6 +373,7 @@ import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const brandLogoFull = '/brand/logo-full-96px.png';
+const brandLogoFullDark = '/brand/logo-full-96px-dark.png';
 
 defineProps({
     appName: { type: String, default: 'RoniCRM' },
