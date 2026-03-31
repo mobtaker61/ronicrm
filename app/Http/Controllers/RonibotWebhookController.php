@@ -50,7 +50,7 @@ class RonibotWebhookController extends Controller
             // =========================
             $messageText = null;
             $messageType = 'text';
-            $mediaUrl = $msg['mediaUrl'] ?? null;
+            $mediaUrl = $data['mediaUrl'] ?? null;
             $mediaMimeType = null;
             $storedFile = null;
 
