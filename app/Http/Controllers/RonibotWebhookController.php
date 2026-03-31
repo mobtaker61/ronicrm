@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\WhatsAppMessage;
-use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -18,34 +17,93 @@ class RonibotWebhookController extends Controller
     {
         try {
             $data = $request->all();
-            
+
             Log::info('Ronibot webhook received', [
                 'data' => $data,
             ]);
 
-            // Extract message data from webhook
-            // Note: The structure may vary based on Ronibot's webhook format
-            // Adjust these fields based on actual webhook payload
-            $fromPhone = $this->formatPhone($data['from'] ?? $data['phone'] ?? $data['sender'] ?? '');
-            $messageText = $data['message'] ?? $data['text'] ?? $data['body'] ?? '';
-            $messageId = $data['message_id'] ?? $data['id'] ?? null;
-            $messageType = $data['type'] ?? $data['message_type'] ?? 'text';
-            $mediaUrl = $data['media_url'] ?? $data['file'] ?? $data['image'] ?? null;
-            $mediaMimeType = $data['mime_type'] ?? $data['media_mime_type'] ?? null;
-            $toPhone = $this->formatPhone($data['to'] ?? $data['receiver'] ?? '');
+            // =========================
+            // VALIDATE STRUCTURE
+            // =========================
+            $payload = $data['payload'] ?? null;
 
-            if (empty($fromPhone) || empty($messageText)) {
-                Log::warning('Ronibot webhook missing required fields', ['data' => $data]);
+            if (! $payload || ! isset($payload['data'][0])) {
+                Log::warning('Invalid payload structure', $data);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Missing required fields',
+                    'message' => 'Invalid payload structure',
                 ], 400);
             }
 
-            // Find or create customer by phone number
+            $msg = $payload['data'][0];
+
+            // =========================
+            // EXTRACT PHONES
+            // =========================
+            $fromPhone = $this->formatPhone(
+                $data['sender']
+                ?? ($msg['key']['remoteJidAlt'] ?? '')
+            );
+
+            $toPhone = $this->formatPhone(
+                $data['receiver'] ?? ''
+            );
+
+            // =========================
+            // EXTRACT MESSAGE
+            // =========================
+            $messageText = null;
+            $messageType = 'text';
+            $mediaUrl = null;
+            $mediaMimeType = null;
+
+            if (isset($msg['message']['conversation'])) {
+                $messageText = $msg['message']['conversation'];
+            } elseif (isset($msg['message']['extendedTextMessage']['text'])) {
+                $messageText = $msg['message']['extendedTextMessage']['text'];
+            } elseif (isset($msg['message']['imageMessage'])) {
+                $messageType = 'image';
+                $messageText = $msg['message']['imageMessage']['caption'] ?? null;
+                $mediaMimeType = $msg['message']['imageMessage']['mimetype'] ?? null;
+            } elseif (isset($msg['message']['videoMessage'])) {
+                $messageType = 'video';
+                $messageText = $msg['message']['videoMessage']['caption'] ?? null;
+                $mediaMimeType = $msg['message']['videoMessage']['mimetype'] ?? null;
+            } elseif (isset($msg['message']['audioMessage'])) {
+                $messageType = 'audio';
+                $mediaMimeType = $msg['message']['audioMessage']['mimetype'] ?? null;
+            } elseif (isset($msg['message']['documentMessage'])) {
+                $messageType = 'document';
+                $messageText = $msg['message']['documentMessage']['fileName'] ?? null;
+                $mediaMimeType = $msg['message']['documentMessage']['mimetype'] ?? null;
+            }
+
+            // =========================
+            // MESSAGE ID
+            // =========================
+            $messageId = $msg['key']['id'] ?? null;
+
+            // =========================
+            // VALIDATION (FIXED)
+            // =========================
+            if (empty($fromPhone)) {
+                Log::warning('Missing sender phone', $data);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Missing sender phone',
+                ], 400);
+            }
+
+            // =========================
+            // FIND CUSTOMER
+            // =========================
             $customer = $this->findCustomerByPhone($fromPhone);
 
-            // Save incoming message
+            // =========================
+            // SAVE MESSAGE
+            // =========================
             $whatsappMessage = WhatsAppMessage::create([
                 'message_id' => $messageId,
                 'from_phone' => $fromPhone,
@@ -63,15 +121,16 @@ class RonibotWebhookController extends Controller
             Log::info('WhatsApp message saved', [
                 'message_id' => $whatsappMessage->id,
                 'from' => $fromPhone,
-                'customer_id' => $customer?->id,
+                'type' => $messageType,
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Webhook received and processed successfully',
+                'message' => 'Webhook processed successfully',
             ]);
+
         } catch (\Exception $e) {
-            Log::error('Ronibot webhook error: ' . $e->getMessage(), [
+            Log::error('Ronibot webhook error: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
 
@@ -84,20 +143,18 @@ class RonibotWebhookController extends Controller
 
     /**
      * Find customer by phone number
-     * Searches only in customer_contacts table
      */
     protected function findCustomerByPhone(string $phone): ?Customer
     {
         $phone = $this->formatPhone($phone);
 
-        // Search only in customer_contacts table
         $contact = CustomerContact::where(function ($q) {
             $q->where('type', 'phone')->orWhere('type', 'whatsapp');
         })
             ->where(function ($q) use ($phone) {
                 $q->where('value', $phone)
-                    ->orWhere('value', '+' . $phone)
-                    ->orWhere('value', '00' . $phone);
+                    ->orWhere('value', '+'.$phone)
+                    ->orWhere('value', '00'.$phone);
             })
             ->first();
 
@@ -105,17 +162,12 @@ class RonibotWebhookController extends Controller
     }
 
     /**
-     * Format phone number (same as WhatsAppService)
+     * Format phone number
      */
     protected function formatPhone(string $phone): string
     {
-        // Remove all non-numeric characters
         $phone = preg_replace('/[^0-9]/', '', $phone);
 
-        // Remove leading +
-        $phone = ltrim($phone, '+');
-
-        // Remove leading 00
         if (str_starts_with($phone, '00')) {
             $phone = substr($phone, 2);
         }
