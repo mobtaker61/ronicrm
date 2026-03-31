@@ -22,14 +22,9 @@ class RonibotWebhookController extends Controller
                 'data' => $data,
             ]);
 
-            // =========================
-            // VALIDATE STRUCTURE
-            // =========================
             $payload = $data['payload'] ?? null;
 
             if (! $payload || ! isset($payload['data'][0])) {
-                Log::warning('Invalid payload structure', $data);
-
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid payload structure',
@@ -39,7 +34,7 @@ class RonibotWebhookController extends Controller
             $msg = $payload['data'][0];
 
             // =========================
-            // EXTRACT PHONES
+            // PHONES
             // =========================
             $fromPhone = $this->formatPhone(
                 $data['sender']
@@ -51,12 +46,13 @@ class RonibotWebhookController extends Controller
             );
 
             // =========================
-            // EXTRACT MESSAGE
+            // MESSAGE
             // =========================
             $messageText = null;
             $messageType = 'text';
-            $mediaUrl = null;
+            $mediaUrl = $msg['mediaUrl'] ?? null;
             $mediaMimeType = null;
+            $storedFile = null;
 
             if (isset($msg['message']['conversation'])) {
                 $messageText = $msg['message']['conversation'];
@@ -80,16 +76,41 @@ class RonibotWebhookController extends Controller
             }
 
             // =========================
-            // MESSAGE ID
+            // DOWNLOAD MEDIA (🔥 مهم)
             // =========================
-            $messageId = $msg['key']['id'] ?? null;
+            if ($mediaUrl) {
+                try {
+                    Log::info('Downloading media from', ['url' => $mediaUrl]);
+
+                    $fileContent = file_get_contents($mediaUrl);
+
+                    if ($fileContent !== false) {
+                        $ext = pathinfo(parse_url($mediaUrl, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'bin';
+
+                        $fileName = 'wa_'.time().'_'.uniqid().'.'.$ext;
+
+                        $path = public_path('uploads/whatsapp/'.$fileName);
+
+                        if (! file_exists(dirname($path))) {
+                            mkdir(dirname($path), 0755, true);
+                        }
+
+                        file_put_contents($path, $fileContent);
+
+                        $storedFile = 'uploads/whatsapp/'.$fileName;
+
+                        Log::info('Media saved', ['file' => $storedFile]);
+                    }
+
+                } catch (\Exception $e) {
+                    Log::error('Media download failed: '.$e->getMessage());
+                }
+            }
 
             // =========================
-            // VALIDATION (FIXED)
+            // VALIDATION
             // =========================
             if (empty($fromPhone)) {
-                Log::warning('Missing sender phone', $data);
-
                 return response()->json([
                     'success' => false,
                     'message' => 'Missing sender phone',
@@ -97,31 +118,25 @@ class RonibotWebhookController extends Controller
             }
 
             // =========================
-            // FIND CUSTOMER
+            // CUSTOMER
             // =========================
             $customer = $this->findCustomerByPhone($fromPhone);
 
             // =========================
-            // SAVE MESSAGE
+            // SAVE
             // =========================
             $whatsappMessage = WhatsAppMessage::create([
-                'message_id' => $messageId,
+                'message_id' => $msg['key']['id'] ?? null,
                 'from_phone' => $fromPhone,
                 'to_phone' => $toPhone,
                 'message' => $messageText,
                 'message_type' => $messageType,
-                'media_url' => $mediaUrl,
+                'media_url' => $storedFile,
                 'media_mime_type' => $mediaMimeType,
                 'customer_id' => $customer?->id,
                 'direction' => 'incoming',
                 'status' => 'received',
                 'metadata' => $data,
-            ]);
-
-            Log::info('WhatsApp message saved', [
-                'message_id' => $whatsappMessage->id,
-                'from' => $fromPhone,
-                'type' => $messageType,
             ]);
 
             return response()->json([
@@ -130,9 +145,7 @@ class RonibotWebhookController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Ronibot webhook error: '.$e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-            ]);
+            Log::error('Ronibot webhook error: '.$e->getMessage());
 
             return response()->json([
                 'success' => false,
