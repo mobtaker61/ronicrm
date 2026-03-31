@@ -122,6 +122,11 @@ class RonibotWebhookController extends Controller
             // =========================
             $customer = $this->findCustomerByPhone($fromPhone);
             $messageText = $messageText ?? '';
+
+            Log::info('DEBUG MEDIA', [
+                'mediaUrl' => $mediaUrl,
+                'storedFile' => $storedFile,
+            ]);
             // =========================
             // SAVE
             // =========================
