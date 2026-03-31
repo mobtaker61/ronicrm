@@ -121,23 +121,27 @@ class RonibotWebhookController extends Controller
             // CUSTOMER
             // =========================
             $customer = $this->findCustomerByPhone($fromPhone);
-
+            $messageText = $messageText ?? '';
             // =========================
             // SAVE
             // =========================
-            $whatsappMessage = WhatsAppMessage::create([
-                'message_id' => $msg['key']['id'] ?? null,
-                'from_phone' => $fromPhone,
-                'to_phone' => $toPhone,
-                'message' => $messageText,
-                'message_type' => $messageType,
-                'media_url' => $storedFile,
-                'media_mime_type' => $mediaMimeType,
-                'customer_id' => $customer?->id,
-                'direction' => 'incoming',
-                'status' => 'received',
-                'metadata' => $data,
-            ]);
+            $whatsappMessage = WhatsAppMessage::updateOrCreate(
+                [
+                    'message_id' => $msg['key']['id'] ?? null,
+                ],
+                [
+                    'from_phone' => $fromPhone,
+                    'to_phone' => $toPhone,
+                    'message' => $messageText ?? '',
+                    'message_type' => $messageType,
+                    'media_url' => $storedFile,
+                    'media_mime_type' => $mediaMimeType,
+                    'customer_id' => $customer?->id,
+                    'direction' => 'incoming',
+                    'status' => 'received',
+                    'metadata' => $data,
+                ]
+            );
 
             return response()->json([
                 'success' => true,
