@@ -56,40 +56,52 @@ class RonibotWebhookController extends Controller
             $mediaMimeType = null;
             $storedFile = null;
 
-            if (isset($msg['message']['conversation'])) {
-                $messageText = $msg['message']['conversation'];
-            } elseif (isset($msg['message']['extendedTextMessage']['text'])) {
-                $messageText = $msg['message']['extendedTextMessage']['text'];
-            } elseif (isset($msg['message']['imageMessage'])) {
+            $inner = $this->extractBaileysInnerMessage($msg['message'] ?? null);
+            if ($inner === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No message body',
+                ], 400);
+            }
+
+            if (isset($inner['conversation'])) {
+                $messageText = $inner['conversation'];
+            } elseif (isset($inner['extendedTextMessage']['text'])) {
+                $messageText = $inner['extendedTextMessage']['text'];
+            } elseif (isset($inner['imageMessage'])) {
                 $messageType = 'image';
-                $messageText = $msg['message']['imageMessage']['caption'] ?? null;
-                $mediaMimeType = $msg['message']['imageMessage']['mimetype'] ?? null;
-            } elseif (isset($msg['message']['videoMessage'])) {
+                $messageText = $inner['imageMessage']['caption'] ?? null;
+                $mediaMimeType = $inner['imageMessage']['mimetype'] ?? null;
+            } elseif (isset($inner['videoMessage'])) {
                 $messageType = 'video';
-                $messageText = $msg['message']['videoMessage']['caption'] ?? null;
-                $mediaMimeType = $msg['message']['videoMessage']['mimetype'] ?? null;
-            } elseif (isset($msg['message']['audioMessage'])) {
+                $messageText = $inner['videoMessage']['caption'] ?? null;
+                $mediaMimeType = $inner['videoMessage']['mimetype'] ?? null;
+            } elseif (isset($inner['ptvMessage'])) {
+                $messageType = 'video';
+                $messageText = $inner['ptvMessage']['caption'] ?? null;
+                $mediaMimeType = $inner['ptvMessage']['mimetype'] ?? null;
+            } elseif (isset($inner['audioMessage'])) {
                 $messageType = 'audio';
-                $mediaMimeType = $msg['message']['audioMessage']['mimetype'] ?? null;
-            } elseif (isset($msg['message']['documentMessage'])) {
+                $mediaMimeType = $inner['audioMessage']['mimetype'] ?? null;
+            } elseif (isset($inner['documentMessage'])) {
                 $messageType = 'document';
-                $messageText = $msg['message']['documentMessage']['fileName'] ?? null;
-                $mediaMimeType = $msg['message']['documentMessage']['mimetype'] ?? null;
-            } elseif (isset($msg['message']['stickerMessage'])) {
+                $messageText = $inner['documentMessage']['fileName'] ?? null;
+                $mediaMimeType = $inner['documentMessage']['mimetype'] ?? null;
+            } elseif (isset($inner['stickerMessage'])) {
                 $messageType = 'sticker';
-                $mediaMimeType = $msg['message']['stickerMessage']['mimetype'] ?? null;
-            } elseif (isset($msg['message']['locationMessage'])) {
+                $mediaMimeType = $inner['stickerMessage']['mimetype'] ?? null;
+            } elseif (isset($inner['locationMessage'])) {
                 $messageType = 'location';
-                $loc = $msg['message']['locationMessage'];
+                $loc = $inner['locationMessage'];
                 $lat = $loc['degreesLatitude'] ?? null;
                 $lng = $loc['degreesLongitude'] ?? null;
                 if ($lat !== null && $lng !== null) {
                     $messageText = 'https://www.google.com/maps?q='.$lat.','.$lng;
                 }
-            } elseif (isset($msg['message']['contactMessage'])) {
+            } elseif (isset($inner['contactMessage'])) {
                 $messageType = 'contact';
-                $messageText = $msg['message']['contactMessage']['displayName']
-                    ?? ($msg['message']['contactMessage']['vcard'] ?? null);
+                $messageText = $inner['contactMessage']['displayName']
+                    ?? ($inner['contactMessage']['vcard'] ?? null);
             }
 
             // =========================
@@ -174,6 +186,45 @@ class RonibotWebhookController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * همان منطق Baileys normalizeMessageContent: فورواردها و پیام‌های زمان‌دار داخل لایه‌هایی مثل ephemeralMessage هستند.
+     *
+     * @param  array<string, mixed>|null  $content
+     * @return array<string, mixed>|null
+     */
+    protected function extractBaileysInnerMessage(?array $content): ?array
+    {
+        if ($content === null) {
+            return null;
+        }
+
+        for ($i = 0; $i < 5; $i++) {
+            $next = null;
+            if (isset($content['ephemeralMessage']['message'])) {
+                $next = $content['ephemeralMessage']['message'];
+            } elseif (isset($content['viewOnceMessage']['message'])) {
+                $next = $content['viewOnceMessage']['message'];
+            } elseif (isset($content['viewOnceMessageV2']['message'])) {
+                $next = $content['viewOnceMessageV2']['message'];
+            } elseif (isset($content['viewOnceMessageV2Extension']['message'])) {
+                $next = $content['viewOnceMessageV2Extension']['message'];
+            } elseif (isset($content['documentWithCaptionMessage']['message'])) {
+                $next = $content['documentWithCaptionMessage']['message'];
+            } elseif (isset($content['editedMessage']['message'])) {
+                $next = $content['editedMessage']['message'];
+            } elseif (isset($content['associatedChildMessage']['message'])) {
+                $next = $content['associatedChildMessage']['message'];
+            }
+
+            if ($next === null) {
+                break;
+            }
+            $content = $next;
+        }
+
+        return $content;
     }
 
     /**
