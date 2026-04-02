@@ -114,7 +114,7 @@ class RonibotWebhookController extends Controller
                     $fileContent = file_get_contents($mediaUrl);
 
                     if ($fileContent !== false) {
-                        $ext = pathinfo(parse_url($mediaUrl, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'bin';
+                        $ext = $this->safeExtensionForStoredMedia($mediaUrl, $mediaMimeType);
 
                         $fileName = 'wa_'.time().'_'.uniqid().'.'.$ext;
 
@@ -186,6 +186,46 @@ class RonibotWebhookController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * پسوند فایل ذخیره‌شده: URLهای مدیا گاهی به‌صورت «.ogg; codecs=opus» هستند؛
+     * pathinfo در PHP پسوند را «ogg; codecs=opus» می‌گیرد و نام فایل روی دیسک با DB هم‌خوان نمی‌شود.
+     */
+    protected function safeExtensionForStoredMedia(string $mediaUrl, ?string $mimeType): string
+    {
+        $path = parse_url($mediaUrl, PHP_URL_PATH) ?? '';
+        $basename = basename($path);
+        $basename = rawurldecode($basename);
+        $rawExt = strtolower((string) pathinfo($basename, PATHINFO_EXTENSION) ?: '');
+
+        $first = preg_split('/[;\s]/', $rawExt, 2)[0] ?? '';
+        $ext = preg_replace('/[^a-z0-9]/', '', $first);
+
+        $allowed = ['ogg', 'opus', 'mp3', 'm4a', 'aac', 'wav', 'webm', 'mp4', 'm4v', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'bin'];
+        if ($ext !== '' && strlen($ext) <= 8 && in_array($ext, $allowed, true)) {
+            return $ext === 'opus' ? 'ogg' : $ext;
+        }
+
+        $mime = strtolower((string) ($mimeType ?? ''));
+        $mime = preg_replace('/;.*$/', '', trim($mime));
+        $mimeMap = [
+            'audio/ogg' => 'ogg',
+            'audio/opus' => 'ogg',
+            'audio/mpeg' => 'mp3',
+            'audio/mp3' => 'mp3',
+            'audio/mp4' => 'm4a',
+            'audio/aac' => 'aac',
+            'audio/wav' => 'wav',
+            'audio/webm' => 'webm',
+            'video/mp4' => 'mp4',
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif',
+        ];
+
+        return $mimeMap[$mime] ?? 'bin';
     }
 
     /**

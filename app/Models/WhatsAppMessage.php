@@ -54,6 +54,28 @@ class WhatsAppMessage extends Model
             return $url;
         }
         if (str_starts_with($url, 'uploads/')) {
+            $abs = public_path($url);
+            if (is_file($abs)) {
+                return asset($url);
+            }
+
+            // پیام‌های قدیمی: فایل با نام اشتباه «wa_xxx.ogg; codecs=opus» ذخیره شده، DB اما «wa_xxx.ogg»
+            $dir = dirname($abs);
+            $stem = pathinfo(basename($url), PATHINFO_FILENAME);
+            if ($stem !== '' && is_dir($dir)) {
+                foreach (glob($dir.DIRECTORY_SEPARATOR.$stem.'*') ?: [] as $found) {
+                    if (! is_file($found)) {
+                        continue;
+                    }
+                    $relative = substr($found, strlen(public_path()));
+                    $relative = ltrim($relative, DIRECTORY_SEPARATOR.'/\\');
+                    $relative = str_replace('\\', '/', $relative);
+                    if ($relative !== '') {
+                        return asset($relative);
+                    }
+                }
+            }
+
             return asset($url);
         }
 
