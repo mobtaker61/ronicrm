@@ -341,29 +341,14 @@
                                             @click="lightboxImageUrl = cleanMediaUrl(msg.media_url)"
                                             @error="(e) => { console.error('Image load error:', e, msg.media_url); handleImageError(e); }"
                                         />
-                                        <!-- صوت — پخش درجا (قبل از ویدیو؛ .ogg صدا با ویدیو اشتباه نشود) -->
-                                        <div
+                                        <!-- صوت — موج + پخش واقعی (بدون display:none روی audio) -->
+                                        <VoiceWavePlayer
                                             v-else-if="isAudioFile(msg.message_type, msg.media_url)"
-                                            class="flex items-center gap-2 rounded-2xl px-2 py-1.5 max-w-[280px]"
-                                            :class="msg.direction === 'outgoing' ? 'bg-blue-500/25' : 'bg-gray-100'"
-                                        >
-                                            <button
-                                                type="button"
-                                                class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white transition-colors shadow-sm"
-                                                :class="msg.direction === 'outgoing' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-green-600 hover:bg-green-700'"
-                                                @click="toggleAudioPlayback(msg.id)"
-                                            >
-                                                <svg v-if="playingAudioId !== msg.id" class="w-5 h-5 ltr:translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                                                <svg v-else class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
-                                            </button>
-                                            <audio
-                                                :ref="(el) => setAudioRef(msg.id, el)"
-                                                :src="cleanMediaUrl(msg.media_url)"
-                                                class="hidden"
-                                                preload="metadata"
-                                                @ended="onAudioEnded(msg.id)"
-                                            />
-                                        </div>
+                                            :src="cleanMediaUrl(msg.media_url)"
+                                            :audio-id="msg.id"
+                                            v-model:active-audio-id="playingAudioId"
+                                            :direction="msg.direction"
+                                        />
                                         <!-- ویدیو — پخش درجا -->
                                         <video
                                             v-else-if="isVideoFile(msg.message_type, msg.media_url)"
@@ -814,6 +799,7 @@ import { Link, useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import MediaPickerModal from '@/Components/MediaPickerModal.vue';
 import TemplatePickerModal from '@/Components/TemplatePickerModal.vue';
+import VoiceWavePlayer from '@/Components/VoiceWavePlayer.vue';
 import { debounce } from 'lodash-es';
 import { useI18n } from '@/composables/useI18n';
 
@@ -919,39 +905,8 @@ const assignCustomerId = ref(null);
 const messagesContainer = ref(null);
 const messageTextarea = ref(null);
 const lightboxImageUrl = ref(null);
+/** فقط یک VoiceWavePlayer فعال */
 const playingAudioId = ref(null);
-const audioRefs = ref({});
-
-function setAudioRef(msgId, el) {
-    if (el) {
-        audioRefs.value[msgId] = el;
-    } else {
-        delete audioRefs.value[msgId];
-    }
-}
-
-function toggleAudioPlayback(msgId) {
-    const audio = audioRefs.value[msgId];
-    if (!audio) return;
-    Object.values(audioRefs.value).forEach((a) => {
-        if (a && a !== audio && !a.paused) {
-            a.pause();
-        }
-    });
-    if (audio.paused) {
-        audio.play().catch(() => {});
-        playingAudioId.value = msgId;
-    } else {
-        audio.pause();
-        playingAudioId.value = null;
-    }
-}
-
-function onAudioEnded(msgId) {
-    if (playingAudioId.value === msgId) {
-        playingAudioId.value = null;
-    }
-}
 
 /** حذف پسوند غیراستاندارد مثل ;codecs=opus از URL فایل‌های واتساپ */
 function cleanMediaUrl(url) {
