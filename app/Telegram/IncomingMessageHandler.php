@@ -5,7 +5,17 @@ declare(strict_types=1);
 namespace App\Telegram;
 
 use App\Jobs\TelegramSaveIncomingMessageJob;
+use App\Services\TelegramBotFileUrlService;
 use danog\MadelineProto\EventHandler\Attributes\Handler;
+use danog\MadelineProto\EventHandler\Media\Audio;
+use danog\MadelineProto\EventHandler\Media\Document;
+use danog\MadelineProto\EventHandler\Media\Gif;
+use danog\MadelineProto\EventHandler\Media\MaskSticker;
+use danog\MadelineProto\EventHandler\Media\Photo;
+use danog\MadelineProto\EventHandler\Media\RoundVideo;
+use danog\MadelineProto\EventHandler\Media\Sticker;
+use danog\MadelineProto\EventHandler\Media\Video;
+use danog\MadelineProto\EventHandler\Media\Voice;
 use danog\MadelineProto\EventHandler\Message\PrivateMessage;
 use danog\MadelineProto\EventHandler\SimpleFilter\Incoming;
 use danog\MadelineProto\SimpleEventHandler;
@@ -25,7 +35,7 @@ class IncomingMessageHandler extends SimpleEventHandler
     }
 
     #[Handler]
-    public function handleIncomingPrivateMessage(Incoming & PrivateMessage $message): void
+    public function handleIncomingPrivateMessage(Incoming&PrivateMessage $message): void
     {
         if ($message->out) {
             return;
@@ -45,7 +55,7 @@ class IncomingMessageHandler extends SimpleEventHandler
             $info = $message->getClient()->getInfo($message->senderId);
             $username = $info['User']['username'] ?? null;
             if ($username !== null && $username !== '') {
-                $username = '@' . ltrim($username, '@');
+                $username = '@'.ltrim($username, '@');
             }
         } catch (\Throwable) {
             // ignore
@@ -54,7 +64,22 @@ class IncomingMessageHandler extends SimpleEventHandler
         $mediaUrl = null;
         $mediaMimeType = null;
         $messageType = 'text';
-        // Media download can be added later; for now we only persist text
+        $media = $message->media;
+        if ($media !== null) {
+            $mediaUrl = TelegramBotFileUrlService::urlForFileId($media->botApiFileId);
+            $mediaMimeType = $media->mimeType !== '' ? $media->mimeType : null;
+            $messageType = match (true) {
+                $media instanceof Photo => 'image',
+                $media instanceof Video => 'video',
+                $media instanceof Gif => 'animation',
+                $media instanceof RoundVideo => 'video',
+                $media instanceof Voice => 'audio',
+                $media instanceof Audio => 'audio',
+                $media instanceof Sticker, $media instanceof MaskSticker => 'sticker',
+                $media instanceof Document => 'document',
+                default => 'document',
+            };
+        }
 
         $payload = [
             'telegram_message_id' => $msgId,

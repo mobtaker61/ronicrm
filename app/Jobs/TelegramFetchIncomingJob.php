@@ -4,11 +4,11 @@ namespace App\Jobs;
 
 use App\Models\Customer;
 use App\Models\CustomerContact;
-use App\Support\OrganizationContext;
 use App\Models\TelegramMessage;
-use App\Services\CustomerMatchService;
 use App\Models\TelegramUserConnection;
+use App\Services\CustomerMatchService;
 use App\Services\MadelineProtoService;
+use App\Support\OrganizationContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -18,9 +18,10 @@ use Illuminate\Support\Facades\Log;
 
 class TelegramFetchIncomingJob implements ShouldQueue
 {
-    use Queueable, InteractsWithQueue, SerializesModels;
+    use InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 600;
+
     public ?int $organizationId;
 
     public function __construct(?int $organizationId = null)
@@ -40,22 +41,26 @@ class TelegramFetchIncomingJob implements ShouldQueue
         $lockHandle = @fopen($this->fetchLockPath(), 'c+');
         if (! $lockHandle) {
             Log::warning('TelegramFetchIncomingJob: cannot open lock file, skipping');
+
             return;
         }
         if (! @flock($lockHandle, LOCK_EX | LOCK_NB)) {
             Log::info('TelegramFetchIncomingJob: skipped (another fetch process is already running)');
             @fclose($lockHandle);
+
             return;
         }
 
         try {
             $conn = TelegramUserConnection::getActive();
-            if (!$conn || !$conn->isConnected()) {
+            if (! $conn || ! $conn->isConnected()) {
                 Log::warning('TelegramFetchIncomingJob: No active connection, skipping');
+
                 return;
             }
             if (MadelineProtoService::isListenDaemonActive($conn)) {
                 Log::info('TelegramFetchIncomingJob: skipped — telegram:listen-incoming is running (incoming DMs via Madeline EventHandler only)');
+
                 return;
             }
             $service = new MadelineProtoService($conn);
@@ -71,91 +76,93 @@ class TelegramFetchIncomingJob implements ShouldQueue
                     'line' => $e->getLine(),
                     'trace' => $e->getTraceAsString(),
                 ]);
+
                 return;
             }
 
-        $dialogs = $service->getDialogs();
-        $userPeerIds = [];
-        foreach ($dialogs as $d) {
-            $type = $d['type'] ?? '';
-            $id = $d['id'] ?? '';
-            if (in_array($type, ['user'], true) && $id !== '' && !str_starts_with((string) $id, '-')) {
-                $userPeerIds[] = (string) $id;
-            }
-        }
-        $userPeerIds = array_values(array_unique($userPeerIds));
-
-        // چت‌هایی که اخیراً از اینباکس پیام خروجی داشته‌اند (اولویت برای گرفتن پاسخ)
-        $recentOutgoingNumericIds = TelegramMessage::query()
-            ->where('direction', 'outgoing')
-            ->where('created_at', '>=', now()->subDays(30))
-            ->whereNotNull('chat_id')
-            ->distinct()
-            ->pluck('chat_id')
-            ->map(fn ($id) => trim((string) $id))
-            ->filter(fn ($id) => $id !== '' && ctype_digit($id))
-            ->unique()
-            ->values()
-            ->all();
-
-        // ترتیب نهایی: اول گفتگوهای فعال (خروجی اخیر)، سپس ترتیب طبیعی getDialogs
-        // (معمولا جدیدترین فعالیت‌ها) تا پیام جدید سریع‌تر دیده شود.
-        $orderedPeerIds = array_values(array_unique(array_merge($recentOutgoingNumericIds, $userPeerIds)));
-
-        Log::info('TelegramFetchIncomingJob', [
-            'total_dialogs' => count($dialogs),
-            'user_peers' => count($userPeerIds),
-            'recent_outgoing_chats' => count($recentOutgoingNumericIds),
-            'ordered_peers' => count($orderedPeerIds),
-        ]);
-
-        if (empty($orderedPeerIds)) {
-            Log::info('TelegramFetchIncomingJob: No user peers to fetch (no dialogs and no recent outgoing numeric chat_id)');
-            return;
-        }
-
-        // Keep each run short, but ALWAYS include recent outgoing chats
-        // so replies appear quickly even with many dialogs.
-        $maxPerRun = 6;
-        $always = array_values(array_unique($recentOutgoingNumericIds));
-        $always = array_slice($always, 0, min(3, $maxPerRun));
-
-        $rest = array_values(array_filter(
-            $orderedPeerIds,
-            fn ($id) => ! in_array($id, $always, true)
-        ));
-
-        $restBudget = max(0, $maxPerRun - count($always));
-        $offsetKey = 'telegram_fetch_offset_' . ($conn->id ?? 0);
-        $offset = (int) Cache::get($offsetKey, 0);
-        $rotatingSlice = $restBudget > 0 ? array_slice($rest, $offset, $restBudget) : [];
-        $nextOffset = ($offset + count($rotatingSlice)) % max(1, count($rest));
-        Cache::put($offsetKey, $nextOffset, now()->addDays(1));
-
-        $slice = array_values(array_unique(array_merge($always, $rotatingSlice)));
-
-        $fetched = 0;
-        foreach ($slice as $userId) {
-            try {
-                $result = $this->fetchAndSaveForPeer($service, $userId);
-                $fetched += $result['saved'];
-                if (!empty($result['user_data']) && \is_array($result['user_data'])) {
-                    $this->updateCustomerFromUserData($userId, $result['user_data']);
-                }
-                // Small delay to avoid flood while keeping queue responsive for web send.
-                sleep(rand(2, 3));
-            } catch (\Throwable $e) {
-                $detail = $e->getMessage() !== '' ? $e->getMessage() : MadelineProtoService::exceptionSummary($e);
-                Log::warning("TelegramFetchIncomingJob: fetch for $userId failed", [
-                    'detail' => $detail,
-                    'class' => get_class($e),
-                ]);
-                // On flood or salt errors, wait longer before next attempt
-                if (str_contains($e->getMessage(), 'Flood') || str_contains($e->getMessage(), 'salt')) {
-                    sleep(15);
+            $dialogs = $service->getDialogs();
+            $userPeerIds = [];
+            foreach ($dialogs as $d) {
+                $type = $d['type'] ?? '';
+                $id = $d['id'] ?? '';
+                if (in_array($type, ['user'], true) && $id !== '' && ! str_starts_with((string) $id, '-')) {
+                    $userPeerIds[] = (string) $id;
                 }
             }
-        }
+            $userPeerIds = array_values(array_unique($userPeerIds));
+
+            // چت‌هایی که اخیراً از اینباکس پیام خروجی داشته‌اند (اولویت برای گرفتن پاسخ)
+            $recentOutgoingNumericIds = TelegramMessage::query()
+                ->where('direction', 'outgoing')
+                ->where('created_at', '>=', now()->subDays(30))
+                ->whereNotNull('chat_id')
+                ->distinct()
+                ->pluck('chat_id')
+                ->map(fn ($id) => trim((string) $id))
+                ->filter(fn ($id) => $id !== '' && ctype_digit($id))
+                ->unique()
+                ->values()
+                ->all();
+
+            // ترتیب نهایی: اول گفتگوهای فعال (خروجی اخیر)، سپس ترتیب طبیعی getDialogs
+            // (معمولا جدیدترین فعالیت‌ها) تا پیام جدید سریع‌تر دیده شود.
+            $orderedPeerIds = array_values(array_unique(array_merge($recentOutgoingNumericIds, $userPeerIds)));
+
+            Log::info('TelegramFetchIncomingJob', [
+                'total_dialogs' => count($dialogs),
+                'user_peers' => count($userPeerIds),
+                'recent_outgoing_chats' => count($recentOutgoingNumericIds),
+                'ordered_peers' => count($orderedPeerIds),
+            ]);
+
+            if (empty($orderedPeerIds)) {
+                Log::info('TelegramFetchIncomingJob: No user peers to fetch (no dialogs and no recent outgoing numeric chat_id)');
+
+                return;
+            }
+
+            // Keep each run short, but ALWAYS include recent outgoing chats
+            // so replies appear quickly even with many dialogs.
+            $maxPerRun = 6;
+            $always = array_values(array_unique($recentOutgoingNumericIds));
+            $always = array_slice($always, 0, min(3, $maxPerRun));
+
+            $rest = array_values(array_filter(
+                $orderedPeerIds,
+                fn ($id) => ! in_array($id, $always, true)
+            ));
+
+            $restBudget = max(0, $maxPerRun - count($always));
+            $offsetKey = 'telegram_fetch_offset_'.($conn->id ?? 0);
+            $offset = (int) Cache::get($offsetKey, 0);
+            $rotatingSlice = $restBudget > 0 ? array_slice($rest, $offset, $restBudget) : [];
+            $nextOffset = ($offset + count($rotatingSlice)) % max(1, count($rest));
+            Cache::put($offsetKey, $nextOffset, now()->addDays(1));
+
+            $slice = array_values(array_unique(array_merge($always, $rotatingSlice)));
+
+            $fetched = 0;
+            foreach ($slice as $userId) {
+                try {
+                    $result = $this->fetchAndSaveForPeer($service, $userId);
+                    $fetched += $result['saved'];
+                    if (! empty($result['user_data']) && \is_array($result['user_data'])) {
+                        $this->updateCustomerFromUserData($userId, $result['user_data']);
+                    }
+                    // Small delay to avoid flood while keeping queue responsive for web send.
+                    sleep(rand(2, 3));
+                } catch (\Throwable $e) {
+                    $detail = $e->getMessage() !== '' ? $e->getMessage() : MadelineProtoService::exceptionSummary($e);
+                    Log::warning("TelegramFetchIncomingJob: fetch for $userId failed", [
+                        'detail' => $detail,
+                        'class' => get_class($e),
+                    ]);
+                    // On flood or salt errors, wait longer before next attempt
+                    if (str_contains($e->getMessage(), 'Flood') || str_contains($e->getMessage(), 'salt')) {
+                        sleep(15);
+                    }
+                }
+            }
 
             if ($fetched > 0) {
                 Log::info("TelegramFetchIncomingJob: fetched $fetched new incoming messages");
@@ -190,10 +197,14 @@ class TelegramFetchIncomingJob implements ShouldQueue
         $saved = 0;
         foreach ($messages as $msg) {
             $msgId = $msg['id'] ?? null;
-            if (!$msgId) continue;
+            if (! $msgId) {
+                continue;
+            }
 
             $out = $msg['out'] ?? true;
-            if ($out) continue;
+            if ($out) {
+                continue;
+            }
 
             if (TelegramMessage::where('chat_id', $userId)->where('telegram_message_id', $msgId)->exists()) {
                 continue;
@@ -203,14 +214,24 @@ class TelegramFetchIncomingJob implements ShouldQueue
             $text = $msg['message'] ?? '';
             $customer = $this->findOrCreateCustomer($userId, $userData);
 
+            $resolved = ['url' => null, 'message_type' => 'text', 'media_mime_type' => null];
+            try {
+                $resolved = $service->resolveBotMediaFromMtprotoMessage($msg);
+            } catch (\Throwable $e) {
+                Log::debug('TelegramFetchIncomingJob: media resolve skipped', [
+                    'msg_id' => $msgId,
+                    'detail' => $e->getMessage(),
+                ]);
+            }
+
             TelegramMessage::create([
                 'telegram_message_id' => (string) $msgId,
                 'chat_id' => $userId,
                 'from_username' => $usersById[$fromId]['username'] ?? $usersById[$userId]['username'] ?? null,
-                'message' => $text,
-                'message_type' => 'text',
-                'media_url' => null,
-                'media_mime_type' => null,
+                'message' => $text !== '' ? $text : null,
+                'message_type' => $resolved['message_type'],
+                'media_url' => $resolved['url'],
+                'media_mime_type' => $resolved['media_mime_type'],
                 'customer_id' => $customer?->id,
                 'direction' => 'incoming',
                 'status' => 'received',
@@ -225,10 +246,13 @@ class TelegramFetchIncomingJob implements ShouldQueue
     protected function extractFromMessage(array $msg): ?string
     {
         $fromId = $msg['from_id'] ?? null;
-        if (is_numeric($fromId)) return (string) $fromId;
+        if (is_numeric($fromId)) {
+            return (string) $fromId;
+        }
         if (is_array($fromId) && isset($fromId['user_id'])) {
             return (string) $fromId['user_id'];
         }
+
         return null;
     }
 
@@ -236,17 +260,18 @@ class TelegramFetchIncomingJob implements ShouldQueue
     {
         $username = $userData['username'] ?? null;
         $phone = $userData['phone'] ?? null;
-        if ($username && !str_starts_with((string) $username, '@')) {
-            $username = '@' . $username;
+        if ($username && ! str_starts_with((string) $username, '@')) {
+            $username = '@'.$username;
         }
 
         $existing = CustomerMatchService::findExistingByTelegram($chatId, $username, $phone);
         if ($existing) {
             $this->ensureTelegramContact($existing, $chatId);
+
             return $existing;
         }
 
-        $name = $this->buildNameFromUser($userData) ?: ('Telegram ' . substr($chatId, -4));
+        $name = $this->buildNameFromUser($userData) ?: ('Telegram '.substr($chatId, -4));
         $customer = Customer::create([
             'name' => $name,
             'type' => 'person',
@@ -256,9 +281,9 @@ class TelegramFetchIncomingJob implements ShouldQueue
         ]);
         $this->ensureTelegramContact($customer, $chatId);
 
-        if ($userData && !empty($userData['phone'])) {
+        if ($userData && ! empty($userData['phone'])) {
             $customer->update(['phone' => $userData['phone']]);
-            if (!CustomerContact::where('customer_id', $customer->id)->where('type', 'phone')->exists()) {
+            if (! CustomerContact::where('customer_id', $customer->id)->where('type', 'phone')->exists()) {
                 $customer->contacts()->create([
                     'type' => 'phone',
                     'value' => $userData['phone'],
@@ -288,16 +313,21 @@ class TelegramFetchIncomingJob implements ShouldQueue
 
     protected function buildNameFromUser(?array $user): string
     {
-        if (!$user || !\is_array($user)) return '';
+        if (! $user || ! \is_array($user)) {
+            return '';
+        }
         $first = trim($user['first_name'] ?? '');
         $last = trim($user['last_name'] ?? '');
+
         return trim("$first $last") ?: '';
     }
 
     protected function updateCustomerFromUserData(string $userId, array $userData): void
     {
         $contact = CustomerContact::where('type', 'telegram')->where('value', $userId)->first();
-        if (!$contact || !$contact->customer) return;
+        if (! $contact || ! $contact->customer) {
+            return;
+        }
 
         $customer = $contact->customer;
         $updates = [];
@@ -308,9 +338,9 @@ class TelegramFetchIncomingJob implements ShouldQueue
         }
 
         $phone = $userData['phone'] ?? null;
-        if (!empty($phone) && empty($customer->phone)) {
+        if (! empty($phone) && empty($customer->phone)) {
             $updates['phone'] = $phone;
-            if (!CustomerContact::where('customer_id', $customer->id)->where('type', 'phone')->exists()) {
+            if (! CustomerContact::where('customer_id', $customer->id)->where('type', 'phone')->exists()) {
                 $customer->contacts()->create([
                     'type' => 'phone',
                     'value' => $phone,
@@ -319,7 +349,7 @@ class TelegramFetchIncomingJob implements ShouldQueue
             }
         }
 
-        if (!empty($updates)) {
+        if (! empty($updates)) {
             $customer->update($updates);
         }
     }

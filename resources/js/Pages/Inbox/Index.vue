@@ -1138,7 +1138,7 @@ const isImageFile = (messageType, url) => {
 
 const isVideoFile = (messageType, url) => {
     const mt = normMsgType(messageType);
-    if (['video', 'movie', 'clip', 'reel', 'ig_reel', 'short'].includes(mt)) return true;
+    if (['video', 'movie', 'clip', 'reel', 'ig_reel', 'short', 'animation'].includes(mt)) return true;
     if (!url) return false;
     // .ogg معمولاً صوت واتساپ است؛ با isAudioFile زودتر بررسی می‌شود
     const exts = ['.mp4', '.webm', '.mov', '.m4v', '.3gp', '.mkv'];

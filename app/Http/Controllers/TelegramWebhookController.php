@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\TelegramMessage;
 use App\Services\CustomerMatchService;
+use App\Services\TelegramBotFileUrlService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -21,13 +22,13 @@ class TelegramWebhookController extends Controller
             $data = $request->all();
 
             $message = $data['message'] ?? $data['edited_message'] ?? null;
-            if (!$message) {
+            if (! $message) {
                 return response()->json(['ok' => true]);
             }
 
             $from = $message['from'] ?? null;
             $chat = $message['chat'] ?? null;
-            if (!$from || !$chat) {
+            if (! $from || ! $chat) {
                 return response()->json(['ok' => true]);
             }
 
@@ -36,31 +37,21 @@ class TelegramWebhookController extends Controller
                 return response()->json(['ok' => true]);
             }
 
+            $telegramMessageId = $message['message_id'] ?? null;
+            if ($telegramMessageId !== null
+                && TelegramMessage::where('chat_id', $chatId)
+                    ->where('telegram_message_id', (string) $telegramMessageId)
+                    ->exists()) {
+                return response()->json(['ok' => true]);
+            }
+
             $fromUsername = $from['username'] ?? null;
             $firstName = (string) ($from['first_name'] ?? '');
             $lastName = (string) ($from['last_name'] ?? '');
-            $displayName = trim($firstName . ' ' . $lastName) ?: ($fromUsername ?? $chatId);
+            $displayName = trim($firstName.' '.$lastName) ?: ($fromUsername ?? $chatId);
 
             $messageText = $message['text'] ?? $message['caption'] ?? '';
-            $telegramMessageId = $message['message_id'] ?? null;
-            $mediaUrl = null;
-            $messageType = 'text';
-
-            if (!empty($message['photo'])) {
-                $photos = $message['photo'];
-                $largest = end($photos);
-                $fileId = $largest['file_id'] ?? null;
-                if ($fileId) {
-                    $mediaUrl = $this->getFileUrl($fileId);
-                }
-                $messageType = 'image';
-            } elseif (!empty($message['document'])) {
-                $fileId = $message['document']['file_id'] ?? null;
-                if ($fileId) {
-                    $mediaUrl = $this->getFileUrl($fileId);
-                }
-                $messageType = 'document';
-            }
+            $resolved = $this->resolveMediaFromBotMessage($message);
 
             $fromPhone = $from['phone_number'] ?? null;
             $customer = null;
@@ -79,9 +70,9 @@ class TelegramWebhookController extends Controller
                 'chat_id' => $chatId,
                 'from_username' => $fromUsername,
                 'message' => $messageText !== '' ? $messageText : null,
-                'message_type' => $messageType,
-                'media_url' => $mediaUrl,
-                'media_mime_type' => null,
+                'message_type' => $resolved['type'],
+                'media_url' => $resolved['url'],
+                'media_mime_type' => $resolved['mime'],
                 'customer_id' => $customer?->id,
                 'direction' => 'incoming',
                 'status' => 'received',
@@ -92,14 +83,98 @@ class TelegramWebhookController extends Controller
 
             return response()->json(['ok' => true]);
         } catch (\Throwable $e) {
-            Log::error('Telegram webhook error: ' . $e->getMessage(), [
+            Log::error('Telegram webhook error: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
             ]);
-            // Always return 200 so Telegram does not retry; we have logged the error
+
             return response()->json(['ok' => true]);
         }
+    }
+
+    /**
+     * @return array{type: string, url: ?string, mime: ?string}
+     */
+    protected function resolveMediaFromBotMessage(array $message): array
+    {
+        if (! empty($message['photo'])) {
+            $photos = $message['photo'];
+            $largest = end($photos);
+            $fileId = $largest['file_id'] ?? null;
+
+            return [
+                'type' => 'image',
+                'url' => TelegramBotFileUrlService::urlForFileId($fileId),
+                'mime' => null,
+            ];
+        }
+        if (! empty($message['video'])) {
+            $v = $message['video'];
+
+            return [
+                'type' => 'video',
+                'url' => TelegramBotFileUrlService::urlForFileId($v['file_id'] ?? null),
+                'mime' => $v['mime_type'] ?? null,
+            ];
+        }
+        if (! empty($message['animation'])) {
+            $v = $message['animation'];
+
+            return [
+                'type' => 'animation',
+                'url' => TelegramBotFileUrlService::urlForFileId($v['file_id'] ?? null),
+                'mime' => $v['mime_type'] ?? null,
+            ];
+        }
+        if (! empty($message['video_note'])) {
+            $v = $message['video_note'];
+
+            return [
+                'type' => 'video',
+                'url' => TelegramBotFileUrlService::urlForFileId($v['file_id'] ?? null),
+                'mime' => null,
+            ];
+        }
+        if (! empty($message['voice'])) {
+            $v = $message['voice'];
+
+            return [
+                'type' => 'audio',
+                'url' => TelegramBotFileUrlService::urlForFileId($v['file_id'] ?? null),
+                'mime' => $v['mime_type'] ?? null,
+            ];
+        }
+        if (! empty($message['audio'])) {
+            $v = $message['audio'];
+
+            return [
+                'type' => 'audio',
+                'url' => TelegramBotFileUrlService::urlForFileId($v['file_id'] ?? null),
+                'mime' => $v['mime_type'] ?? null,
+            ];
+        }
+        if (! empty($message['sticker'])) {
+            $v = $message['sticker'];
+            $fileId = $v['file_id'] ?? ($v['thumb']['file_id'] ?? null);
+
+            return [
+                'type' => 'sticker',
+                'url' => TelegramBotFileUrlService::urlForFileId($fileId),
+                'mime' => $v['mime_type'] ?? null,
+            ];
+        }
+        if (! empty($message['document'])) {
+            $v = $message['document'];
+
+            return [
+                'type' => 'document',
+                'url' => TelegramBotFileUrlService::urlForFileId($v['file_id'] ?? null),
+                'mime' => $v['mime_type'] ?? null,
+            ];
+        }
+
+        return ['type' => 'text', 'url' => null, 'mime' => null];
     }
 
     /**
@@ -111,6 +186,7 @@ class TelegramWebhookController extends Controller
         $existing = CustomerMatchService::findExistingByTelegram($chatId, $username, $phone);
         if ($existing) {
             $this->ensureTelegramContact($existing, $chatId);
+
             return $existing;
         }
 
@@ -125,10 +201,11 @@ class TelegramWebhookController extends Controller
         $this->ensureTelegramContact($customer, $chatId);
         if ($phone) {
             $customer->update(['phone' => $phone]);
-            if (!CustomerContact::where('customer_id', $customer->id)->where('type', 'phone')->exists()) {
+            if (! CustomerContact::where('customer_id', $customer->id)->where('type', 'phone')->exists()) {
                 $customer->contacts()->create(['type' => 'phone', 'value' => $phone, 'is_primary' => false]);
             }
         }
+
         return $customer;
     }
 
@@ -145,31 +222,6 @@ class TelegramWebhookController extends Controller
                 'value' => $chatId,
                 'is_primary' => true,
             ]);
-        }
-    }
-
-    /**
-     * Get public URL for a file_id using Telegram getFile + bot token.
-     */
-    protected function getFileUrl(string $fileId): ?string
-    {
-        try {
-            $settings = \App\Models\Setting::getScoped('telegram', []);
-            $token = $settings['bot_token'] ?? '';
-            if ($token === '') {
-                return null;
-            }
-            $response = \Illuminate\Support\Facades\Http::timeout(10)
-                ->get("https://api.telegram.org/bot{$token}/getFile", ['file_id' => $fileId]);
-            $data = $response->json();
-            $path = $data['result']['file_path'] ?? null;
-            if ($path === null || $path === '') {
-                return null;
-            }
-            return "https://api.telegram.org/file/bot{$token}/{$path}";
-        } catch (\Throwable $e) {
-            Log::warning('Telegram getFileUrl failed: ' . $e->getMessage());
-            return null;
         }
     }
 }

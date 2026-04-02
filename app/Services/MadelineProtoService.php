@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\TelegramUserConnection;
+use danog\MadelineProto\MTProtoTools\Files;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -92,6 +93,7 @@ class MadelineProtoService
      * خطای «channel was already closed» و تایم‌اوت ۳۰۰ثانیه‌ای می‌گیرید. این هک رسمی کتابخانه است (مثل MadelineSelfRestart).
      *
      * @template T
+     *
      * @param  callable(): T  $callback
      * @return T
      */
@@ -315,16 +317,19 @@ class MadelineProtoService
                 try {
                     $out = $this->{$method}($api);
                     Log::info("MadelineProto getDialogs: used {$method}");
+
                     return $out;
                 } catch (\Throwable $e) {
                     $msg = $e->getMessage();
                     if (str_contains($msg, 'Undefined array key') || str_contains($msg, 'Undefined index')) {
                         Log::info("MadelineProto {$method} entity key bug, trying next", ['error' => substr($msg, 0, 80)]);
+
                         continue;
                     }
                     throw $e;
                 }
             }
+
             return [];
         });
 
@@ -429,6 +434,7 @@ class MadelineProtoService
     {
         if (is_int($peer) || is_string($peer)) {
             $id = trim((string) $peer);
+
             return $id !== '' ? $id : null;
         }
         if (! is_array($peer)) {
@@ -444,6 +450,7 @@ class MadelineProtoService
         if (str_contains($t, 'user')) {
             return (string) ($peer['user_id'] ?? '');
         }
+
         return null;
     }
 
@@ -463,6 +470,7 @@ class MadelineProtoService
         if (str_contains($t, 'user')) {
             return (string) $id;
         }
+
         return null;
     }
 
@@ -471,6 +479,7 @@ class MadelineProtoService
         if (! $entity) {
             return '';
         }
+
         return $entity['title'] ?? trim(($entity['first_name'] ?? '').' '.($entity['last_name'] ?? '')) ?: '';
     }
 
@@ -486,6 +495,7 @@ class MadelineProtoService
         if (str_contains($t, 'chat')) {
             return 'group';
         }
+
         return 'user';
     }
 
@@ -517,6 +527,7 @@ class MadelineProtoService
                 'description' => null,
             ];
         }
+
         return $out;
     }
 
@@ -552,12 +563,14 @@ class MadelineProtoService
     {
         if (is_int($peer) || is_string($peer)) {
             $id = trim((string) $peer);
+
             return $id !== '' ? $id : null;
         }
         if (is_array($peer)) {
             // Some MP versions may return peer objects here.
             return $this->getPeerIdFromDialogPeer($peer);
         }
+
         return null;
     }
 
@@ -733,6 +746,65 @@ class MadelineProtoService
 
             return ['messages' => [], 'users' => []];
         }
+    }
+
+    /**
+     * از پیام خام MTProto، معادل Bot API و سپس file_id را استخراج می‌کند و URL نمایش در اینباکس را می‌سازد.
+     *
+     * @return array{url: ?string, message_type: string, media_mime_type: ?string}
+     */
+    public function resolveBotMediaFromMtprotoMessage(array $mtprotoMessage): array
+    {
+        if (($mtprotoMessage['_'] ?? '') !== 'message') {
+            return ['url' => null, 'message_type' => 'text', 'media_mime_type' => null];
+        }
+        if (empty($mtprotoMessage['media']) || (($mtprotoMessage['media']['_'] ?? '') === 'messageMediaWebPage')) {
+            return ['url' => null, 'message_type' => 'text', 'media_mime_type' => null];
+        }
+
+        return $this->run(function () use ($mtprotoMessage) {
+            $api = $this->getApi();
+            try {
+                $botApi = $api->MTProtoToBotAPI($mtprotoMessage);
+            } catch (\Throwable $e) {
+                Log::debug('MadelineProto MTProtoToBotAPI failed for inbox media', [
+                    'error' => $e->getMessage(),
+                ]);
+
+                return ['url' => null, 'message_type' => 'text', 'media_mime_type' => null];
+            }
+
+            if (! is_array($botApi)) {
+                return ['url' => null, 'message_type' => 'text', 'media_mime_type' => null];
+            }
+
+            $fileInfo = Files::extractBotAPIFile($botApi);
+            if (! is_array($fileInfo) || empty($fileInfo['file_id'])) {
+                return ['url' => null, 'message_type' => 'text', 'media_mime_type' => null];
+            }
+
+            $fileId = $fileInfo['file_id'];
+            $fileType = $fileInfo['file_type'] ?? 'document';
+            $mime = $fileInfo['mime_type'] ?? null;
+
+            $url = TelegramBotFileUrlService::urlForFileId(is_string($fileId) ? $fileId : null);
+            $messageType = match ($fileType) {
+                'photo' => 'image',
+                'video' => 'video',
+                'animation' => 'animation',
+                'video_note' => 'video',
+                'voice' => 'audio',
+                'audio' => 'audio',
+                'sticker' => 'sticker',
+                default => 'document',
+            };
+
+            return [
+                'url' => $url,
+                'message_type' => $messageType,
+                'media_mime_type' => is_string($mime) ? $mime : null,
+            ];
+        });
     }
 
     /**
@@ -1128,6 +1200,7 @@ class MadelineProtoService
                 if ($conn->status === 'expired') {
                     $conn->update(['status' => 'pending']);
                 }
+
                 return $conn;
             }
         }
@@ -1187,6 +1260,7 @@ class MadelineProtoService
 
                 if ($api->getAuthorization() === \danog\MadelineProto\API::LOGGED_IN) {
                     $this->markConnected($conn, $api);
+
                     return ['logged_in' => true, 'conn_id' => $conn->id];
                 }
 
@@ -1204,6 +1278,7 @@ class MadelineProtoService
                 $auth = $api->getAuthorization();
                 if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
                     $this->markConnected($conn, $api);
+
                     return ['logged_in' => true, 'conn_id' => $conn->id];
                 }
                 if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
@@ -1223,6 +1298,7 @@ class MadelineProtoService
             return is_array($result) ? $result : ['logged_in' => false, 'error' => 'Unknown response'];
         } catch (\Throwable $e) {
             Log::error('Telegram getQrCode error: '.$e->getMessage());
+
             return ['error' => $e->getMessage(), 'logged_in' => false];
         }
     }
@@ -1276,6 +1352,7 @@ class MadelineProtoService
             return is_array($result) ? $result : ['logged_in' => false];
         } catch (\Throwable $e) {
             Log::error('Telegram getConnectionStatus error: '.$e->getMessage());
+
             return ['logged_in' => false, 'error' => $e->getMessage()];
         }
     }
@@ -1316,6 +1393,7 @@ class MadelineProtoService
 
                 if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
                     $this->markConnected($conn, $api);
+
                     return ['success' => true, 'logged_in' => true, 'conn_id' => $conn->id];
                 }
                 if ($auth === \danog\MadelineProto\API::WAITING_CODE) {
@@ -1331,6 +1409,7 @@ class MadelineProtoService
             return is_array($result) ? $result : ['success' => false, 'logged_in' => false, 'error' => 'Unexpected response.'];
         } catch (\Throwable $e) {
             Log::error('Telegram startPhoneLogin error: '.$e->getMessage());
+
             return ['success' => false, 'logged_in' => false, 'error' => $e->getMessage()];
         }
     }
@@ -1376,6 +1455,7 @@ class MadelineProtoService
 
                 if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
                     $this->markConnected($conn, $api);
+
                     return ['success' => true, 'logged_in' => true, 'conn_id' => $conn->id];
                 }
                 if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
@@ -1388,6 +1468,7 @@ class MadelineProtoService
             return is_array($result) ? $result : ['success' => false, 'logged_in' => false, 'error' => 'Unexpected OTP response.'];
         } catch (\Throwable $e) {
             Log::error('Telegram completePhoneLogin error: '.$e->getMessage());
+
             return ['success' => false, 'logged_in' => false, 'error' => $e->getMessage()];
         }
     }
@@ -1432,17 +1513,20 @@ class MadelineProtoService
                 $auth = $api->getAuthorization();
                 if ($auth === \danog\MadelineProto\API::LOGGED_IN) {
                     $this->markConnected($conn, $api);
+
                     return ['success' => true, 'logged_in' => true];
                 }
                 if ($auth === \danog\MadelineProto\API::WAITING_PASSWORD) {
                     return ['success' => false, 'logged_in' => false, 'needs_2fa' => true, 'error' => 'Invalid 2FA password.'];
                 }
+
                 return ['success' => false, 'logged_in' => false, 'error' => 'Telegram is not fully authenticated yet.'];
             });
 
             return is_array($result) ? $result : ['success' => false, 'logged_in' => false, 'error' => 'Unexpected 2FA response.'];
         } catch (\Throwable $e) {
             Log::error('Telegram complete2faLogin error: '.$e->getMessage());
+
             return ['success' => false, 'logged_in' => false, 'error' => $e->getMessage()];
         }
     }
