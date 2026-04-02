@@ -27,6 +27,7 @@ const routeHelper = (name, params = null, absolute = false) => {
         'login': '/login',
         'register': '/register',
         'dashboard': '/dashboard',
+        'groups.index': '/groups',
         'settings.instagram.connect': '/settings/instagram/connect',
         'settings.instagram.callback': '/settings/instagram/callback',
         'settings.instagram.disconnect': '/settings/instagram/disconnect',

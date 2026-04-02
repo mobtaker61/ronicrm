@@ -35,6 +35,7 @@ Route::get('/p/{shareToken}/export-excel', [\App\Http\Controllers\PublicProjectS
 
 // Webhooks (no auth, no CSRF – called by Telegram, Ronibot, Meta)
 Route::post('/wpwebhook', [\App\Http\Controllers\RonibotWebhookController::class, 'handle'])->name('ronibot.webhook');
+Route::post('/wpwebhook-group', [\App\Http\Controllers\RonibotWebhookController::class, 'groupSync'])->name('ronibot.webhook.group');
 Route::post('/telegram-webhook', [\App\Http\Controllers\TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
 Route::post('/telegram-webhook/{organization}', [\App\Http\Controllers\TelegramWebhookController::class, 'handle'])->name('telegram.webhook.organization');
 Route::get('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookController::class, 'verify'])->name('instagram.webhook.verify');
@@ -98,7 +99,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Telegram Group Crawler
     Route::get('/telegram-crawler', [\App\Http\Controllers\TelegramCrawlerController::class, 'index'])->name('telegram-crawler.index');
-    Route::get('/telegram-groups', [\App\Http\Controllers\TelegramCrawlerController::class, 'groupsIndex'])->name('telegram-groups.index');
+    Route::get('/groups', [\App\Http\Controllers\TelegramCrawlerController::class, 'groupsIndex'])->name('groups.index');
+    Route::get('/telegram-groups', function () {
+        return redirect()->route('groups.index', request()->query(), 301);
+    })->name('telegram-groups.index');
+    Route::patch('/groups/{group}', [\App\Http\Controllers\TelegramCrawlerController::class, 'groupsUpdate'])->name('groups.update');
     Route::patch('/telegram-groups/{group}', [\App\Http\Controllers\TelegramCrawlerController::class, 'groupsUpdate'])->name('telegram-groups.update');
     Route::get('/telegram-crawler/groups', [\App\Http\Controllers\TelegramCrawlerController::class, 'groups'])->name('telegram-crawler.groups');
     Route::post('/telegram-crawler/crawl', [\App\Http\Controllers\TelegramCrawlerController::class, 'crawl'])->name('telegram-crawler.crawl');

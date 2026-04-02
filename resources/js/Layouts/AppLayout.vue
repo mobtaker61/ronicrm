@@ -116,6 +116,18 @@
                                 {{ t('sidebar.customers') }}
                             </Link>
                             <Link
+                                :href="getRoute('groups.index')"
+                                :class="[
+                                    'flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12',
+                                    isGroupsRouteActive
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                {{ t('sidebar.groups') }}
+                            </Link>
+                            <Link
                                 :href="getRoute('projects.index')"
                                 :class="[
                                     'flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12',
@@ -299,18 +311,6 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h8M8 14h5m-7 7h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                                 {{ t('sidebar.crawler') }}
-                            </Link>
-                            <Link
-                                :href="getRoute('telegram-groups.index')"
-                                :class="[
-                                    'flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12',
-                                    isCurrentRoute('/telegram-groups')
-                                        ? 'bg-blue-50 text-blue-700'
-                                        : 'text-gray-700 hover:bg-gray-100'
-                                ]"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 0 014 0z" /></svg>
-                                {{ t('sidebar.groups') }}
                             </Link>
                             <Link
                                 :href="getRoute('telegram.scheduled-sends.index')"
@@ -677,8 +677,12 @@ const currentOrganizationLogoUrl = computed(() => page.props.currentOrganization
 const isCampaignsSectionActive = computed(() => {
     return isCurrentRoute('/campaigns') || isCurrentRoute('/campaign-templates');
 });
+const isGroupsRouteActive = computed(() => {
+    return isCurrentRoute('/groups') || isCurrentRoute('/telegram-groups');
+});
 const isCoreDataSectionActive = computed(() => {
     return isCurrentRoute('/customers')
+        || isGroupsRouteActive.value
         || isCurrentRoute('/projects')
         || isCurrentRoute('/industries');
 });
@@ -689,7 +693,6 @@ const isCommerceSectionActive = computed(() => {
 });
 const isTelegramSectionActive = computed(() => {
     return isCurrentRoute('/telegram-crawler')
-        || isCurrentRoute('/telegram-groups')
         || isCurrentRoute('/telegram/scheduled-sends');
 });
 const isToolsSectionActive = computed(() => {
@@ -825,6 +828,7 @@ const getRoute = (name) => {
     // Fallback routes
     const routes = {
         'dashboard': '/dashboard',
+        'groups.index': '/groups',
         'customers.index': '/customers',
         'campaigns.index': '/campaigns',
         'campaign-templates.index': '/campaign-templates',

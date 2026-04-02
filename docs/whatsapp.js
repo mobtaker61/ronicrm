@@ -37,6 +37,23 @@ const APP_WEBHOOK_ALLOWED_EVENTS = ['CONNECTION_UPDATE','MESSAGES_UPSERT']
 const webhookUrl = process.env.APP_WEBHOOK_URL
 
 /**
+ * آدرس وب‌هوک سبک همگام‌سازی گروه (CRM) — بدون بدنهٔ پیام؛ برای کاهش ترافیک نسبت به وب‌هوک اصلی.
+ * APP_GROUP_WEBHOOK_URL اختیاری؛ در غیر این صورت از پایهٔ APP_WEBHOOK_URL (بدون مسیر send-webhook) + /wpwebhook-group.
+ */
+function buildCrmGroupWebhookUrl() {
+    const explicit = process.env.APP_GROUP_WEBHOOK_URL
+    if (explicit) {
+        return explicit.replace(/\/$/, '')
+    }
+    const base = process.env.APP_WEBHOOK_URL || ''
+    if (!base) {
+        return ''
+    }
+    const cleaned = base.replace(/\/send-webhook.*$/i, '').replace(/\/$/, '')
+    return `${cleaned}/wpwebhook-group`
+}
+
+/**
  * محتوای قابل‌نمایش پیام پس از باز کردن لایه‌های ephemeral / viewOnce / …
  * مطابق منطق Baileys (extractMessageContent + normalizeMessageContent).
  * @see https://baileys.wiki/docs/api/functions/extractMessageContent
@@ -205,6 +222,25 @@ async function createSession(sessionId, res = null, options = { usePairingCode: 
         for (const msg of messages) {
             if (!msg.message) continue
             if (msg.key.fromMe) continue
+
+            const remoteJid = msg.key?.remoteJid || ''
+            if (remoteJid.endsWith('@g.us')) {
+                const groupSyncUrl = buildCrmGroupWebhookUrl()
+                if (groupSyncUrl) {
+                    try {
+                        await axios.post(groupSyncUrl, {
+                            type: 'GROUP_SEEN',
+                            groupJid: remoteJid,
+                            title: msg.pushName || undefined,
+                            receiver: sessionId,
+                            participantSender: formatWebhookSender(msg),
+                        })
+                    } catch (err) {
+                        console.error('❌ Group sync webhook error:', err.message)
+                    }
+                }
+                continue
+            }
 
             const content = resolveMessageContent(msg.message)
             if (!content) {

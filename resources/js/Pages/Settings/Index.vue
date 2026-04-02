@@ -655,6 +655,30 @@
                                 />
                                 <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_webhook_help') }}</p>
                             </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('settings.ronibot_line_phone_label') }}</label>
+                                <input
+                                    v-model="ronibotForm.line_phone"
+                                    type="text"
+                                    autocomplete="off"
+                                    :placeholder="t('settings.ronibot_line_phone_placeholder')"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_line_phone_help') }}</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('settings.ronibot_session_id_label') }}</label>
+                                <input
+                                    v-model="ronibotForm.wa_session_id"
+                                    type="text"
+                                    autocomplete="off"
+                                    :placeholder="t('settings.ronibot_session_id_placeholder')"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_session_id_help') }}</p>
+                            </div>
                         </div>
 
                         <div class="flex items-center justify-between pt-4 border-t">
@@ -1739,6 +1763,8 @@ const ronibotForm = useForm({
     authkey: props.ronibotSettings.authkey || '',
     webhook_url: props.ronibotSettings.webhook_url || 'https://ronicrm.com/wpwebhook',
     enabled: props.ronibotSettings.enabled || false,
+    line_phone: props.ronibotSettings.line_phone || '',
+    wa_session_id: props.ronibotSettings.wa_session_id || '',
 });
 
 const telegramForm = useForm({

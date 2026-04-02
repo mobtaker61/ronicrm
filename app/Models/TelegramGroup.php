@@ -14,6 +14,7 @@ class TelegramGroup extends Model
 
     protected $fillable = [
         'organization_id',
+        'channel',
         'telegram_user_connection_id',
         'telegram_group_id',
         'title',
@@ -34,6 +35,11 @@ class TelegramGroup extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    public function scopeChannel($query, string $channel)
+    {
+        return $query->where('channel', $channel);
     }
 
     public function category(): \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -61,6 +67,7 @@ class TelegramGroup extends Model
             [
                 'telegram_user_connection_id' => $connectionId,
                 'telegram_group_id' => $groupId,
+                'channel' => 'telegram',
             ],
             [
                 'title' => $title,
@@ -76,6 +83,7 @@ class TelegramGroup extends Model
             'is_active' => true,
             'last_synced_at' => now(),
         ]);
+
         return $g;
     }
 

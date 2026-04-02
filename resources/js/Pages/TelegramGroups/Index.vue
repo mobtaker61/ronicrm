@@ -18,22 +18,32 @@
             {{ refreshError }}
         </div>
 
-        <!-- Not Connected -->
-        <div v-if="!telegramConnected" class="p-6 border border-amber-200 rounded-lg bg-amber-50">
+        <div v-if="!telegramConnected && (channelFilter === 'all' || channelFilter === 'telegram')" class="p-6 border border-amber-200 rounded-lg bg-amber-50 mb-6">
             <p class="text-gray-800 mb-4">{{ t('telegram_groups.connect_telegram_first') }}</p>
             <Link :href="route('settings.index')" class="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700">
                 {{ t('telegram_groups.go_to_telegram_settings') }}
             </Link>
         </div>
 
-        <!-- Connected -->
-        <div v-else class="space-y-6">
+        <div class="space-y-6">
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
                     <p class="text-sm text-gray-600 mb-4">
                         {{ t('telegram_groups.groups_help_text') }}
                     </p>
                     <div class="flex flex-wrap gap-4 items-center">
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm font-medium text-gray-700">{{ t('telegram_groups.filter_channel') }}:</label>
+                            <select
+                                v-model="filterChannel"
+                                @change="applyFilters"
+                                class="rounded-md border-gray-300 text-sm py-1.5"
+                            >
+                                <option value="all">{{ t('telegram_crawler.all') }}</option>
+                                <option value="telegram">{{ t('telegram_groups.channel_telegram') }}</option>
+                                <option value="whatsapp">{{ t('telegram_groups.channel_whatsapp') }}</option>
+                            </select>
+                        </div>
                         <div class="flex items-center gap-2">
                             <label class="text-sm font-medium text-gray-700">{{ t('telegram_groups.category_label') }}:</label>
                             <select
@@ -58,21 +68,23 @@
                         </div>
                         <div class="ml-auto flex items-center gap-2">
                             <Link
-                                v-if="filterCategory || filterLanguage"
-                                :href="route('telegram-groups.index')"
+                                v-if="filterCategory || filterLanguage || filterChannel !== 'all'"
+                                :href="route('groups.index')"
                                 class="text-sm text-blue-600 hover:text-blue-800"
                             >
                                 {{ t('telegram_groups.clear_filters') }}
                             </Link>
                             <button
+                                v-if="channelFilter !== 'whatsapp'"
                                 type="button"
                                 @click="refreshGroups"
-                                :disabled="refreshing"
+                                :disabled="refreshing || !telegramConnected"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
                             >
                                 {{ refreshing ? t('telegram_groups.refreshing') : t('telegram_groups.refresh') }}
                             </button>
                             <Link
+                                v-if="channelFilter !== 'whatsapp'"
                                 :href="route('telegram-crawler.index')"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
                             >
@@ -85,6 +97,7 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
+                                <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_channel') }}</th>
                                 <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_title') }}</th>
                                 <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_type') }}</th>
                                 <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.category') }}</th>
@@ -97,11 +110,19 @@
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <tr v-if="!groups.data?.length" class="text-center text-gray-500 py-8">
-                                <td colspan="8" class="px-4 py-6">
+                                <td colspan="9" class="px-4 py-6">
                                     {{ t('telegram_groups.no_groups_found') }}
                                 </td>
                             </tr>
                             <tr v-for="g in groups.data" :key="g.id" class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm">
+                                    <span
+                                        class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full"
+                                        :class="g.channel === 'whatsapp' ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-100 text-sky-800'"
+                                    >
+                                        {{ g.channel === 'whatsapp' ? t('telegram_groups.channel_whatsapp') : t('telegram_groups.channel_telegram') }}
+                                    </span>
+                                </td>
                                 <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ g.title || t('common.dash') }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-500">{{ g.type || t('common.dash') }}</td>
                                 <td class="px-4 py-3">
@@ -126,7 +147,7 @@
                                         <option v-for="lang in languages" :key="lang.id" :value="lang.code">{{ lang.name }}</option>
                                     </select>
                                 </td>
-                                <td class="px-4 py-3 text-sm font-mono text-gray-500">{{ g.telegram_group_id }}</td>
+                                <td class="px-4 py-3 text-sm font-mono text-gray-500 break-all max-w-[14rem]">{{ g.telegram_group_id }}</td>
                                 <td class="px-4 py-3">
                                     <span
                                         v-if="g.can_post"
@@ -146,11 +167,13 @@
                                 <td class="px-4 py-3 text-sm text-gray-500">{{ formatDate(g.last_synced_at) }}</td>
                                 <td class="px-4 py-3">
                                     <Link
+                                        v-if="g.channel !== 'whatsapp'"
                                         :href="route('telegram-crawler.index')"
                                         class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                                     >
                                         {{ t('telegram_groups.crawl_send') }}
                                     </Link>
+                                    <span v-else class="text-sm text-gray-400">—</span>
                                 </td>
                             </tr>
                         </tbody>
@@ -194,6 +217,7 @@ const { t } = useI18n();
 
 const props = defineProps({
     telegramConnected: { type: Boolean, default: false },
+    channelFilter: { type: String, default: 'all' },
     groups: { type: Object, default: () => ({ data: [], links: [] }) },
 });
 
@@ -203,6 +227,7 @@ const languages = computed(() => page.props.languages || []);
 
 const filterCategory = ref('');
 const filterLanguage = ref('');
+const filterChannel = ref(props.channelFilter || 'all');
 const updatingGroupId = ref(null);
 const refreshing = ref(false);
 const refreshError = ref('');
@@ -211,13 +236,15 @@ onMounted(() => {
     const q = new URLSearchParams(window.location.search);
     filterCategory.value = q.get('category') || '';
     filterLanguage.value = q.get('language') || '';
+    filterChannel.value = q.get('channel') || props.channelFilter || 'all';
 });
 
 const applyFilters = () => {
     const params = {};
     if (filterCategory.value) params.category = filterCategory.value;
     if (filterLanguage.value) params.language = filterLanguage.value;
-    router.get(route('telegram-groups.index'), params, { preserveState: true });
+    if (filterChannel.value && filterChannel.value !== 'all') params.channel = filterChannel.value;
+    router.get(route('groups.index'), params, { preserveState: true });
 };
 
 const updateGroup = async (g, field, value) => {
@@ -226,7 +253,7 @@ const updateGroup = async (g, field, value) => {
         const payload = field === 'category'
             ? { telegram_group_category_id: value ? parseInt(value, 10) : null }
             : { language: value || null };
-        const { data } = await axios.patch(route('telegram-groups.update', g.id), payload);
+        const { data } = await axios.patch(route('groups.update', g.id), payload);
         if (data.group) {
             g.category = data.group.category;
             g.language = data.group.language;

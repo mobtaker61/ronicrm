@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Setting;
 use App\Models\SocialMediaType;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -25,7 +26,7 @@ class SettingsController extends Controller
         });
     }
 
-    public function index(): Response
+    public function index(): Response|RedirectResponse
     {
         if (request()->query('tab') === 'users') {
             return redirect()->route('settings.users.index');
@@ -169,6 +170,8 @@ class SettingsController extends Controller
                 'authkey' => '',
                 'webhook_url' => 'https://ronicrm.com/wpwebhook',
                 'enabled' => false,
+                'line_phone' => '',
+                'wa_session_id' => '',
             ]),
             'telegramSettings' => array_merge(Setting::getScoped('telegram', [
                 'bot_token' => '',
@@ -353,6 +356,8 @@ class SettingsController extends Controller
             'authkey' => 'required|string|max:255',
             'webhook_url' => 'nullable|url|max:500',
             'enabled' => 'boolean',
+            'line_phone' => 'nullable|string|max:32',
+            'wa_session_id' => 'nullable|string|max:128',
         ]);
 
         Setting::setForOrganization('ronibot', $validated);

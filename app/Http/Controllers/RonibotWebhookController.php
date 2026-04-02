@@ -4,7 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\CustomerContact;
+use App\Models\Organization;
+use App\Models\OrganizationSetting;
+use App\Models\TelegramGroup;
 use App\Models\WhatsAppMessage;
+use App\Support\OrganizationContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -33,6 +37,14 @@ class RonibotWebhookController extends Controller
 
             $msg = $payload['data'][0];
 
+            $remoteJid = $msg['key']['remoteJid'] ?? '';
+            if (str_ends_with((string) $remoteJid, '@g.us')) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Group chat ignored for inbox',
+                ]);
+            }
+
             // Ronibot BulkController sends top-level mediaUrl; raw Baileys forward uses data[0].media.url
             $mediaUrl = $data['mediaUrl'] ?? ($msg['media']['url'] ?? null);
 
@@ -44,9 +56,18 @@ class RonibotWebhookController extends Controller
                 ?? ($msg['key']['remoteJidAlt'] ?? '')
             );
 
-            $toPhone = $this->formatPhone(
-                $data['receiver'] ?? ''
-            );
+            $receiverRaw = (string) ($data['receiver'] ?? '');
+            $toPhone = $this->formatPhone($receiverRaw);
+
+            $organizationId = $this->resolveOrganizationIdFromWebhook($request, $fromPhone, $receiverRaw);
+            if ($organizationId === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Organization could not be resolved from webhook (receiver / customer / history)',
+                ], 422);
+            }
+
+            OrganizationContext::setOrganizationId($organizationId);
 
             // =========================
             // MESSAGE
@@ -149,7 +170,7 @@ class RonibotWebhookController extends Controller
             // =========================
             // CUSTOMER
             // =========================
-            $customer = $this->findCustomerByPhone($fromPhone);
+            $customer = $this->findCustomerByPhone($fromPhone, $organizationId);
             $messageText = $messageText ?? '';
 
             // =========================
@@ -268,23 +289,187 @@ class RonibotWebhookController extends Controller
     }
 
     /**
-     * Find customer by phone number
+     * Find customer by phone number (وب‌هوک بدون کاربر لاگین: بدون اسکوپ سازمان، با فیلتر اختیاری سازمان).
      */
-    protected function findCustomerByPhone(string $phone): ?Customer
+    protected function findCustomerByPhone(string $phone, ?int $organizationId = null): ?Customer
     {
         $phone = $this->formatPhone($phone);
 
-        $contact = CustomerContact::where(function ($q) {
-            $q->where('type', 'phone')->orWhere('type', 'whatsapp');
-        })
+        $query = CustomerContact::withoutGlobalScope('organization')
+            ->where(function ($q) {
+                $q->where('type', 'phone')->orWhere('type', 'whatsapp');
+            })
             ->where(function ($q) use ($phone) {
                 $q->where('value', $phone)
                     ->orWhere('value', '+'.$phone)
                     ->orWhere('value', '00'.$phone);
-            })
-            ->first();
+            });
+
+        if ($organizationId !== null) {
+            $query->where('organization_id', $organizationId);
+        }
+
+        $contact = $query->first();
 
         return $contact?->customer;
+    }
+
+    /**
+     * تشخیص سازمان از payload وب‌هوک (receiver = شماره خط یا session، تاریخچهٔ پیام، تماس مشتری).
+     */
+    protected function resolveOrganizationIdFromWebhook(Request $request, string $fromPhone, string $receiverRaw): ?int
+    {
+        $override = $request->input('organization_id');
+        if ($override !== null && $override !== '') {
+            $id = (int) $override;
+            if ($id > 0 && Organization::query()->whereKey($id)->exists()) {
+                return $id;
+            }
+        }
+
+        $receiverTrim = trim($receiverRaw);
+        $receiverDigits = $this->formatPhone(preg_replace('/\D+/', '', $receiverTrim) ?: '');
+        $receiverLooksLikePhone = $receiverDigits !== '' && strlen($receiverDigits) >= 8;
+
+        if ($receiverLooksLikePhone) {
+            $byLine = $this->findOrganizationIdByRonibotLinePhone($receiverDigits);
+            if ($byLine !== null) {
+                return $byLine;
+            }
+        }
+
+        if ($receiverTrim !== '' && ! $receiverLooksLikePhone) {
+            $bySession = $this->findOrganizationIdByRonibotSessionId($receiverTrim);
+            if ($bySession !== null) {
+                return $bySession;
+            }
+        }
+
+        if ($receiverDigits !== '') {
+            $byHistory = $this->findOrganizationIdFromWhatsAppHistory($receiverDigits);
+            if ($byHistory !== null) {
+                return $byHistory;
+            }
+        }
+
+        $contacts = CustomerContact::withoutGlobalScope('organization')
+            ->where(function ($q) {
+                $q->where('type', 'phone')->orWhere('type', 'whatsapp');
+            })
+            ->where(function ($q) use ($fromPhone) {
+                $p = $this->formatPhone($fromPhone);
+                $q->where('value', $p)
+                    ->orWhere('value', '+'.$p)
+                    ->orWhere('value', '00'.$p);
+            })
+            ->get();
+
+        if ($contacts->count() === 1) {
+            return (int) $contacts->first()->organization_id;
+        }
+
+        if ($contacts->count() > 1 && $receiverDigits !== '') {
+            foreach ($contacts as $c) {
+                $exists = WhatsAppMessage::withoutGlobalScope('organization')
+                    ->where('organization_id', $c->organization_id)
+                    ->where(function ($q) use ($receiverDigits) {
+                        $q->where('to_phone', $receiverDigits)
+                            ->orWhere('from_phone', $receiverDigits);
+                    })
+                    ->exists();
+                if ($exists) {
+                    return (int) $c->organization_id;
+                }
+            }
+
+            return (int) $contacts->first()->organization_id;
+        }
+
+        if ($contacts->count() > 1) {
+            Log::warning('Ronibot webhook: duplicate customer phone across organizations without receiver match', [
+                'from_phone' => $fromPhone,
+                'receiver' => $receiverRaw,
+            ]);
+
+            return (int) $contacts->first()->organization_id;
+        }
+
+        $fallback = OrganizationContext::getOrganizationId();
+        if ($fallback !== null) {
+            Log::warning('Ronibot webhook: organization resolved via default fallback; configure line_phone / wa_session_id or ensure prior messages exist', [
+                'from_phone' => $fromPhone,
+                'receiver' => $receiverRaw,
+                'organization_id' => $fallback,
+            ]);
+        }
+
+        return $fallback;
+    }
+
+    protected function findOrganizationIdByRonibotLinePhone(string $normalizedDigits): ?int
+    {
+        $rows = OrganizationSetting::query()
+            ->withoutGlobalScopes()
+            ->where('key', 'ronibot')
+            ->get();
+
+        foreach ($rows as $row) {
+            $val = $row->value;
+            if (! is_array($val)) {
+                continue;
+            }
+            foreach (['line_phone', 'wa_line_phone', 'connected_line_phone'] as $key) {
+                $line = $val[$key] ?? null;
+                if ($line === null || $line === '') {
+                    continue;
+                }
+                if ($this->formatPhone((string) $line) === $normalizedDigits) {
+                    return (int) $row->organization_id;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    protected function findOrganizationIdByRonibotSessionId(string $sessionId): ?int
+    {
+        $rows = OrganizationSetting::query()
+            ->withoutGlobalScopes()
+            ->where('key', 'ronibot')
+            ->get();
+
+        foreach ($rows as $row) {
+            $val = $row->value;
+            if (! is_array($val)) {
+                continue;
+            }
+            foreach (['wa_session_id', 'session_id', 'device_session_id'] as $key) {
+                $sid = $val[$key] ?? null;
+                if ($sid === null || $sid === '') {
+                    continue;
+                }
+                if (trim((string) $sid) === $sessionId) {
+                    return (int) $row->organization_id;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    protected function findOrganizationIdFromWhatsAppHistory(string $normalizedPhone): ?int
+    {
+        $row = WhatsAppMessage::withoutGlobalScope('organization')
+            ->whereNotNull('organization_id')
+            ->where(function ($q) use ($normalizedPhone) {
+                $q->where('to_phone', $normalizedPhone)
+                    ->orWhere('from_phone', $normalizedPhone);
+            })
+            ->orderByDesc('id')
+            ->first();
+
+        return $row ? (int) $row->organization_id : null;
     }
 
     /**
@@ -299,5 +484,61 @@ class RonibotWebhookController extends Controller
         }
 
         return $phone;
+    }
+
+    /**
+     * همگام‌سازی سبک گروه‌های واتساپ (بدون ذخیره در اینباکس) — برای کمتر کردن ترافیک وب‌هوک اصلی.
+     */
+    public function groupSync(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'groupJid' => 'required|string|max:191',
+                'title' => 'nullable|string|max:512',
+                'receiver' => 'nullable|string|max:128',
+                'participantSender' => 'nullable|string|max:64',
+                'organization_id' => 'nullable|integer|exists:organizations,id',
+            ]);
+
+            $receiverRaw = (string) ($validated['receiver'] ?? '');
+            $participantRaw = (string) ($validated['participantSender'] ?? '');
+            $fromHint = $participantRaw !== ''
+                ? $this->formatPhone(preg_replace('/\D+/', '', $participantRaw) ?: $participantRaw)
+                : '';
+
+            $orgId = $this->resolveOrganizationIdFromWebhook($request, $fromHint, $receiverRaw);
+            if ($orgId === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Organization could not be resolved from webhook (receiver / history / participant)',
+                ], 422);
+            }
+
+            OrganizationContext::setOrganizationId($orgId);
+
+            TelegramGroup::withoutGlobalScope('organization')->updateOrCreate(
+                [
+                    'organization_id' => $orgId,
+                    'channel' => 'whatsapp',
+                    'telegram_group_id' => $validated['groupJid'],
+                ],
+                [
+                    'telegram_user_connection_id' => null,
+                    'title' => $validated['title'] ?? null,
+                    'type' => 'group',
+                    'is_active' => true,
+                    'last_synced_at' => now(),
+                ]
+            );
+
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            Log::error('Ronibot group webhook: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

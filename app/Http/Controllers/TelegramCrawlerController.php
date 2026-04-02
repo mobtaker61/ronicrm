@@ -9,15 +9,14 @@ use App\Jobs\TelegramSyncContactsJob;
 use App\Models\CampaignTemplate;
 use App\Models\Language;
 use App\Models\TelegramGroup;
-use App\Models\TelegramGroupCategory;
 use App\Models\TelegramUserConnection;
 use App\Services\MadelineProtoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -35,8 +34,9 @@ class TelegramCrawlerController extends Controller
             'id' => $t->id,
             'name' => $t->name,
             'content' => $t->content,
-            'image' => $t->image ? asset('storage/' . $t->image) : null,
+            'image' => $t->image ? asset('storage/'.$t->image) : null,
         ]);
+
         return Inertia::render('TelegramCrawler/Index', [
             'telegramConnected' => $conn !== null,
             'templates' => $templates,
@@ -46,42 +46,61 @@ class TelegramCrawlerController extends Controller
     public function groupsIndex(Request $request): Response
     {
         $conn = TelegramUserConnection::getActive();
+        $channelFilter = $request->input('channel', 'all');
 
-        $query = $conn
-            ? TelegramGroup::with('category')->active()->where('telegram_user_connection_id', $conn->id)
-            : null;
+        $query = TelegramGroup::with('category')->active();
 
-        if ($query) {
-            if ($request->filled('category')) {
-                $query->where('telegram_group_category_id', $request->category);
+        if ($channelFilter === 'telegram') {
+            if (! $conn) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->where('channel', 'telegram')
+                    ->where('telegram_user_connection_id', $conn->id);
             }
-            if ($request->filled('language')) {
-                $query->where('language', $request->language);
-            }
-            $groups = $query->orderBy('title')->paginate(50)->withQueryString()
-                ->through(fn ($g) => [
-                    'id' => $g->id,
-                    'telegram_group_id' => $g->telegram_group_id,
-                    'title' => $g->title,
-                    'type' => $g->type,
-                    'member_count' => $g->member_count,
-                    'public_username' => $g->public_username,
-                    'public_link' => $g->public_link,
-                    'description' => $g->description,
-                    'category' => $g->category ? ['id' => $g->category->id, 'name' => $g->category->name] : null,
-                    'language' => $g->language,
-                    'can_post' => $g->can_post,
-                    'last_error' => $g->last_error,
-                    'last_crawled_message_id' => $g->last_crawled_message_id,
-                    'last_synced_at' => $g->last_synced_at?->toIso8601String(),
-                    'created_at' => $g->created_at->toIso8601String(),
-                ]);
+        } elseif ($channelFilter === 'whatsapp') {
+            $query->where('channel', 'whatsapp');
         } else {
-            $groups = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50);
+            $query->where(function ($q) use ($conn) {
+                $q->where('channel', 'whatsapp');
+                if ($conn) {
+                    $q->orWhere(function ($q2) use ($conn) {
+                        $q2->where('channel', 'telegram')
+                            ->where('telegram_user_connection_id', $conn->id);
+                    });
+                }
+            });
         }
+
+        if ($request->filled('category')) {
+            $query->where('telegram_group_category_id', $request->category);
+        }
+        if ($request->filled('language')) {
+            $query->where('language', $request->language);
+        }
+
+        $groups = $query->orderBy('title')->paginate(50)->withQueryString()
+            ->through(fn ($g) => [
+                'id' => $g->id,
+                'channel' => $g->channel ?? 'telegram',
+                'telegram_group_id' => $g->telegram_group_id,
+                'title' => $g->title,
+                'type' => $g->type,
+                'member_count' => $g->member_count,
+                'public_username' => $g->public_username,
+                'public_link' => $g->public_link,
+                'description' => $g->description,
+                'category' => $g->category ? ['id' => $g->category->id, 'name' => $g->category->name] : null,
+                'language' => $g->language,
+                'can_post' => $g->can_post,
+                'last_error' => $g->last_error,
+                'last_crawled_message_id' => $g->last_crawled_message_id,
+                'last_synced_at' => $g->last_synced_at?->toIso8601String(),
+                'created_at' => $g->created_at->toIso8601String(),
+            ]);
 
         return Inertia::render('TelegramGroups/Index', [
             'telegramConnected' => $conn !== null,
+            'channelFilter' => $channelFilter,
             'groups' => $groups,
         ]);
     }
@@ -89,8 +108,10 @@ class TelegramCrawlerController extends Controller
     public function groupsUpdate(Request $request, TelegramGroup $group): JsonResponse
     {
         $conn = TelegramUserConnection::getActive();
-        if (!$conn || $group->telegram_user_connection_id !== $conn->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+        if (($group->channel ?? 'telegram') === 'telegram') {
+            if (! $conn || (int) $group->telegram_user_connection_id !== (int) $conn->id) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
         }
 
         $validated = $request->validate([
@@ -120,10 +141,10 @@ class TelegramCrawlerController extends Controller
     public function groups(Request $request): JsonResponse
     {
         $conn = TelegramUserConnection::getActive();
-        if (!$conn) {
+        if (! $conn) {
             return response()->json(['error' => 'Not connected'], 403);
         }
-        $cacheKey = 'telegram_groups_' . $conn->id;
+        $cacheKey = 'telegram_groups_'.$conn->id;
         $forceRefresh = $request->boolean('refresh');
 
         // Default behavior: load from DB only.
@@ -131,6 +152,7 @@ class TelegramCrawlerController extends Controller
         if (! $forceRefresh) {
             $dbGroups = TelegramGroup::with('category')
                 ->active()
+                ->where('channel', 'telegram')
                 ->where('telegram_user_connection_id', $conn->id)
                 ->orderBy('title')
                 ->get();
@@ -152,6 +174,7 @@ class TelegramCrawlerController extends Controller
             })->values()->all();
 
             $result = $this->filterGroupsByCategoryAndLanguage($groups, $request);
+
             return response()->json(['groups' => $result, 'source' => 'db']);
         }
 
@@ -168,13 +191,14 @@ class TelegramCrawlerController extends Controller
 
             // فقط وقتی لیست تلگرام خالی نیست: گروه‌هایی که دیگر در تلگرام نیستند (از آن‌ها خارج شده‌ایم) را غیرفعال کن
             if (count($freshIds) > 0) {
-                TelegramGroup::where('telegram_user_connection_id', $conn->id)
+                TelegramGroup::where('channel', 'telegram')
+                    ->where('telegram_user_connection_id', $conn->id)
                     ->whereNotIn('telegram_group_id', $freshIds)
                     ->update(['is_active' => false]);
             }
 
             // گروه‌های جدید را اضافه کن، گروه‌های موجود را به‌روز کن (عنوان، نوع، is_active=true)
-            $dbGroups = TelegramGroup::with('category')->where('telegram_user_connection_id', $conn->id)
+            $dbGroups = TelegramGroup::with('category')->where('channel', 'telegram')->where('telegram_user_connection_id', $conn->id)
                 ->whereIn('telegram_group_id', $freshIds)
                 ->get()
                 ->keyBy('telegram_group_id');
@@ -201,6 +225,7 @@ class TelegramCrawlerController extends Controller
 
             Cache::put($cacheKey, $groups, now()->addDays(1));
             $result = $this->filterGroupsByCategoryAndLanguage($groups, $request);
+
             return response()->json(['groups' => $result, 'refreshed' => true, 'count' => count($result)]);
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -216,11 +241,11 @@ class TelegramCrawlerController extends Controller
             'template_id' => 'nullable|exists:campaign_templates,id',
         ]);
         $conn = TelegramUserConnection::getActive();
-        if (!$conn) {
+        if (! $conn) {
             return response()->json(['error' => 'Not connected. Connect in Settings → Telegram.'], 403);
         }
         $messageText = $validated['message'];
-        if (!empty($validated['template_id'])) {
+        if (! empty($validated['template_id'])) {
             $tmpl = CampaignTemplate::find($validated['template_id']);
             if ($tmpl && $tmpl->type === 'telegram') {
                 $messageText = $tmpl->content;
@@ -228,7 +253,7 @@ class TelegramCrawlerController extends Controller
         }
         $crawlId = Str::uuid()->toString();
         // Write initial cache so frontend gets instant feedback (status: queued)
-        Cache::put('telegram_crawl_' . $crawlId, [
+        Cache::put('telegram_crawl_'.$crawlId, [
             'status' => 'queued',
             'phase' => 'queued',
             'processed' => 0,
@@ -245,15 +270,17 @@ class TelegramCrawlerController extends Controller
             $validated['template_id'] ?? null
         );
         \Illuminate\Support\Facades\Log::info('TelegramCrawlJob dispatched', ['crawl_id' => $crawlId, 'group_id' => $validated['group_id']]);
+
         return response()->json(['crawl_id' => $crawlId]);
     }
 
     public function crawlStatus(string $crawlId): JsonResponse
     {
-        $data = Cache::get('telegram_crawl_' . $crawlId);
-        if (!$data) {
+        $data = Cache::get('telegram_crawl_'.$crawlId);
+        if (! $data) {
             return response()->json(['status' => 'pending']);
         }
+
         return response()->json($data);
     }
 
@@ -267,15 +294,15 @@ class TelegramCrawlerController extends Controller
             'group_titles.*' => 'nullable|string|max:255',
         ]);
         $conn = TelegramUserConnection::getActive();
-        if (!$conn) {
+        if (! $conn) {
             return response()->json(['error' => 'Not connected.'], 403);
         }
         $tmpl = CampaignTemplate::find($validated['template_id']);
-        if (!$tmpl || $tmpl->type !== 'telegram') {
+        if (! $tmpl || $tmpl->type !== 'telegram') {
             return response()->json(['error' => 'Invalid template.'], 400);
         }
         $sendId = Str::uuid()->toString();
-        Cache::put('telegram_send_groups_' . $sendId, [
+        Cache::put('telegram_send_groups_'.$sendId, [
             'status' => 'queued',
             'processed' => 0,
             'sent' => 0,
@@ -293,15 +320,17 @@ class TelegramCrawlerController extends Controller
             $sendId,
             $titles
         );
+
         return response()->json(['send_id' => $sendId]);
     }
 
     public function sendToGroupsStatus(string $sendId): JsonResponse
     {
-        $data = Cache::get('telegram_send_groups_' . $sendId);
-        if (!$data) {
+        $data = Cache::get('telegram_send_groups_'.$sendId);
+        if (! $data) {
             return response()->json(['status' => 'pending']);
         }
+
         return response()->json($data);
     }
 
@@ -318,17 +347,17 @@ class TelegramCrawlerController extends Controller
             'group_titles.*' => 'nullable|string|max:255',
         ]);
         $conn = TelegramUserConnection::getActive();
-        if (!$conn) {
+        if (! $conn) {
             return response()->json(['error' => 'Not connected.'], 403);
         }
 
         $parsed = MadelineProtoService::parseTelegramPostLink($validated['post_link']);
-        if (!$parsed) {
+        if (! $parsed) {
             return response()->json(['error' => 'Invalid Telegram post link. Use format: t.me/channel/123 or t.me/c/1234567890/123'], 400);
         }
 
         $forwardId = Str::uuid()->toString();
-        Cache::put('telegram_forward_' . $forwardId, [
+        Cache::put('telegram_forward_'.$forwardId, [
             'status' => 'queued',
             'processed' => 0,
             'sent' => 0,
@@ -354,10 +383,11 @@ class TelegramCrawlerController extends Controller
 
     public function forwardToGroupsStatus(string $forwardId): JsonResponse
     {
-        $data = Cache::get('telegram_forward_' . $forwardId);
-        if (!$data) {
+        $data = Cache::get('telegram_forward_'.$forwardId);
+        if (! $data) {
             return response()->json(['status' => 'pending']);
         }
+
         return response()->json($data);
     }
 
@@ -368,11 +398,11 @@ class TelegramCrawlerController extends Controller
     public function syncContacts(Request $request): JsonResponse
     {
         $conn = TelegramUserConnection::getActive();
-        if (!$conn) {
+        if (! $conn) {
             return response()->json(['error' => 'Not connected to Telegram.'], 403);
         }
         $syncId = Str::uuid()->toString();
-        Cache::put('telegram_sync_' . $syncId, [
+        Cache::put('telegram_sync_'.$syncId, [
             'status' => 'queued',
             'processed' => 0,
             'updated' => 0,
@@ -386,20 +416,22 @@ class TelegramCrawlerController extends Controller
             try {
                 TelegramSyncContactsJob::dispatchSync($syncId);
             } catch (\Throwable $e) {
-                return response()->json(['error' => 'Sync failed: ' . $e->getMessage()], 500);
+                return response()->json(['error' => 'Sync failed: '.$e->getMessage()], 500);
             }
         } else {
             TelegramSyncContactsJob::dispatch($syncId);
         }
+
         return response()->json(['sync_id' => $syncId]);
     }
 
     public function syncContactsStatus(string $syncId): JsonResponse
     {
-        $data = Cache::get('telegram_sync_' . $syncId);
-        if (!$data) {
+        $data = Cache::get('telegram_sync_'.$syncId);
+        if (! $data) {
             return response()->json(['status' => 'pending']);
         }
+
         return response()->json($data);
     }
 
@@ -407,9 +439,10 @@ class TelegramCrawlerController extends Controller
     {
         $categoryId = $request->input('category');
         $language = $request->input('language');
-        if (!$categoryId && !$language) {
+        if (! $categoryId && ! $language) {
             return $groups;
         }
+
         return array_values(array_filter($groups, function ($g) use ($categoryId, $language) {
             if ($categoryId && ($g['category']['id'] ?? null) != $categoryId) {
                 return false;
@@ -417,6 +450,7 @@ class TelegramCrawlerController extends Controller
             if ($language && ($g['language'] ?? null) !== $language) {
                 return false;
             }
+
             return true;
         }));
     }
@@ -439,6 +473,7 @@ class TelegramCrawlerController extends Controller
         } catch (\Throwable $e) {
             //
         }
+
         return response()->json([
             'pending_jobs' => $pending,
             'failed_jobs' => $failed,

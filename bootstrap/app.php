@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'telegram-webhook',
             'telegram-webhook/*',
             'wpwebhook',
+            'wpwebhook-group',
             'instagram-webhook',
             'instagram-webhook/*',
             'tiktok-webhook',

@@ -339,7 +339,7 @@
             <!-- Quick Links -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <Link
-                    :href="route('telegram-groups.index')"
+                    :href="route('groups.index')"
                     class="flex flex-col items-center p-4 bg-white rounded-lg shadow border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all"
                 >
                     <span class="text-2xl font-bold text-gray-900">{{ stats.telegram_groups }}</span>
