@@ -12,6 +12,7 @@ import makeWASocketModule, {
     extractMessageContent,
     getAggregateVotesInPollMessage,
     getContentType,
+    normalizeMessageContent,
     fetchLatestBaileysVersion,
     WAMessageStatus,
 } from 'baileys'
@@ -34,6 +35,67 @@ const retries = new Map()
 
 const APP_WEBHOOK_ALLOWED_EVENTS = ['CONNECTION_UPDATE','MESSAGES_UPSERT']
 const webhookUrl = process.env.APP_WEBHOOK_URL
+
+/**
+ * محتوای قابل‌نمایش پیام پس از باز کردن لایه‌های ephemeral / viewOnce / …
+ * مطابق منطق Baileys (extractMessageContent + normalizeMessageContent).
+ * @see https://baileys.wiki/docs/api/functions/extractMessageContent
+ * @see https://baileys.wiki/docs/api/functions/normalizeMessageContent
+ */
+function resolveMessageContent(protoMsg) {
+    if (!protoMsg) return null
+    let c = extractMessageContent(protoMsg)
+    if (c) return c
+    c = normalizeMessageContent(protoMsg)
+    if (c) {
+        const again = extractMessageContent(c)
+        if (again) return again
+        return c
+    }
+    // اگر نسخهٔ baileys هنوز wrapper جدیدی را در normalize ندارد (مثلاً botInvokeMessage)
+    let cur = protoMsg
+    for (let i = 0; i < 8; i++) {
+        const inner =
+            cur?.ephemeralMessage?.message ||
+            cur?.viewOnceMessage?.message ||
+            cur?.viewOnceMessageV2?.message ||
+            cur?.viewOnceMessageV2Extension?.message ||
+            cur?.documentWithCaptionMessage?.message ||
+            cur?.editedMessage?.message ||
+            cur?.associatedChildMessage?.message ||
+            cur?.groupStatusMessage?.message ||
+            cur?.groupStatusMessageV2?.message ||
+            cur?.botInvokeMessage?.message ||
+            cur?.pinInChatMessage?.message ||
+            cur?.commentMessage?.message
+        if (!inner) break
+        cur = inner
+        const ex = extractMessageContent(cur)
+        if (ex) return ex
+        const norm = normalizeMessageContent(cur)
+        if (norm) {
+            const ex2 = extractMessageContent(norm)
+            if (ex2) return ex2
+            cur = norm
+        }
+    }
+    return extractMessageContent(cur) || null
+}
+
+/**
+ * شمارهٔ فرستنده برای وب‌هوک: در گروه participant، در چت خصوصی remoteJidAlt یا remoteJid (شامل LID).
+ */
+function formatWebhookSender(msg) {
+    const remote = msg.key?.remoteJid || ''
+    const isGroup = remote.endsWith('@g.us')
+    let jid = ''
+    if (isGroup && msg.key?.participant) {
+        jid = msg.key.participant
+    } else {
+        jid = msg.key?.remoteJidAlt || msg.key?.remoteJid || ''
+    }
+    return jid.replace(/@s\.whatsapp\.net$/i, '').replace(/@lid$/i, '').replace(/@g\.us$/i, '')
+}
 
 const sessionsDir = (sessionId = '') => {
     return join(__dirname, 'sessions', sessionId ? sessionId : '')
@@ -127,94 +189,87 @@ async function createSession(sessionId, res = null, options = { usePairingCode: 
 
     wa.ev.on('creds.update', saveCreds)
 
-    wa.ev.process((events) => {
-       console.log("🔥 ALL EVENTS:", Object.keys(events))
-    })
+    // notify = پیام تازه | append = افزوده به تاریخچه (گاهی سرور همان را برای برخی تحویل‌ها می‌فرستد)
+    // @see https://baileys.wiki/docs/api/type-aliases/MessageUpsertType
+    const upsertTypes = (process.env.WA_WEBHOOK_UPSERT_TYPES || 'notify,append')
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)
 
-    // Automatically read incoming messages, uncomment below codes to enable this behaviour
-wa.ev.on('messages.upsert', async (m) => {
+    wa.ev.on('messages.upsert', async (m) => {
+        const t = String(m.type || '').toLowerCase()
+        if (!upsertTypes.includes(t)) return
 
-    // ✅ فقط notify (نه history / sync)
-    if (m.type !== 'notify') return
+        const messages = m.messages
 
-    const messages = m.messages
+        for (const msg of messages) {
+            if (!msg.message) continue
+            if (msg.key.fromMe) continue
 
-    for (const msg of messages) {
-
-        // ❌ پیام خالی
-        if (!msg.message) continue
-
-        // ❌ پیام خودت
-        if (msg.key.fromMe) continue
-
-        // پیام فوروارد / ویو-وانس / زمان‌دار داخل ephemeralMessage یا documentWithCaptionMessage است؛
-        // Object.keys(msg.message)[0] اشتباه است — از API رسمی Baileys استفاده می‌کنیم.
-        const content = extractMessageContent(msg.message)
-        if (!content) {
-            console.log('⚠️ Skipped: no extractable content')
-            continue
-        }
-
-        const messageType = getContentType(content)
-        if (!messageType) {
-            console.log('⚠️ Skipped: unknown content type')
-            continue
-        }
-
-        const skipTypes = new Set([
-            'reactionMessage',
-            'protocolMessage',
-            'senderKeyDistributionMessage',
-        ])
-        if (skipTypes.has(messageType)) {
-            continue
-        }
-
-        try {
-            let mediaUrl = null
-
-            // مدیا (ptvMessage = ویدیو نوت؛ مثل فوروارد ویدیو نوت)
-            if (['imageMessage', 'videoMessage', 'documentMessage', 'audioMessage', 'stickerMessage', 'ptvMessage'].includes(messageType)) {
-
-                const media = await getMessageMedia(wa, msg)
-
-                if (media && media.base64) {
-                    const ext = media.mimetype.split('/')[1] || 'bin'
-                    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
-                    const filePath = `/var/www/whatsender/public/uploads/wp/${fileName}`
-
-                    fs.writeFileSync(filePath, Buffer.from(media.base64, 'base64'))
-
-                    mediaUrl = `https://ronibot.com/uploads/wp/${fileName}`
+            const content = resolveMessageContent(msg.message)
+            if (!content) {
+                if (process.env.WA_DEBUG_MESSAGE === '1') {
+                    console.log('⚠️ Skipped: no extractable content', JSON.stringify(Object.keys(msg.message || {})))
                 }
+                continue
             }
 
-            const url = `${process.env.APP_WEBHOOK_URL}/send-webhook/${sessionId}`
+            const messageType = getContentType(content)
+            if (!messageType) {
+                continue
+            }
 
-            console.log('🚀 Sending webhook:', url)
+            const skipTypes = new Set([
+                'reactionMessage',
+                'protocolMessage',
+                'senderKeyDistributionMessage',
+            ])
+            if (skipTypes.has(messageType)) {
+                continue
+            }
 
-            await axios.post(url, {
-                payload: {
-                    type: 'MESSAGE_RECEIVED',
-                    data: [
-                        {
-                            ...msg,
-                            media: {
-                                url: mediaUrl,
-                                type: messageType
-                            }
-                        }
-                    ]
-                },
-                sender: msg.key.remoteJidAlt?.replace('@s.whatsapp.net', ''),
-                receiver: sessionId
-            })
+            try {
+                let mediaUrl = null
 
-        } catch (err) {
-            console.error('❌ Webhook error:', err.message)
+                if (['imageMessage', 'videoMessage', 'documentMessage', 'audioMessage', 'stickerMessage', 'ptvMessage'].includes(messageType)) {
+                    const media = await getMessageMedia(wa, msg)
+
+                    if (media && media.base64) {
+                        const ext = media.mimetype.split('/')[1] || 'bin'
+                        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+                        const filePath = `/var/www/whatsender/public/uploads/wp/${fileName}`
+
+                        fs.writeFileSync(filePath, Buffer.from(media.base64, 'base64'))
+
+                        mediaUrl = `https://ronibot.com/uploads/wp/${fileName}`
+                    }
+                }
+
+                const url = `${process.env.APP_WEBHOOK_URL}/send-webhook/${sessionId}`
+
+                console.log('🚀 Sending webhook:', url, { type: m.type, messageType })
+
+                await axios.post(url, {
+                    payload: {
+                        type: 'MESSAGE_RECEIVED',
+                        data: [
+                            {
+                                ...msg,
+                                media: {
+                                    url: mediaUrl,
+                                    type: messageType,
+                                },
+                            },
+                        ],
+                    },
+                    sender: formatWebhookSender(msg),
+                    receiver: sessionId,
+                })
+            } catch (err) {
+                console.error('❌ Webhook error:', err.message)
+            }
         }
-    }
-})
+    })
   
 
     wa.ev.on('messages.update', async (m) => {
@@ -496,7 +551,7 @@ const getStoreMessage = async (session, messageId, remoteJid) => {
 
 const getMessageMedia = async (session, message) => {
     try {
-        const inner = extractMessageContent(message.message)
+        const inner = resolveMessageContent(message.message)
         if (!inner) {
             return Promise.reject(null)
         }
