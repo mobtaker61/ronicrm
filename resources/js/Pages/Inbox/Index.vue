@@ -336,7 +336,12 @@
                         </div>
 
                         <!-- Messages (Scrollable) -->
-                        <div v-else ref="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+                        <div
+                            v-else
+                            ref="messagesContainer"
+                            class="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50"
+                            @scroll.passive="updateStickToBottomFromScroll"
+                        >
                             <div
                                 v-for="msg in messages"
                                 :key="msg.id"
@@ -932,6 +937,16 @@ const messageTextarea = ref(null);
 const lightboxImageUrl = ref(null);
 /** فقط یک VoiceWavePlayer فعال */
 const playingAudioId = ref(null);
+/** اگر کاربر تاریخچه را بالا کشیده، با رسیدن پیام جدید اسکرول اجباری به پایین نکن */
+const stickToBottom = ref(true);
+const NEAR_BOTTOM_PX = 120;
+
+function updateStickToBottomFromScroll() {
+    const el = messagesContainer.value;
+    if (!el) return;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottom.value = dist < NEAR_BOTTOM_PX;
+}
 
 /** حذف پسوند غیراستاندارد مثل ;codecs=opus از URL فایل‌های واتساپ */
 function cleanMediaUrl(url) {
@@ -1277,6 +1292,7 @@ const startNewConversation = (phoneOrChatId) => {
 };
 
 const selectConversation = (conv) => {
+    stickToBottom.value = true;
     const params = { channel: channel.value };
     if (channel.value === 'all') {
         params.channel = 'all';
@@ -1386,6 +1402,7 @@ const sendMessage = () => {
             if (messageTextarea.value) {
                 messageTextarea.value.style.height = '40px';
             }
+            stickToBottom.value = true;
             nextTick(() => scrollToBottom());
         },
         onError: (errors) => {
@@ -1475,15 +1492,12 @@ const formatTime = (dateString) => {
     });
 };
 
-// Watch for new messages and scroll to bottom
-watch(() => props.messages, (newMessages) => {
-    // Debug: log messages with media
-    const messagesWithMedia = newMessages.filter(m => m.media_url);
-    if (messagesWithMedia.length > 0) {
-        console.log('Messages with media:', messagesWithMedia);
-    }
+// فقط وقتی کاربر نزدیک پایین چت است، با رسیدن پیام جدید اسکرول کن (polling دیگر کل نما را به پایین نمی‌کشد)
+watch(() => props.messages, () => {
     nextTick(() => {
-        scrollToBottom();
+        if (stickToBottom.value) {
+            scrollToBottom();
+        }
     });
 }, { deep: true });
 
@@ -1494,6 +1508,7 @@ function requestNotificationPermission() {
     });
 }
 
+/** فقط لیست مکالمات؛ بدون لمس پیام‌های چت باز → کمتر چشمک و بدون ریست اسکرول وسط صفحه */
 function runInstagramPoll() {
     if (channel.value !== 'instagram' && !(channel.value === 'all' && props.messageChannel === 'instagram')) {
         return;
@@ -1501,30 +1516,44 @@ function runInstagramPoll() {
     const params = { channel: channel.value };
     if (props.selectedIgUserId) params.ig_user_id = props.selectedIgUserId;
     else if (props.selectedCustomer?.id && !props.selectedIgUserId) params.customer_id = props.selectedCustomer.id;
-    const convs = page.props.conversations || [];
-    instagramPollPrevCount.value = (page.props.messages || []).length;
-    instagramPollPrevUnread.value = convs.reduce((s, c) => s + (c.unread_count || 0), 0);
+
+    const prevMsgLen = (page.props.messages || []).length;
+    const prevUnreadSum = (page.props.conversations || []).reduce((s, c) => s + (c.unread_count || 0), 0);
+
+    const finishInstagramPoll = () => {
+        setTimeout(() => {
+            const newLen = (page.props.messages || []).length;
+            const newUnread = (page.props.conversations || []).reduce((s, c) => s + (c.unread_count || 0), 0);
+            if (document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                const hasNew = newLen > prevMsgLen || newUnread > prevUnreadSum;
+                if (hasNew) {
+                    try {
+                        new Notification(t('inbox.new_instagram_message'), { body: t('inbox.you_received_new_message') });
+                    } catch (_) {}
+                }
+            }
+            instagramPollPrevCount.value = newLen;
+            instagramPollPrevUnread.value = newUnread;
+        }, 400);
+    };
+
     router.get(route('inbox.index'), params, {
         preserveState: true,
         preserveScroll: true,
-        only: ['conversations', 'messages', 'selectedCustomer'],
+        showProgress: false,
+        only: ['conversations'],
         onFinish: () => {
-            setTimeout(() => {
-                if (document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                    const newMessages = page.props.messages || [];
-                    const newConvs = page.props.conversations || [];
-                    const newLen = newMessages.length;
-                    const newUnread = newConvs.reduce((s, c) => s + (c.unread_count || 0), 0);
-                    const hasNew = newLen > instagramPollPrevCount.value || newUnread > instagramPollPrevUnread.value;
-                    if (hasNew) {
-                        try {
-                            new Notification(t('inbox.new_instagram_message'), { body: t('inbox.you_received_new_message') });
-                        } catch (_) {}
-                    }
-                    instagramPollPrevCount.value = newLen;
-                    instagramPollPrevUnread.value = newUnread;
-                }
-            }, 600);
+            if (selectedContact.value) {
+                router.get(route('inbox.index'), params, {
+                    preserveState: true,
+                    preserveScroll: true,
+                    showProgress: false,
+                    only: ['messages', 'selectedCustomer'],
+                    onFinish: finishInstagramPoll,
+                });
+            } else {
+                finishInstagramPoll();
+            }
         },
     });
 }
@@ -1535,10 +1564,22 @@ function runTelegramPoll() {
     }
     const params = { channel: channel.value };
     if (props.selectedChatId) params.chat_id = props.selectedChatId;
+
     router.get(route('inbox.index'), params, {
         preserveState: true,
         preserveScroll: true,
-        only: ['conversations', 'messages', 'selectedCustomer'],
+        showProgress: false,
+        only: ['conversations'],
+        onFinish: () => {
+            if (selectedContact.value) {
+                router.get(route('inbox.index'), params, {
+                    preserveState: true,
+                    preserveScroll: true,
+                    showProgress: false,
+                    only: ['messages', 'selectedCustomer'],
+                });
+            }
+        },
     });
 }
 
@@ -1549,30 +1590,44 @@ function runTikTokPoll() {
     const params = { channel: channel.value };
     if (props.selectedTikTokOpenId) params.tiktok_open_id = props.selectedTikTokOpenId;
     else if (props.selectedCustomer?.id && !props.selectedTikTokOpenId) params.customer_id = props.selectedCustomer.id;
-    const convs = page.props.conversations || [];
-    tiktokPollPrevCount.value = (page.props.messages || []).length;
-    tiktokPollPrevUnread.value = convs.reduce((s, c) => s + (c.unread_count || 0), 0);
+
+    const prevMsgLen = (page.props.messages || []).length;
+    const prevUnreadSum = (page.props.conversations || []).reduce((s, c) => s + (c.unread_count || 0), 0);
+
+    const finishTikTokPoll = () => {
+        setTimeout(() => {
+            const newLen = (page.props.messages || []).length;
+            const newUnread = (page.props.conversations || []).reduce((s, c) => s + (c.unread_count || 0), 0);
+            if (document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                const hasNew = newLen > prevMsgLen || newUnread > prevUnreadSum;
+                if (hasNew) {
+                    try {
+                        new Notification(t('inbox.new_tiktok_message'), { body: t('inbox.you_received_new_message') });
+                    } catch (_) {}
+                }
+            }
+            tiktokPollPrevCount.value = newLen;
+            tiktokPollPrevUnread.value = newUnread;
+        }, 400);
+    };
+
     router.get(route('inbox.index'), params, {
         preserveState: true,
         preserveScroll: true,
-        only: ['conversations', 'messages', 'selectedCustomer'],
+        showProgress: false,
+        only: ['conversations'],
         onFinish: () => {
-            setTimeout(() => {
-                if (document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                    const newMessages = page.props.messages || [];
-                    const newConvs = page.props.conversations || [];
-                    const newLen = newMessages.length;
-                    const newUnread = newConvs.reduce((s, c) => s + (c.unread_count || 0), 0);
-                    const hasNew = newLen > tiktokPollPrevCount.value || newUnread > tiktokPollPrevUnread.value;
-                    if (hasNew) {
-                        try {
-                            new Notification(t('inbox.new_tiktok_message'), { body: t('inbox.you_received_new_message') });
-                        } catch (_) {}
-                    }
-                    tiktokPollPrevCount.value = newLen;
-                    tiktokPollPrevUnread.value = newUnread;
-                }
-            }, 600);
+            if (selectedContact.value) {
+                router.get(route('inbox.index'), params, {
+                    preserveState: true,
+                    preserveScroll: true,
+                    showProgress: false,
+                    only: ['messages', 'selectedCustomer'],
+                    onFinish: finishTikTokPoll,
+                });
+            } else {
+                finishTikTokPoll();
+            }
         },
     });
 }
