@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class WhatsAppMessage extends Model
 {
     use BelongsToOrganization;
+    use Concerns\ResolvesInboxMediaUrl;
 
     protected $table = 'whatsapp_messages';
 
@@ -42,47 +43,6 @@ class WhatsAppMessage extends Model
     }
 
     /**
-     * Full URL for inbox/UI: public/uploads (webhook) vs storage (outgoing uploads).
-     */
-    public function resolvedMediaUrl(): ?string
-    {
-        $url = $this->media_url;
-        if (! $url) {
-            return null;
-        }
-        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return $url;
-        }
-        if (str_starts_with($url, 'uploads/')) {
-            $abs = public_path($url);
-            if (is_file($abs)) {
-                return asset($url);
-            }
-
-            // پیام‌های قدیمی: فایل با نام اشتباه «wa_xxx.ogg; codecs=opus» ذخیره شده، DB اما «wa_xxx.ogg»
-            $dir = dirname($abs);
-            $stem = pathinfo(basename($url), PATHINFO_FILENAME);
-            if ($stem !== '' && is_dir($dir)) {
-                foreach (glob($dir.DIRECTORY_SEPARATOR.$stem.'*') ?: [] as $found) {
-                    if (! is_file($found)) {
-                        continue;
-                    }
-                    $relative = substr($found, strlen(public_path()));
-                    $relative = ltrim($relative, DIRECTORY_SEPARATOR.'/\\');
-                    $relative = str_replace('\\', '/', $relative);
-                    if ($relative !== '') {
-                        return asset($relative);
-                    }
-                }
-            }
-
-            return asset($url);
-        }
-
-        return asset('storage/'.ltrim($url, '/'));
-    }
-
-    /**
      * Get the display name for the sender
      */
     public function getSenderNameAttribute(): string
@@ -90,6 +50,7 @@ class WhatsAppMessage extends Model
         if ($this->customer) {
             return $this->customer->name;
         }
+
         return $this->from_phone;
     }
 
@@ -98,7 +59,7 @@ class WhatsAppMessage extends Model
      */
     public function markAsRead(): void
     {
-        if (!$this->read_at) {
+        if (! $this->read_at) {
             $this->update(['read_at' => now(), 'status' => 'read']);
         }
     }

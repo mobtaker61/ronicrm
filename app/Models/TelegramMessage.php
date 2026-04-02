@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class TelegramMessage extends Model
 {
     use BelongsToOrganization;
+    use Concerns\ResolvesInboxMediaUrl;
 
     protected $table = 'telegram_messages';
 
@@ -46,12 +47,13 @@ class TelegramMessage extends Model
         if ($this->customer) {
             return $this->customer->name;
         }
+
         return $this->from_username ?? $this->chat_id;
     }
 
     public function markAsRead(): void
     {
-        if (!$this->read_at) {
+        if (! $this->read_at) {
             $this->update(['read_at' => now(), 'status' => 'read']);
         }
     }

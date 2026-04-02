@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class TikTokMessage extends Model
 {
     use BelongsToOrganization;
+    use Concerns\ResolvesInboxMediaUrl;
 
     protected $table = 'tiktok_messages';
 

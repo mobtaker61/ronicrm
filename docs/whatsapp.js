@@ -36,20 +36,37 @@ const retries = new Map()
 const APP_WEBHOOK_ALLOWED_EVENTS = ['CONNECTION_UPDATE','MESSAGES_UPSERT']
 const webhookUrl = process.env.APP_WEBHOOK_URL
 
+// WA_RAW_UPSERT_LOG=1 → هر پیام upsert را به‌صورت JSON کامل در کنسول (قبل از فیلترها)
+// WA_DEBUG_MESSAGE=1 → جزئیات خطا/رد شدن پیام
+
 /**
- * آدرس وب‌هوک سبک همگام‌سازی گروه (CRM) — بدون بدنهٔ پیام؛ برای کاهش ترافیک نسبت به وب‌هوک اصلی.
- * APP_GROUP_WEBHOOK_URL اختیاری؛ در غیر این صورت از پایهٔ APP_WEBHOOK_URL (بدون مسیر send-webhook) + /wpwebhook-group.
+ * آدرس کامل وب‌هوک همگام‌سازی گروه روی **سرور RoniCRM** (Route::post('/wpwebhook-group')).
+ *
+ * مهم: این آدرس نباید به دامنهٔ Ronibot/whatsender بخورد — آنجا چنین مسیری نیست → 404.
+ * روی نود یکی از این‌ها را تنظیم کنید:
+ * - APP_GROUP_WEBHOOK_URL=https://دامنه-crm-شما.com/wpwebhook-group
+ * - یا APP_CRM_BASE_URL=https://دامنه-crm-شما.com (به‌صورت خودکار /wpwebhook-group اضافه می‌شود)
+ *
+ * APP_WEBHOOK_URL اگر فقط آدرس send-webhook روی Ronibot باشد، پایهٔ اشتباه می‌شود؛ اولویت با APP_GROUP_WEBHOOK_URL / APP_CRM_BASE_URL است.
  */
 function buildCrmGroupWebhookUrl() {
-    const explicit = process.env.APP_GROUP_WEBHOOK_URL
-    if (explicit) {
-        return explicit.replace(/\/$/, '')
+    const full = process.env.APP_GROUP_WEBHOOK_URL
+    if (full) {
+        return full.replace(/\/$/, '')
+    }
+    const crmBase = process.env.APP_CRM_BASE_URL
+    if (crmBase) {
+        const b = crmBase.replace(/\/$/, '')
+        return b.endsWith('/wpwebhook-group') ? b : `${b}/wpwebhook-group`
     }
     const base = process.env.APP_WEBHOOK_URL || ''
     if (!base) {
         return ''
     }
-    const cleaned = base.replace(/\/send-webhook.*$/i, '').replace(/\/$/, '')
+    const cleaned = base
+        .replace(/\/api\/send-webhook.*$/i, '')
+        .replace(/\/send-webhook.*$/i, '')
+        .replace(/\/$/, '')
     return `${cleaned}/wpwebhook-group`
 }
 
@@ -217,9 +234,20 @@ async function createSession(sessionId, res = null, options = { usePairingCode: 
         const t = String(m.type || '').toLowerCase()
         if (!upsertTypes.includes(t)) return
 
-        const messages = m.messages
+        const messages = m.messages || []
 
         for (const msg of messages) {
+            if (msg == null || typeof msg !== 'object') continue
+
+            // پیام خام بلافاصله پس از دریافت از Baileys (قبل از فیلتر / resolve / وب‌هوک)
+            if (process.env.WA_RAW_UPSERT_LOG === '1') {
+                try {
+                    console.log('[WA RAW upsert]', JSON.stringify(msg))
+                } catch (e) {
+                    console.log('[WA RAW upsert] stringify failed:', e?.message)
+                }
+            }
+
             if (!msg.message) continue
             if (msg.key.fromMe) continue
 
@@ -227,16 +255,25 @@ async function createSession(sessionId, res = null, options = { usePairingCode: 
             if (remoteJid.endsWith('@g.us')) {
                 const groupSyncUrl = buildCrmGroupWebhookUrl()
                 if (groupSyncUrl) {
+                    let groupTitle
+                    try {
+                        const meta = await wa.groupMetadata(remoteJid)
+                        groupTitle = meta?.subject || undefined
+                    } catch (e) {
+                        if (process.env.WA_DEBUG_MESSAGE === '1') {
+                            console.warn('[WA] groupMetadata failed', remoteJid, e?.message)
+                        }
+                    }
                     try {
                         await axios.post(groupSyncUrl, {
                             type: 'GROUP_SEEN',
                             groupJid: remoteJid,
-                            title: msg.pushName || undefined,
+                            title: groupTitle,
                             receiver: sessionId,
                             participantSender: formatWebhookSender(msg),
                         })
                     } catch (err) {
-                        console.error('❌ Group sync webhook error:', err.message)
+                        console.error('❌ Group sync webhook error:', err?.message ?? err)
                     }
                 }
                 continue
@@ -302,7 +339,7 @@ async function createSession(sessionId, res = null, options = { usePairingCode: 
                     receiver: sessionId,
                 })
             } catch (err) {
-                console.error('❌ Webhook error:', err.message)
+                console.error('❌ Webhook error:', err?.message ?? err)
             }
         }
     })

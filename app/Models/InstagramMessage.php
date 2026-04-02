@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class InstagramMessage extends Model
 {
     use BelongsToOrganization;
+    use Concerns\ResolvesInboxMediaUrl;
 
     protected $table = 'instagram_messages';
 

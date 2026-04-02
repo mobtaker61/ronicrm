@@ -268,7 +268,7 @@ class InboxController extends Controller
                         'id' => $msg->id,
                         'message' => $msg->message,
                         'message_type' => $msg->message_type,
-                        'media_url' => $msg->media_url,
+                        'media_url' => $msg->resolvedMediaUrl(),
                         'direction' => $msg->direction,
                         'status' => $msg->status,
                         'created_at' => $msg->created_at,
@@ -299,7 +299,7 @@ class InboxController extends Controller
                         'id' => $msg->id,
                         'message' => $msg->message,
                         'message_type' => $msg->message_type,
-                        'media_url' => $msg->media_url,
+                        'media_url' => $msg->resolvedMediaUrl(),
                         'direction' => $msg->direction,
                         'status' => $msg->status,
                         'created_at' => $msg->created_at,
@@ -323,7 +323,7 @@ class InboxController extends Controller
                         'id' => $msg->id,
                         'message' => $msg->message,
                         'message_type' => $msg->message_type,
-                        'media_url' => $msg->media_url,
+                        'media_url' => $msg->resolvedMediaUrl(),
                         'direction' => $msg->direction,
                         'status' => $msg->status,
                         'created_at' => $msg->created_at,
@@ -1231,6 +1231,7 @@ class InboxController extends Controller
                         'error' => $e->getMessage(),
                     ]);
                     dispatch(new MarkInboxConversationReadJob($channel, $contactKey, $specificIds));
+
                     return;
                 }
                 usleep(200000);

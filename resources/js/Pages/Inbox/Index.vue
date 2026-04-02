@@ -4,15 +4,40 @@
             <span>{{ t('sidebar.inbox') }}</span>
         </template>
 
-        <!-- Success/Error Messages -->
-        <div v-if="$page.props.flash?.success || $page.props.flash?.error" class="absolute top-20 left-0 right-0 z-50 px-4 lg:px-8">
-            <div v-if="$page.props.flash?.success" class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg shadow-lg">
-                {{ $page.props.flash.success }}
-            </div>
-            <div v-if="$page.props.flash?.error" class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg shadow-lg">
-                {{ $page.props.flash.error }}
-            </div>
-        </div>
+        <!-- هشدارهای flash: toast گوشهٔ صفحه، قابل بستن + خودکار پس از ~۱۰ ثانیه -->
+        <Teleport to="body">
+            <Transition name="inbox-flash-toast">
+                <div
+                    v-if="flashToastVisible && (flashSuccess || flashError)"
+                    class="fixed top-20 end-4 z-[100] w-[min(100vw-2rem,28rem)] pointer-events-none"
+                    role="status"
+                    aria-live="polite"
+                >
+                    <div
+                        :class="[
+                            'pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg',
+                            flashError
+                                ? 'border-red-200 bg-red-50 text-red-900'
+                                : 'border-green-200 bg-green-50 text-green-900'
+                        ]"
+                    >
+                        <p class="min-w-0 flex-1 text-sm leading-relaxed break-words">
+                            {{ flashSuccess || flashError }}
+                        </p>
+                        <button
+                            type="button"
+                            class="flex-shrink-0 rounded-lg p-1 text-current opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-current"
+                            :aria-label="t('common.close')"
+                            @click="dismissFlashToast"
+                        >
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </Transition>
+        </Teleport>
 
         <!-- Full Height Inbox Container - Negative margins to override AppLayout padding -->
         <div class="-m-4 lg:-m-8 h-[calc(100vh-64px)] flex flex-col bg-white overflow-hidden">
@@ -930,6 +955,38 @@ function cleanMediaUrl(url) {
     }
 }
 const page = usePage();
+
+const flashSuccess = computed(() => page.props.flash?.success ?? null);
+const flashError = computed(() => page.props.flash?.error ?? null);
+const flashToastVisible = ref(true);
+let flashAutoHideTimer = null;
+
+function dismissFlashToast() {
+    flashToastVisible.value = false;
+    if (flashAutoHideTimer) {
+        clearTimeout(flashAutoHideTimer);
+        flashAutoHideTimer = null;
+    }
+}
+
+watch(
+    () => [flashSuccess.value, flashError.value],
+    () => {
+        flashToastVisible.value = true;
+        if (flashAutoHideTimer) {
+            clearTimeout(flashAutoHideTimer);
+            flashAutoHideTimer = null;
+        }
+        if (flashSuccess.value || flashError.value) {
+            flashAutoHideTimer = setTimeout(() => {
+                flashToastVisible.value = false;
+                flashAutoHideTimer = null;
+            }, 10000);
+        }
+    },
+    { immediate: true }
+);
+
 const instagramPollInterval = ref(null);
 const telegramPollInterval = ref(null);
 const tiktokPollInterval = ref(null);
@@ -1067,27 +1124,33 @@ const handleImageError = (event) => {
     event.target.style.display = 'none';
 };
 
+/** انواع پیام APIهای اینستاگرام/تلگرام/تیک‌تاک گاهی با حروف بزرگ یا نام‌های متفاوت می‌آید */
+const normMsgType = (t) => String(t ?? '').toLowerCase().trim();
+
 const isImageFile = (messageType, url) => {
-    if (messageType === 'image' || messageType === 'sticker') return true;
+    const mt = normMsgType(messageType);
+    if (['image', 'sticker', 'photo', 'picture'].includes(mt)) return true;
     if (!url) return false;
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
-    const lowerUrl = url.toLowerCase();
-    return imageExtensions.some(ext => lowerUrl.includes(ext));
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.heic', '.heif'];
+    const lowerUrl = url.toLowerCase().split('?')[0].split(';')[0];
+    return imageExtensions.some((ext) => lowerUrl.includes(ext));
 };
 
 const isVideoFile = (messageType, url) => {
-    if (messageType === 'video') return true;
+    const mt = normMsgType(messageType);
+    if (['video', 'movie', 'clip', 'reel', 'ig_reel', 'short'].includes(mt)) return true;
     if (!url) return false;
     // .ogg معمولاً صوت واتساپ است؛ با isAudioFile زودتر بررسی می‌شود
     const exts = ['.mp4', '.webm', '.mov', '.m4v', '.3gp', '.mkv'];
-    const lower = url.toLowerCase().split(';')[0];
+    const lower = url.toLowerCase().split(';')[0].split('?')[0];
     return exts.some((ext) => lower.includes(ext));
 };
 
 const isAudioFile = (messageType, url) => {
-    if (messageType === 'audio') return true;
+    const mt = normMsgType(messageType);
+    if (['audio', 'voice', 'ptt', 'sound', 'voicenote', 'voice_message'].includes(mt)) return true;
     if (!url) return false;
-    const lower = url.toLowerCase().split(';')[0];
+    const lower = url.toLowerCase().split(';')[0].split('?')[0];
     const exts = ['.ogg', '.opus', '.mp3', '.m4a', '.aac', '.wav'];
     return exts.some((ext) => lower.includes(ext));
 };
@@ -1554,6 +1617,9 @@ onMounted(() => {
 onUnmounted(() => {
     window.removeEventListener('keydown', onLightboxEscape);
 
+    if (flashAutoHideTimer) {
+        clearTimeout(flashAutoHideTimer);
+    }
     if (instagramPollInterval.value) {
         clearInterval(instagramPollInterval.value);
     }
@@ -1565,3 +1631,15 @@ onUnmounted(() => {
     }
 });
 </script>
+
+<style scoped>
+.inbox-flash-toast-enter-active,
+.inbox-flash-toast-leave-active {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.inbox-flash-toast-enter-from,
+.inbox-flash-toast-leave-to {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+}
+</style>
