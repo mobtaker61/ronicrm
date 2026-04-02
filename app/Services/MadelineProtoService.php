@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\TelegramUserConnection;
+use danog\MadelineProto\EventHandler\Media\RoundVideo;
 use danog\MadelineProto\MTProtoTools\Files;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -764,6 +765,14 @@ class MadelineProtoService
 
         return $this->run(function () use ($mtprotoMessage) {
             $api = $this->getApi();
+
+            $wrappedMedia = null;
+            try {
+                $wrappedMedia = $api->wrapMedia($mtprotoMessage['media'], false);
+            } catch (\Throwable) {
+                // نوع را بعداً فقط از Bot API حدس می‌زنیم
+            }
+
             try {
                 $botApi = $api->MTProtoToBotAPI($mtprotoMessage);
             } catch (\Throwable $e) {
@@ -788,14 +797,11 @@ class MadelineProtoService
             $mime = $fileInfo['mime_type'] ?? null;
 
             $url = TelegramBotFileUrlService::urlForFileId($fileId);
-            if ($url === null) {
+            if ($url === null && $wrappedMedia !== null) {
                 try {
-                    $mediaWrapped = $api->wrapMedia($mtprotoMessage['media'], false);
-                    if ($mediaWrapped !== null) {
-                        $local = TelegramMediaStorageService::downloadMediaObjectToPublicDisk($mediaWrapped);
-                        if ($local !== null) {
-                            $url = $local;
-                        }
+                    $local = TelegramMediaStorageService::downloadMediaObjectToPublicDisk($wrappedMedia);
+                    if ($local !== null) {
+                        $url = $local;
                     }
                 } catch (\Throwable $e) {
                     Log::warning('MadelineProto: could not store media locally after getFile failed', [
@@ -813,6 +819,13 @@ class MadelineProtoService
                 'sticker' => 'sticker',
                 default => 'document',
             };
+
+            // ویدیوی دایره‌ای (video note): گاهی extractBotAPIFile به‌خاطر ترتیب attributeها voice برمی‌گرداند.
+            if ($wrappedMedia instanceof RoundVideo) {
+                $messageType = 'video';
+            } elseif ($messageType === 'audio' && is_string($mime) && str_starts_with(strtolower($mime), 'video/')) {
+                $messageType = 'video';
+            }
 
             return [
                 'url' => $url,

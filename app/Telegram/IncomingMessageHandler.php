@@ -74,15 +74,18 @@ class IncomingMessageHandler extends SimpleEventHandler
             $mediaMimeType = $media->mimeType !== '' ? $media->mimeType : null;
             $messageType = match (true) {
                 $media instanceof Photo => 'image',
+                $media instanceof RoundVideo => 'video',
                 $media instanceof Video => 'video',
                 $media instanceof Gif => 'animation',
-                $media instanceof RoundVideo => 'video',
                 $media instanceof Voice => 'audio',
                 $media instanceof Audio => 'audio',
                 $media instanceof Sticker, $media instanceof MaskSticker => 'sticker',
                 $media instanceof Document => 'document',
                 default => 'document',
             };
+            if ($messageType === 'audio' && $mediaMimeType && str_starts_with(strtolower($mediaMimeType), 'video/')) {
+                $messageType = 'video';
+            }
         }
 
         $payload = [

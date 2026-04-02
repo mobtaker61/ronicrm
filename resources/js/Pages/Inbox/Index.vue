@@ -1138,7 +1138,7 @@ const isImageFile = (messageType, url) => {
 
 const isVideoFile = (messageType, url) => {
     const mt = normMsgType(messageType);
-    if (['video', 'movie', 'clip', 'reel', 'ig_reel', 'short', 'animation'].includes(mt)) return true;
+    if (['video', 'movie', 'clip', 'reel', 'ig_reel', 'short', 'animation', 'video_note'].includes(mt)) return true;
     if (!url) return false;
     // .ogg معمولاً صوت واتساپ است؛ با isAudioFile زودتر بررسی می‌شود
     const exts = ['.mp4', '.webm', '.mov', '.m4v', '.3gp', '.mkv'];
@@ -1148,7 +1148,11 @@ const isVideoFile = (messageType, url) => {
 
 const isAudioFile = (messageType, url) => {
     const mt = normMsgType(messageType);
-    if (['audio', 'voice', 'ptt', 'sound', 'voicenote', 'voice_message'].includes(mt)) return true;
+    if (['audio', 'voice', 'ptt', 'sound', 'voicenote', 'voice_message'].includes(mt)) {
+        // تلگرام: video note گاهی در DB به‌اشتباه audio ثبت شده؛ اگر پسوند ویدیو است، پخش ویدیو
+        if (url && isVideoFile(mt, url)) return false;
+        return true;
+    }
     if (!url) return false;
     const lower = url.toLowerCase().split(';')[0].split('?')[0];
     const exts = ['.ogg', '.opus', '.mp3', '.m4a', '.aac', '.wav'];
