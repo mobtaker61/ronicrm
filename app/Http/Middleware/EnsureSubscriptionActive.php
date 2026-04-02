@@ -12,6 +12,24 @@ class EnsureSubscriptionActive
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // اشتراک فقط برای کاربران واردشده معنی دارد؛ مهمان‌ها نباید به سازمان پیش‌فرض دیتابیس قاطی شوند.
+        if (! $request->user()) {
+            return $next($request);
+        }
+
+        // فرانت عمومی، تمدید/تنظیمات، خروج و زبان بدون قفل اشتراک
+        if ($request->routeIs([
+            'front.*',
+            'settings.*',
+            'logout',
+            'locale.set',
+            'i18n.json',
+            'i18n.locale.set',
+            'public.*',
+        ])) {
+            return $next($request);
+        }
+
         $orgId = OrganizationContext::getOrganizationId();
         if (! $orgId) {
             return $next($request);
@@ -27,8 +45,7 @@ class EnsureSubscriptionActive
         }
 
         return redirect()
-            ->route('settings.index')
-            ->with('error', 'اشتراک سازمان شما منقضی شده است. لطفاً با پشتیبانی تماس بگیرید.');
+            ->route('settings.index', ['tab' => 'organization'])
+            ->with('error', 'اشتراک سازمان شما منقضی شده است. لطفاً اشتراک را تمدید کنید یا با پشتیبانی تماس بگیرید.');
     }
 }
-

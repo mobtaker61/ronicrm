@@ -3,14 +3,18 @@
 namespace App\Services;
 
 use App\Models\Setting;
+use App\Support\RonibotUrlDefaults;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class WhatsAppService
 {
     protected string $appKey;
+
     protected string $authKey;
+
     protected string $apiUrl;
+
     protected bool $enabled;
 
     public function __construct()
@@ -18,13 +22,15 @@ class WhatsAppService
         $settings = Setting::getForOrganization('ronibot', []);
         $this->appKey = $settings['appkey'] ?? '';
         $this->authKey = $settings['authkey'] ?? '';
-        $this->apiUrl = $settings['api_url'] ?? 'https://ronibot.com/api/create-message';
+        $fromEnv = RonibotUrlDefaults::createMessageUrl();
+        $fromDb = RonibotUrlDefaults::normalizeCreateMessageUrl((string) ($settings['api_url'] ?? ''));
+        $this->apiUrl = $fromEnv !== '' ? $fromEnv : ($fromDb !== '' ? $fromDb : 'https://ronibot.com/api/create-message');
         $this->enabled = $settings['enabled'] ?? false;
     }
 
     public function sendMessage(string $phone, string $message, ?string $fileUrl = null): array
     {
-        if (!$this->enabled) {
+        if (! $this->enabled) {
             return [
                 'success' => false,
                 'error' => 'Ronibot is not enabled',
@@ -34,6 +40,7 @@ class WhatsAppService
 
         if (empty($this->appKey) || empty($this->authKey)) {
             Log::error('Ronibot credentials are missing');
+
             return [
                 'success' => false,
                 'error' => 'Ronibot credentials are not configured',
@@ -71,26 +78,26 @@ class WhatsAppService
 
             if ($response->successful()) {
                 $responseData = $response->json();
-                
+
                 // Check if API returned an error in the response body
                 if (isset($responseData['success']) && $responseData['success'] === false) {
                     $error = $responseData['message'] ?? 'Unknown error from API';
                     if (isset($responseData['data']) && is_array($responseData['data'])) {
                         $errors = [];
                         foreach ($responseData['data'] as $field => $messages) {
-                            $errors[] = $field . ': ' . implode(', ', $messages);
+                            $errors[] = $field.': '.implode(', ', $messages);
                         }
                         $error = implode(' | ', $errors);
                     }
-                    
-                return [
+
+                    return [
                         'success' => false,
                         'error' => $error,
                         'status' => 'failed',
                         'response' => $responseData,
                     ];
                 }
-                
+
                 return [
                     'success' => true,
                     'message_id' => $responseData['message_id'] ?? null,
@@ -102,7 +109,7 @@ class WhatsAppService
             $responseBody = $response->body();
             $responseJson = $response->json();
             $error = ($responseJson && isset($responseJson['error'])) ? $responseJson['error'] : ($responseBody ?: 'Unknown error');
-            
+
             return [
                 'success' => false,
                 'error' => $error,
@@ -111,7 +118,7 @@ class WhatsAppService
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             // Handle timeout specifically - message might have been sent
             $errorMessage = $e->getMessage();
-            
+
             // If it's a timeout, we can't be sure if message was sent or not
             // But since user reported messages were sent despite timeout, we'll mark as sent
             // with a warning note
@@ -123,7 +130,7 @@ class WhatsAppService
                     'error' => $errorMessage,
                 ];
             }
-            
+
             return [
                 'success' => false,
                 'error' => $errorMessage,
@@ -131,8 +138,8 @@ class WhatsAppService
             ];
         } catch (\Exception $e) {
             // Only log critical errors
-            if (!str_contains($e->getMessage(), 'timed out')) {
-                Log::error('WhatsApp API Exception: ' . $e->getMessage());
+            if (! str_contains($e->getMessage(), 'timed out')) {
+                Log::error('WhatsApp API Exception: '.$e->getMessage());
             }
 
             return [

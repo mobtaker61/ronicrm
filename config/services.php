@@ -38,6 +38,10 @@ return [
     'ronibot' => [
         'url' => env('RONIBOT_API_URL', ''),
         'key' => env('RONIBOT_API_KEY', ''),
+        'partner_server_key' => env('PARTNER_SERVER_KEY', ''),
+        'partner_default_plan_id' => env('PARTNER_DEFAULT_PLAN_ID'),
+        /** اگر webhook در تنظیمات سازمان خالی باشد: اول این، بعد APP_URL/wpwebhook */
+        'default_webhook_url' => env('RONIBOT_WEBHOOK_URL', ''),
     ],
 
     'meta_instagram' => [

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Plan;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -12,10 +11,6 @@ class FrontController extends Controller
 {
     public function welcome(): Response|HttpResponse
     {
-        if (Auth::check()) {
-            return redirect()->route('dashboard');
-        }
-
         $plans = Plan::query()
             ->where('is_active', true)
             ->orderBy('sort_order')

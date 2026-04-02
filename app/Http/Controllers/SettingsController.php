@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Setting;
 use App\Models\SocialMediaType;
+use App\Support\RonibotUrlDefaults;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -164,15 +165,32 @@ class SettingsController extends Controller
                 'imap_port' => '993',
                 'imap_encryption' => 'ssl',
             ]),
-            'ronibotSettings' => Setting::getForOrganization('ronibot', [
-                'api_url' => 'https://ronibot.com/api/create-message',
-                'appkey' => '',
-                'authkey' => '',
-                'webhook_url' => 'https://ronicrm.com/wpwebhook',
-                'enabled' => false,
-                'line_phone' => '',
-                'wa_session_id' => '',
-            ]),
+            'ronibotSettings' => (function () {
+                $defaults = [
+                    'api_url' => RonibotUrlDefaults::createMessageUrl() ?: 'https://ronibot.com/api/create-message',
+                    'appkey' => '',
+                    'authkey' => '',
+                    'webhook_url' => RonibotUrlDefaults::webhookUrl() ?: 'https://ronicrm.com/wpwebhook',
+                    'enabled' => false,
+                    'line_phone' => '',
+                    'wa_session_id' => '',
+                    'device_id' => '',
+                    'device_uuid' => '',
+                    'ronibot_user_id' => '',
+                    'ronibot_phone' => '',
+                ];
+                $stored = Setting::getForOrganization('ronibot', $defaults);
+                $cm = RonibotUrlDefaults::createMessageUrl();
+                if ($cm !== '') {
+                    $stored['api_url'] = $cm;
+                }
+                $wh = RonibotUrlDefaults::webhookUrl();
+                if ($wh !== '') {
+                    $stored['webhook_url'] = $wh;
+                }
+
+                return $stored;
+            })(),
             'telegramSettings' => array_merge(Setting::getScoped('telegram', [
                 'bot_token' => '',
                 'webhook_url' => '',
@@ -351,14 +369,30 @@ class SettingsController extends Controller
     public function updateRonibot(Request $request)
     {
         $validated = $request->validate([
-            'api_url' => 'required|url|max:500',
-            'appkey' => 'required|string|max:255',
-            'authkey' => 'required|string|max:255',
+            'api_url' => 'nullable|url|max:500',
+            'appkey' => 'nullable|string|max:500',
+            'authkey' => 'nullable|string|max:500',
             'webhook_url' => 'nullable|url|max:500',
             'enabled' => 'boolean',
             'line_phone' => 'nullable|string|max:32',
             'wa_session_id' => 'nullable|string|max:128',
+            'device_id' => 'nullable|string|max:64',
+            'device_uuid' => 'nullable|string|max:128',
+            'ronibot_user_id' => 'nullable|string|max:64',
+            'ronibot_phone' => 'nullable|string|max:32',
         ]);
+
+        $cm = RonibotUrlDefaults::createMessageUrl();
+        if ($cm !== '') {
+            $validated['api_url'] = $cm;
+        } elseif (trim((string) ($validated['api_url'] ?? '')) === '') {
+            $validated['api_url'] = 'https://ronibot.com/api/create-message';
+        }
+
+        $wh = RonibotUrlDefaults::webhookUrl();
+        if ($wh !== '') {
+            $validated['webhook_url'] = $wh;
+        }
 
         Setting::setForOrganization('ronibot', $validated);
 

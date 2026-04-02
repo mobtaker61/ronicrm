@@ -26,3 +26,8 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 lang/*.json
+
+
+#docs
+/docs/whatsapp.js
+/docs/BulkController.php

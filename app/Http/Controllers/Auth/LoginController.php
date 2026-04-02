@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\SubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -44,6 +45,15 @@ class LoginController extends Controller
             $user = Auth::user();
             if ($user && ! $user->hasVerifiedEmail()) {
                 return redirect()->intended(route('verification.notice'));
+            }
+
+            if ($user && $user->current_organization_id) {
+                $sub = app(SubscriptionService::class)->getOrCreateForOrganization((int) $user->current_organization_id);
+                if (! app(SubscriptionService::class)->isActive($sub)) {
+                    return redirect()
+                        ->route('settings.index', ['tab' => 'organization'])
+                        ->with('error', 'اشتراک سازمان شما منقضی شده است. لطفاً اشتراک را تمدید کنید یا با پشتیبانی تماس بگیرید.');
+                }
             }
 
             return redirect()->intended(route('dashboard'));

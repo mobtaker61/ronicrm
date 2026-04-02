@@ -162,6 +162,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/settings/ronibot', [\App\Http\Controllers\SettingsController::class, 'updateRonibot'])->name('settings.ronibot.update');
     Route::post('/settings/smtp/test', [\App\Http\Controllers\SettingsController::class, 'testSmtp'])->name('settings.smtp.test');
     Route::post('/settings/ronibot/test', [\App\Http\Controllers\SettingsController::class, 'testRonibot'])->name('settings.ronibot.test');
+    Route::post('/settings/ronibot/partner/register', [\App\Http\Controllers\Settings\RonibotPartnerController::class, 'register'])->name('settings.ronibot.partner.register');
+    Route::post('/settings/ronibot/partner/device', [\App\Http\Controllers\Settings\RonibotPartnerController::class, 'createDevice'])->name('settings.ronibot.partner.device');
+    Route::post('/settings/ronibot/partner/qr', [\App\Http\Controllers\Settings\RonibotPartnerController::class, 'qr'])->name('settings.ronibot.partner.qr');
+    Route::post('/settings/ronibot/partner/status', [\App\Http\Controllers\Settings\RonibotPartnerController::class, 'status'])->name('settings.ronibot.partner.status');
+    Route::post('/settings/ronibot/partner/app', [\App\Http\Controllers\Settings\RonibotPartnerController::class, 'createApp'])->name('settings.ronibot.partner.app');
     Route::post('/settings/telegram', [\App\Http\Controllers\SettingsController::class, 'updateTelegram'])->name('settings.telegram.update');
     Route::post('/settings/telegram/test', [\App\Http\Controllers\SettingsController::class, 'testTelegram'])->name('settings.telegram.test');
     Route::post('/settings/telegram/register-webhook', [\App\Http\Controllers\SettingsController::class, 'registerTelegramWebhook'])->name('settings.telegram.register-webhook');

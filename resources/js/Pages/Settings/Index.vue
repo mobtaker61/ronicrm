@@ -593,6 +593,100 @@
                 <!-- Ronibot Settings Tab -->
                 <div v-if="activeTab === 'ronibot' && canManageOrganizationSettings" class="p-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-6">{{ t('settings.ronibot_settings') }}</h2>
+
+                    <!-- اتصال خودکار از طریق Partner API (RoniBot) — دو ستون: فرم / QR -->
+                    <div class="mb-8 rounded-lg border border-blue-200 bg-blue-50/80 p-5">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('settings.ronibot_partner_section_title') }}</h3>
+                        <p class="text-sm text-gray-600 mb-4">{{ t('settings.ronibot_partner_intro') }}</p>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
+                            <!-- ستون فرم -->
+                            <div class="space-y-4 min-w-0">
+                                <p
+                                    v-if="!ronibotPartnerDisplayWebhook"
+                                    class="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-md p-2"
+                                >
+                                    {{ t('settings.ronibot_partner_app_url_missing') }}
+                                </p>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.ronibot_partner_phone_label') }}</label>
+                                    <input
+                                        v-model="ronibotPartnerPhone"
+                                        type="tel"
+                                        autocomplete="tel"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
+                                        :placeholder="t('settings.ronibot_partner_phone_placeholder')"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.ronibot_partner_crm_password_label') }}</label>
+                                    <input
+                                        v-model="ronibotPartnerPassword"
+                                        type="password"
+                                        autocomplete="current-password"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
+                                        :placeholder="t('settings.ronibot_partner_crm_password_placeholder')"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.webhook_url') }}</label>
+                                    <div
+                                        class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-800 text-sm break-all min-h-[2.5rem]"
+                                    >
+                                        {{ ronibotPartnerDisplayWebhook || '—' }}
+                                    </div>
+                                    <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_webhook_readonly_hint') }}</p>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
+                                        :disabled="
+                                            ronibotPartnerLoading ||
+                                            ronibotPartnerPolling ||
+                                            !String(ronibotPartnerPhone || '').trim() ||
+                                            !String(ronibotPartnerPassword || '').trim() ||
+                                            !ronibotPartnerDisplayWebhook
+                                        "
+                                        @click="ronibotPartnerStartAutoFlow"
+                                    >
+                                        {{ t('settings.ronibot_partner_start_connection') }}
+                                    </button>
+                                    <button
+                                        v-if="ronibotPartnerNeedsAppRetry"
+                                        type="button"
+                                        class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 text-sm"
+                                        :disabled="ronibotPartnerLoading"
+                                        @click="ronibotPartnerRetryCreateApp"
+                                    >
+                                        {{ t('settings.ronibot_partner_retry_app') }}
+                                    </button>
+                                </div>
+                                <p v-if="ronibotPartnerStepLabel" class="text-sm text-gray-800">{{ ronibotPartnerStepLabel }}</p>
+                                <p v-if="ronibotPartnerError" class="text-sm text-red-600">{{ ronibotPartnerError }}</p>
+                                <p v-if="ronibotPartnerMessage" class="text-sm text-green-700">{{ ronibotPartnerMessage }}</p>
+                                <p v-if="ronibotPartnerPolling" class="text-sm text-blue-800">{{ t('settings.ronibot_partner_waiting_whatsapp') }}</p>
+                            </div>
+
+                            <!-- ستون QR -->
+                            <div
+                                class="min-w-0 rounded-xl border-2 border-dashed border-blue-200 bg-white/90 p-4 flex flex-col items-center justify-center min-h-[300px] lg:min-h-[360px] lg:sticky lg:top-4"
+                            >
+                                <template v-if="ronibotQrSrc && !ronibotPartnerSetupComplete">
+                                    <p class="text-xs text-gray-600 mb-3 text-center w-full">{{ t('settings.ronibot_partner_qr_scan') }}</p>
+                                    <img
+                                        :src="ronibotQrSrc"
+                                        alt="WhatsApp QR"
+                                        class="max-w-[280px] w-full h-auto object-contain rounded-lg shadow-md"
+                                    />
+                                </template>
+                                <div v-else-if="ronibotPartnerSetupComplete" class="text-center px-2">
+                                    <p class="text-green-700 font-medium text-sm">{{ t('settings.ronibot_partner_qr_done_hint') }}</p>
+                                </div>
+                                <p v-else class="text-sm text-gray-400 text-center px-4">{{ t('settings.ronibot_partner_qr_placeholder') }}</p>
+                            </div>
+                        </div>
+                    </div>
                     
                     <form @submit.prevent="saveRonibotSettings" class="space-y-6">
                         <div class="flex items-center justify-between mb-4">
@@ -614,11 +708,12 @@
                                 <input
                                     v-model="ronibotForm.api_url"
                                     type="url"
-                                    required
+                                    readonly
+                                    tabindex="-1"
                                     :placeholder="t('settings.ronibot_api_url_placeholder')"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-800 cursor-default focus:outline-none"
                                 />
-                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_api_url_help') }}</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_managed_by_system') }}</p>
                             </div>
 
                             <div>
@@ -626,7 +721,6 @@
                                 <input
                                     v-model="ronibotForm.appkey"
                                     type="text"
-                                    required
                                     :placeholder="t('settings.ronibot_app_key_placeholder')"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
@@ -638,7 +732,6 @@
                                 <input
                                     v-model="ronibotForm.authkey"
                                     type="text"
-                                    required
                                     :placeholder="t('settings.ronibot_auth_key_placeholder')"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
@@ -650,10 +743,12 @@
                                 <input
                                     v-model="ronibotForm.webhook_url"
                                     type="url"
+                                    readonly
+                                    tabindex="-1"
                                     :placeholder="t('settings.ronibot_webhook_placeholder')"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-800 cursor-default focus:outline-none"
                                 />
-                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_webhook_help') }}</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_managed_by_system') }}</p>
                             </div>
 
                             <div>
@@ -1765,7 +1860,270 @@ const ronibotForm = useForm({
     enabled: props.ronibotSettings.enabled || false,
     line_phone: props.ronibotSettings.line_phone || '',
     wa_session_id: props.ronibotSettings.wa_session_id || '',
+    device_id: props.ronibotSettings.device_id || '',
+    device_uuid: props.ronibotSettings.device_uuid || '',
+    ronibot_user_id: props.ronibotSettings.ronibot_user_id || '',
 });
+
+function syncRonibotFormFromProps() {
+    const s = props.ronibotSettings;
+    if (!s) return;
+    ronibotForm.api_url = s.api_url || ronibotForm.api_url;
+    ronibotForm.appkey = s.appkey ?? '';
+    ronibotForm.authkey = s.authkey ?? '';
+    ronibotForm.webhook_url = s.webhook_url || ronibotForm.webhook_url;
+    ronibotForm.enabled = !!s.enabled;
+    ronibotForm.line_phone = s.line_phone ?? '';
+    ronibotForm.wa_session_id = s.wa_session_id ?? '';
+    ronibotForm.device_id = s.device_id ?? '';
+    ronibotForm.device_uuid = s.device_uuid ?? '';
+    ronibotForm.ronibot_user_id = s.ronibot_user_id ?? '';
+}
+
+watch(() => props.ronibotSettings, () => syncRonibotFormFromProps(), { deep: true });
+
+const ronibotPartnerPhone = ref(props.organizationProfile?.phone ?? '');
+const ronibotPartnerPassword = ref('');
+const ronibotPartnerLoading = ref(false);
+const ronibotPartnerPolling = ref(false);
+/** فقط پس از ساخت موفق App و ذخیرهٔ تنظیمات */
+const ronibotPartnerSetupComplete = ref(false);
+const ronibotPartnerNeedsAppRetry = ref(false);
+const ronibotPartnerError = ref('');
+const ronibotPartnerMessage = ref('');
+const ronibotPartnerStepLabel = ref('');
+const ronibotQrSrc = ref('');
+let ronibotPartnerPollTimer = null;
+const ronibotPartnerFinalizeStarted = ref(false);
+/** دو poll پیاپی با همان پاسخ معتبر از سرور (کاهش false positive) */
+const ronibotPartnerLinkConfirmCount = ref(0);
+
+watch(
+    () => props.organizationProfile?.phone,
+    (p) => {
+        if (p && !String(ronibotPartnerPhone.value || '').trim()) {
+            ronibotPartnerPhone.value = p;
+        }
+    }
+);
+
+const ronibotPartnerDisplayWebhook = computed(() => {
+    const w = String(ronibotForm.webhook_url || '').trim();
+    if (w) {
+        return w;
+    }
+    if (typeof window !== 'undefined' && window.location?.origin) {
+        return `${window.location.origin}/wpwebhook`;
+    }
+    return '';
+});
+
+watch(ronibotPartnerPhone, (v) => {
+    const s = String(v || '').trim();
+    if (s) {
+        ronibotForm.line_phone = s;
+    }
+});
+
+function reloadRonibotSettingsOnly() {
+    router.reload({
+        only: ['ronibotSettings'],
+        preserveScroll: true,
+        preserveState: true,
+        onFinish: () => {
+            syncRonibotFormFromProps();
+        },
+    });
+}
+
+function reloadRonibotSettingsOnlyAsync() {
+    return new Promise((resolve) => {
+        router.reload({
+            only: ['ronibotSettings'],
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => {
+                syncRonibotFormFromProps();
+                resolve();
+            },
+        });
+    });
+}
+
+function stopRonibotPartnerPolling() {
+    ronibotPartnerPolling.value = false;
+    if (ronibotPartnerPollTimer) {
+        clearInterval(ronibotPartnerPollTimer);
+        ronibotPartnerPollTimer = null;
+    }
+}
+
+function ronibotQrToDataUrl(qrcode) {
+    if (!qrcode) return '';
+    const s = String(qrcode).trim();
+    if (s.startsWith('data:')) return s;
+    return `data:image/png;base64,${s}`;
+}
+
+function partnerErr(e) {
+    const d = e.response?.data;
+    return d?.errors?.password?.[0] || d?.errors?.phone?.[0] || d?.message || e.message || 'Error';
+}
+
+/**
+ * هم‌راستا با RonibotPartnerController::status: هم connected و هم session باید تأیید شوند.
+ */
+function ronibotPartnerIsServerConnected(data) {
+    if (!data || data.ok !== true) {
+        return false;
+    }
+    if (data.connected !== true) {
+        return false;
+    }
+    const s = String(data.session_status || '')
+        .toLowerCase()
+        .trim();
+    return s === 'authenticated' || s === 'connected';
+}
+
+async function ronibotPartnerStartAutoFlow() {
+    ronibotPartnerError.value = '';
+    ronibotPartnerMessage.value = '';
+    ronibotPartnerStepLabel.value = '';
+    ronibotPartnerSetupComplete.value = false;
+    ronibotPartnerNeedsAppRetry.value = false;
+    ronibotQrSrc.value = '';
+    ronibotPartnerFinalizeStarted.value = false;
+    ronibotPartnerLinkConfirmCount.value = 0;
+    stopRonibotPartnerPolling();
+
+    const phone = String(ronibotPartnerPhone.value || '').trim();
+    if (!phone) {
+        ronibotPartnerError.value = t('settings.ronibot_partner_phone_required');
+        return;
+    }
+    if (!String(ronibotPartnerPassword.value || '').trim()) {
+        ronibotPartnerError.value = t('settings.ronibot_partner_password_required');
+        return;
+    }
+    if (!ronibotPartnerDisplayWebhook.value) {
+        ronibotPartnerError.value = t('settings.ronibot_partner_app_url_missing');
+        return;
+    }
+
+    ronibotPartnerLoading.value = true;
+    try {
+        ronibotPartnerStepLabel.value = t('settings.ronibot_partner_step_register');
+        const { data: d1 } = await axios.post(route('settings.ronibot.partner.register'), {
+            phone,
+            password: ronibotPartnerPassword.value,
+        });
+        if (!d1.ok) throw new Error(d1.message || 'Error');
+        ronibotPartnerMessage.value = d1.message || '';
+        await reloadRonibotSettingsOnlyAsync();
+
+        ronibotPartnerStepLabel.value = t('settings.ronibot_partner_step_device');
+        const { data: d2 } = await axios.post(route('settings.ronibot.partner.device'), { phone });
+        if (!d2.ok) throw new Error(d2.message || 'Error');
+        ronibotPartnerMessage.value = d2.message || '';
+        await reloadRonibotSettingsOnlyAsync();
+
+        ronibotPartnerStepLabel.value = t('settings.ronibot_partner_step_qr');
+        const { data: d3 } = await axios.post(route('settings.ronibot.partner.qr'));
+        if (!d3.ok) throw new Error(d3.message || 'Error');
+        ronibotQrSrc.value = ronibotQrToDataUrl(d3.qrcode);
+        ronibotPartnerMessage.value = t('settings.ronibot_partner_qr_ready');
+        ronibotPartnerError.value = '';
+
+        ronibotPartnerStepLabel.value = t('settings.ronibot_partner_step_waiting_scan');
+        startRonibotPartnerStatusPolling();
+    } catch (e) {
+        ronibotPartnerError.value = partnerErr(e);
+        ronibotPartnerStepLabel.value = '';
+    } finally {
+        ronibotPartnerLoading.value = false;
+        ronibotPartnerPassword.value = '';
+    }
+}
+
+function startRonibotPartnerStatusPolling() {
+    stopRonibotPartnerPolling();
+    ronibotPartnerPolling.value = true;
+    ronibotPartnerError.value = '';
+    ronibotPartnerNeedsAppRetry.value = false;
+    ronibotPartnerLinkConfirmCount.value = 0;
+
+    const statusAxiosConfig = {
+        validateStatus: (status) => status >= 200 && status < 500,
+    };
+
+    const tick = async () => {
+        try {
+            const res = await axios.post(route('settings.ronibot.partner.status'), {}, statusAxiosConfig);
+            const data = res.data;
+            if (!data || data.ok !== true) {
+                ronibotPartnerLinkConfirmCount.value = 0;
+                return;
+            }
+            if (!ronibotPartnerIsServerConnected(data)) {
+                ronibotPartnerLinkConfirmCount.value = 0;
+                return;
+            }
+            ronibotPartnerLinkConfirmCount.value += 1;
+            if (ronibotPartnerLinkConfirmCount.value < 2) {
+                return;
+            }
+            if (ronibotPartnerFinalizeStarted.value) {
+                return;
+            }
+            ronibotPartnerFinalizeStarted.value = true;
+            stopRonibotPartnerPolling();
+            ronibotPartnerStepLabel.value = t('settings.ronibot_partner_step_finishing');
+            try {
+                await reloadRonibotSettingsOnlyAsync();
+                const { data: appData } = await axios.post(route('settings.ronibot.partner.app'), {});
+                if (!appData.ok) throw new Error(appData.message || 'Error');
+                ronibotQrSrc.value = '';
+                ronibotPartnerSetupComplete.value = true;
+                ronibotPartnerMessage.value = appData.message || t('settings.ronibot_partner_connected_success');
+                ronibotPartnerStepLabel.value = '';
+                await reloadRonibotSettingsOnlyAsync();
+            } catch (err) {
+                ronibotPartnerFinalizeStarted.value = false;
+                ronibotPartnerLinkConfirmCount.value = 0;
+                ronibotPartnerNeedsAppRetry.value = true;
+                ronibotPartnerError.value = partnerErr(err);
+                ronibotPartnerStepLabel.value = '';
+            }
+        } catch {
+            /* شبکه یا ۵۰۰ — QR را نگه دار */
+        }
+    };
+
+    ronibotPartnerPollTimer = setInterval(tick, 3000);
+    tick();
+}
+
+async function ronibotPartnerRetryCreateApp() {
+    ronibotPartnerError.value = '';
+    ronibotPartnerLoading.value = true;
+    ronibotPartnerStepLabel.value = t('settings.ronibot_partner_step_finishing');
+    try {
+        await reloadRonibotSettingsOnlyAsync();
+        const { data: appData } = await axios.post(route('settings.ronibot.partner.app'), {});
+        if (!appData.ok) throw new Error(appData.message || 'Error');
+        ronibotQrSrc.value = '';
+        ronibotPartnerSetupComplete.value = true;
+        ronibotPartnerNeedsAppRetry.value = false;
+        ronibotPartnerMessage.value = appData.message || t('settings.ronibot_partner_connected_success');
+        ronibotPartnerStepLabel.value = '';
+        await reloadRonibotSettingsOnlyAsync();
+    } catch (e) {
+        ronibotPartnerError.value = partnerErr(e);
+    } finally {
+        ronibotPartnerLoading.value = false;
+    }
+}
 
 const telegramForm = useForm({
     bot_token: props.telegramSettings.bot_token || '',
@@ -2287,6 +2645,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
     stopGoogleBulkPolling();
+    stopRonibotPartnerPolling();
 });
 
 const disconnectGoogleContacts = () => {
