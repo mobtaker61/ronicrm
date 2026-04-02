@@ -8,7 +8,7 @@
             class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white transition-colors shadow-sm"
             :class="direction === 'outgoing' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-green-600 hover:bg-green-700'"
             :aria-label="isPlaying ? 'Pause' : 'Play'"
-            @click="togglePlay"
+            @click.stop="togglePlay"
         >
             <svg v-if="!isPlaying" class="w-5 h-5 ltr:translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
             <svg v-else class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
@@ -55,12 +55,12 @@
         <audio
             ref="audioRef"
             :src="cleanSrc"
-            class="fixed left-[-9999px] h-px w-px opacity-0"
+            class="sr-only"
             preload="metadata"
             playsinline
             @timeupdate="onTimeUpdate"
-            @play="isPlaying = true"
-            @pause="isPlaying = false"
+            @play="onAudioPlay"
+            @pause="onAudioPause"
             @ended="onEnded"
             @loadedmetadata="onLoadedMeta"
             @error="onAudioError"
@@ -82,18 +82,14 @@ const props = defineProps({
         type: [String, Number],
         required: true,
     },
-    /** فقط یکی در هر زمان */
-    activeAudioId: {
-        type: [String, Number, null],
-        default: null,
-    },
     direction: {
         type: String,
         default: 'incoming',
     },
 });
 
-const emit = defineEmits(['update:activeAudioId']);
+/** v-model:active-audio-id — نباید همان نام را در defineProps تکرار کرد */
+const activeAudioId = defineModel('activeAudioId', { default: null });
 
 const BAR_COUNT = 48;
 const peaks = ref(Array.from({ length: BAR_COUNT }, () => 0.35));
@@ -102,8 +98,6 @@ const waveRef = ref(null);
 const duration = ref(0);
 const currentTime = ref(0);
 const isPlaying = ref(false);
-const loadError = ref(false);
-
 const cleanSrc = computed(() => props.src || '');
 
 const playedRatio = computed(() => (duration.value > 0 ? currentTime.value / duration.value : 0));
@@ -142,44 +136,55 @@ function onLoadedMeta() {
 
 function onEnded() {
     currentTime.value = 0;
-    if (String(props.activeAudioId) === String(props.audioId)) {
-        emit('update:activeAudioId', null);
+    if (String(activeAudioId.value) === String(props.audioId)) {
+        activeAudioId.value = null;
     }
 }
 
-function onAudioError() {
-    loadError.value = true;
+function onAudioPlay() {
+    isPlaying.value = true;
+}
+
+function onAudioPause() {
     isPlaying.value = false;
 }
 
-watch(
-    () => props.activeAudioId,
-    (id) => {
-        const a = audioRef.value;
-        if (!a) return;
-        if (String(id) !== String(props.audioId) && !a.paused) {
-            a.pause();
-        }
-    },
-);
+function onAudioError(e) {
+    // رویداد error گاهی قبل از آماده شدن فایل یا به‌صورت موقت می‌آید؛ نباید پخش را برای همیشه قطع کنیم
+    console.warn('VoiceWavePlayer: audio element error', e?.target?.error, cleanSrc.value);
+    isPlaying.value = false;
+}
+
+watch(activeAudioId, (id) => {
+    const a = audioRef.value;
+    if (!a) return;
+    if (String(id) !== String(props.audioId) && !a.paused) {
+        a.pause();
+    }
+});
 
 async function togglePlay() {
     const a = audioRef.value;
-    if (!a || loadError.value) return;
-
-    if (!a.paused) {
-        a.pause();
-        emit('update:activeAudioId', null);
+    if (!a) {
         return;
     }
 
-    emit('update:activeAudioId', props.audioId);
+    if (!a.paused) {
+        a.pause();
+        activeAudioId.value = null;
+        isPlaying.value = false;
+        return;
+    }
+
+    activeAudioId.value = props.audioId;
 
     try {
         await a.play();
+        isPlaying.value = true;
     } catch (e) {
         console.warn('VoiceWavePlayer: play failed', e);
-        emit('update:activeAudioId', null);
+        isPlaying.value = false;
+        activeAudioId.value = null;
     }
 }
 
@@ -266,8 +271,8 @@ onUnmounted(() => {
     if (a && !a.paused) {
         a.pause();
     }
-    if (String(props.activeAudioId) === String(props.audioId)) {
-        emit('update:activeAudioId', null);
+    if (String(activeAudioId.value) === String(props.audioId)) {
+        activeAudioId.value = null;
     }
 });
 </script>
