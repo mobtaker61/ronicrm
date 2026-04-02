@@ -14,6 +14,7 @@ return new class extends Migration
         }
 
         $driver = Schema::getConnection()->getDriverName();
+        $isMysqlFamily = in_array($driver, ['mysql', 'mariadb'], true);
 
         if ($driver === 'sqlite') {
             Schema::table('telegram_groups', function (Blueprint $table) {
@@ -27,7 +28,8 @@ return new class extends Migration
             });
             $this->sqliteRebuildWithNullableConnection();
         } else {
-            if ($driver === 'mysql') {
+            // MariaDB/MySQL: ایندکس یکتا با کلید خارجی روی همان ستون قفل است؛ ابتدا FK بعد unique.
+            if ($isMysqlFamily) {
                 Schema::table('telegram_groups', function (Blueprint $table) {
                     $table->dropForeign(['telegram_user_connection_id']);
                 });
@@ -52,7 +54,7 @@ return new class extends Migration
 
             DB::table('telegram_groups')->whereNull('channel')->update(['channel' => 'telegram']);
 
-            if ($driver === 'mysql') {
+            if ($isMysqlFamily) {
                 DB::statement('ALTER TABLE telegram_groups MODIFY telegram_user_connection_id BIGINT UNSIGNED NULL');
                 Schema::table('telegram_groups', function (Blueprint $table) {
                     $table->foreign('telegram_user_connection_id')
@@ -84,6 +86,7 @@ return new class extends Migration
         }
 
         $driver = Schema::getConnection()->getDriverName();
+        $isMysqlFamily = in_array($driver, ['mysql', 'mariadb'], true);
 
         Schema::table('telegram_groups', function (Blueprint $table) {
             try {
@@ -104,7 +107,7 @@ return new class extends Migration
 
         DB::table('telegram_groups')->whereNull('telegram_user_connection_id')->delete();
 
-        if ($driver === 'mysql') {
+        if ($isMysqlFamily) {
             Schema::table('telegram_groups', function (Blueprint $table) {
                 $table->dropForeign(['telegram_user_connection_id']);
             });
