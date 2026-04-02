@@ -6,6 +6,7 @@ namespace App\Telegram;
 
 use App\Jobs\TelegramSaveIncomingMessageJob;
 use App\Services\TelegramBotFileUrlService;
+use App\Services\TelegramMediaStorageService;
 use danog\MadelineProto\EventHandler\Attributes\Handler;
 use danog\MadelineProto\EventHandler\Media\Audio;
 use danog\MadelineProto\EventHandler\Media\Document;
@@ -67,6 +68,9 @@ class IncomingMessageHandler extends SimpleEventHandler
         $media = $message->media;
         if ($media !== null) {
             $mediaUrl = TelegramBotFileUrlService::urlForFileId($media->botApiFileId);
+            if ($mediaUrl === null) {
+                $mediaUrl = TelegramMediaStorageService::downloadMediaObjectToPublicDisk($media);
+            }
             $mediaMimeType = $media->mimeType !== '' ? $media->mimeType : null;
             $messageType = match (true) {
                 $media instanceof Photo => 'image',

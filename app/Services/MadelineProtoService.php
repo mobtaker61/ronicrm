@@ -787,7 +787,22 @@ class MadelineProtoService
             $fileType = $fileInfo['file_type'] ?? 'document';
             $mime = $fileInfo['mime_type'] ?? null;
 
-            $url = TelegramBotFileUrlService::urlForFileId(is_string($fileId) ? $fileId : null);
+            $url = TelegramBotFileUrlService::urlForFileId($fileId);
+            if ($url === null) {
+                try {
+                    $mediaWrapped = $api->wrapMedia($mtprotoMessage['media'], false);
+                    if ($mediaWrapped !== null) {
+                        $local = TelegramMediaStorageService::downloadMediaObjectToPublicDisk($mediaWrapped);
+                        if ($local !== null) {
+                            $url = $local;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('MadelineProto: could not store media locally after getFile failed', [
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
             $messageType = match ($fileType) {
                 'photo' => 'image',
                 'video' => 'video',

@@ -11,16 +11,19 @@ use Illuminate\Support\Facades\Log;
  */
 class TelegramBotFileUrlService
 {
-    public static function urlForFileId(?string $fileId): ?string
+    public static function urlForFileId(string|int|null $fileId): ?string
     {
         if ($fileId === null || $fileId === '') {
             return null;
         }
+        $fileId = is_string($fileId) ? $fileId : (string) $fileId;
 
         try {
             $settings = Setting::getScoped('telegram', []);
             $token = $settings['bot_token'] ?? '';
             if ($token === '') {
+                Log::debug('Telegram getFile skipped: empty bot_token in settings');
+
                 return null;
             }
 
