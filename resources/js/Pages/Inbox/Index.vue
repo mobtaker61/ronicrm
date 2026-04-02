@@ -332,29 +332,46 @@
                                         v-if="msg.media_url"
                                         class="mb-2 rounded-lg overflow-hidden max-w-full"
                                     >
-                                        <!-- Image / sticker -->
+                                        <!-- Image / sticker — پیش‌نمایش کوچک؛ کلیک = مودال تمام‌صفحه -->
                                         <img
                                             v-if="isImageFile(msg.message_type, msg.media_url)"
-                                            :src="msg.media_url"
+                                            :src="cleanMediaUrl(msg.media_url)"
                                             :alt="t('common.media')"
-                                            class="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
-                                            @click="openFileModal(msg.media_url)"
+                                            class="max-h-[256px] max-w-full w-auto object-contain rounded cursor-pointer hover:opacity-90 transition-opacity mx-auto block"
+                                            @click="lightboxImageUrl = cleanMediaUrl(msg.media_url)"
                                             @error="(e) => { console.error('Image load error:', e, msg.media_url); handleImageError(e); }"
                                         />
-                                        <!-- Video -->
+                                        <!-- صوت — پخش درجا (قبل از ویدیو؛ .ogg صدا با ویدیو اشتباه نشود) -->
+                                        <div
+                                            v-else-if="isAudioFile(msg.message_type, msg.media_url)"
+                                            class="flex items-center gap-2 rounded-2xl px-2 py-1.5 max-w-[280px]"
+                                            :class="msg.direction === 'outgoing' ? 'bg-blue-500/25' : 'bg-gray-100'"
+                                        >
+                                            <button
+                                                type="button"
+                                                class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white transition-colors shadow-sm"
+                                                :class="msg.direction === 'outgoing' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-green-600 hover:bg-green-700'"
+                                                @click="toggleAudioPlayback(msg.id)"
+                                            >
+                                                <svg v-if="playingAudioId !== msg.id" class="w-5 h-5 ltr:translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                                                <svg v-else class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+                                            </button>
+                                            <audio
+                                                :ref="(el) => setAudioRef(msg.id, el)"
+                                                :src="cleanMediaUrl(msg.media_url)"
+                                                class="hidden"
+                                                preload="metadata"
+                                                @ended="onAudioEnded(msg.id)"
+                                            />
+                                        </div>
+                                        <!-- ویدیو — پخش درجا -->
                                         <video
                                             v-else-if="isVideoFile(msg.message_type, msg.media_url)"
-                                            :src="msg.media_url"
+                                            :src="cleanMediaUrl(msg.media_url)"
                                             controls
                                             playsinline
-                                            class="max-w-full rounded max-h-64"
-                                        />
-                                        <!-- Audio -->
-                                        <audio
-                                            v-else-if="isAudioFile(msg.message_type, msg.media_url)"
-                                            :src="msg.media_url"
-                                            controls
-                                            class="w-full max-w-sm"
+                                            preload="metadata"
+                                            class="max-w-full max-h-[min(70vh,512px)] w-full rounded bg-black object-contain"
                                         />
                                         <!-- Other files -->
                                         <div
@@ -763,6 +780,31 @@
             @close="showTemplatePicker = false"
             @select="onTemplateSelect"
         />
+
+        <Teleport to="body">
+            <div
+                v-if="lightboxImageUrl"
+                class="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 p-4"
+                role="dialog"
+                aria-modal="true"
+                @click.self="lightboxImageUrl = null"
+            >
+                <button
+                    type="button"
+                    class="absolute top-4 right-4 rtl:right-auto rtl:left-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+                    :aria-label="t('common.close')"
+                    @click="lightboxImageUrl = null"
+                >
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                <img
+                    :src="lightboxImageUrl"
+                    alt=""
+                    class="max-h-[100vh] max-w-full object-contain select-none"
+                    @click.stop
+                />
+            </div>
+        </Teleport>
     </AppLayout>
 </template>
 
@@ -876,6 +918,62 @@ const assignCustomers = ref([]);
 const assignCustomerId = ref(null);
 const messagesContainer = ref(null);
 const messageTextarea = ref(null);
+const lightboxImageUrl = ref(null);
+const playingAudioId = ref(null);
+const audioRefs = ref({});
+
+function setAudioRef(msgId, el) {
+    if (el) {
+        audioRefs.value[msgId] = el;
+    } else {
+        delete audioRefs.value[msgId];
+    }
+}
+
+function toggleAudioPlayback(msgId) {
+    const audio = audioRefs.value[msgId];
+    if (!audio) return;
+    Object.values(audioRefs.value).forEach((a) => {
+        if (a && a !== audio && !a.paused) {
+            a.pause();
+        }
+    });
+    if (audio.paused) {
+        audio.play().catch(() => {});
+        playingAudioId.value = msgId;
+    } else {
+        audio.pause();
+        playingAudioId.value = null;
+    }
+}
+
+function onAudioEnded(msgId) {
+    if (playingAudioId.value === msgId) {
+        playingAudioId.value = null;
+    }
+}
+
+/** حذف پسوند غیراستاندارد مثل ;codecs=opus از URL فایل‌های واتساپ */
+function cleanMediaUrl(url) {
+    if (!url) return '';
+    try {
+        const u = new URL(url);
+        const segments = u.pathname.split('/');
+        const last = segments.pop();
+        if (last && last.includes(';')) {
+            segments.push(last.split(';')[0]);
+            u.pathname = segments.join('/') || '/';
+        }
+        return u.toString();
+    } catch {
+        const s = String(url);
+        const i = s.indexOf(';');
+        if (i !== -1 && (s.includes('.ogg') || s.includes('.opus'))) {
+            return s.slice(0, i);
+        }
+        return s;
+    }
+}
 const page = usePage();
 const instagramPollInterval = ref(null);
 const telegramPollInterval = ref(null);
@@ -1005,14 +1103,8 @@ const noConversationYet = computed(() => {
         && !(mc === 'instagram' ? props.selectedIgUserId : props.selectedTikTokOpenId);
 });
 
-const openImageModal = (imageUrl) => {
-    // Simple image modal - open in new tab for now
-    window.open(imageUrl, '_blank');
-};
-
 const openFileModal = (fileUrl) => {
-    // Open file in new tab
-    window.open(fileUrl, '_blank');
+    window.open(cleanMediaUrl(fileUrl), '_blank');
 };
 
 const handleImageError = (event) => {
@@ -1031,16 +1123,17 @@ const isImageFile = (messageType, url) => {
 const isVideoFile = (messageType, url) => {
     if (messageType === 'video') return true;
     if (!url) return false;
-    const exts = ['.mp4', '.webm', '.ogg', '.mov', '.m4v', '.3gp'];
-    const lower = url.toLowerCase();
+    // .ogg معمولاً صوت واتساپ است؛ با isAudioFile زودتر بررسی می‌شود
+    const exts = ['.mp4', '.webm', '.mov', '.m4v', '.3gp', '.mkv'];
+    const lower = url.toLowerCase().split(';')[0];
     return exts.some((ext) => lower.includes(ext));
 };
 
 const isAudioFile = (messageType, url) => {
     if (messageType === 'audio') return true;
     if (!url) return false;
-    const exts = ['.ogg', '.opus', '.mp3', '.m4a', '.aac', '.wav', '.webm'];
-    const lower = url.toLowerCase();
+    const lower = url.toLowerCase().split(';')[0];
+    const exts = ['.ogg', '.opus', '.mp3', '.m4a', '.aac', '.wav'];
     return exts.some((ext) => lower.includes(ext));
 };
 
@@ -1048,12 +1141,14 @@ const getFileName = (url) => {
     if (!url) return t('common.file');
     try {
         const urlObj = new URL(url);
-        const pathname = urlObj.pathname;
-        const fileName = pathname.split('/').pop();
+        let fileName = urlObj.pathname.split('/').pop() || '';
+        if (fileName.includes(';')) {
+            fileName = fileName.split(';')[0];
+        }
         return fileName || t('common.file');
     } catch {
-        const parts = url.split('/');
-        return parts[parts.length - 1] || t('common.file');
+        const raw = url.split('/').pop() || '';
+        return raw.includes(';') ? raw.split(';')[0] : raw || t('common.file');
     }
 };
 
@@ -1460,7 +1555,15 @@ function runTikTokPoll() {
     });
 }
 
+function onLightboxEscape(e) {
+    if (e.key === 'Escape') {
+        lightboxImageUrl.value = null;
+    }
+}
+
 onMounted(() => {
+    window.addEventListener('keydown', onLightboxEscape);
+
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.relative')) {
@@ -1494,6 +1597,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+    window.removeEventListener('keydown', onLightboxEscape);
+
     if (instagramPollInterval.value) {
         clearInterval(instagramPollInterval.value);
     }
