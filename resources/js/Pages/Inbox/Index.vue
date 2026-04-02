@@ -11,7 +11,7 @@
                     v-if="flashToastVisible && (flashSuccess || flashError)"
                     class="fixed top-20 end-4 z-[100] w-[min(100vw-2rem,28rem)] pointer-events-none"
                     role="status"
-                    aria-live="polite"
+                    :aria-live="flashError ? 'assertive' : 'polite'"
                 >
                     <div
                         :class="[
@@ -22,7 +22,7 @@
                         ]"
                     >
                         <p class="min-w-0 flex-1 text-sm leading-relaxed break-words">
-                            {{ flashSuccess || flashError }}
+                            {{ flashError || flashSuccess }}
                         </p>
                         <button
                             type="button"
