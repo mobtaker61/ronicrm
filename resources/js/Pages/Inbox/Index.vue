@@ -332,7 +332,7 @@
                                         v-if="msg.media_url"
                                         class="mb-2 rounded-lg overflow-hidden max-w-full"
                                     >
-                                        <!-- Image files -->
+                                        <!-- Image / sticker -->
                                         <img
                                             v-if="isImageFile(msg.message_type, msg.media_url)"
                                             :src="msg.media_url"
@@ -340,6 +340,21 @@
                                             class="max-w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity"
                                             @click="openFileModal(msg.media_url)"
                                             @error="(e) => { console.error('Image load error:', e, msg.media_url); handleImageError(e); }"
+                                        />
+                                        <!-- Video -->
+                                        <video
+                                            v-else-if="isVideoFile(msg.message_type, msg.media_url)"
+                                            :src="msg.media_url"
+                                            controls
+                                            playsinline
+                                            class="max-w-full rounded max-h-64"
+                                        />
+                                        <!-- Audio -->
+                                        <audio
+                                            v-else-if="isAudioFile(msg.message_type, msg.media_url)"
+                                            :src="msg.media_url"
+                                            controls
+                                            class="w-full max-w-sm"
                                         />
                                         <!-- Other files -->
                                         <div
@@ -1006,11 +1021,27 @@ const handleImageError = (event) => {
 };
 
 const isImageFile = (messageType, url) => {
-    if (messageType === 'image') return true;
+    if (messageType === 'image' || messageType === 'sticker') return true;
     if (!url) return false;
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
     const lowerUrl = url.toLowerCase();
     return imageExtensions.some(ext => lowerUrl.includes(ext));
+};
+
+const isVideoFile = (messageType, url) => {
+    if (messageType === 'video') return true;
+    if (!url) return false;
+    const exts = ['.mp4', '.webm', '.ogg', '.mov', '.m4v', '.3gp'];
+    const lower = url.toLowerCase();
+    return exts.some((ext) => lower.includes(ext));
+};
+
+const isAudioFile = (messageType, url) => {
+    if (messageType === 'audio') return true;
+    if (!url) return false;
+    const exts = ['.ogg', '.opus', '.mp3', '.m4a', '.aac', '.wav', '.webm'];
+    const lower = url.toLowerCase();
+    return exts.some((ext) => lower.includes(ext));
 };
 
 const getFileName = (url) => {

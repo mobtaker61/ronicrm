@@ -345,16 +345,11 @@ class InboxController extends Controller
                 ->orderBy('created_at', 'asc')
                 ->get()
                 ->map(function ($msg) {
-                    $mediaUrl = $msg->media_url;
-                    if ($mediaUrl && ! str_starts_with($mediaUrl, 'http')) {
-                        $mediaUrl = asset('storage/'.ltrim($mediaUrl, '/'));
-                    }
-
                     return [
                         'id' => $msg->id,
                         'message' => $msg->message,
                         'message_type' => $msg->message_type,
-                        'media_url' => $mediaUrl,
+                        'media_url' => $msg->resolvedMediaUrl(),
                         'direction' => $msg->direction,
                         'status' => $msg->status,
                         'created_at' => $msg->created_at,

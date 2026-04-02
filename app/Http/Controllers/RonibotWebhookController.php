@@ -33,6 +33,9 @@ class RonibotWebhookController extends Controller
 
             $msg = $payload['data'][0];
 
+            // Ronibot BulkController sends top-level mediaUrl; raw Baileys forward uses data[0].media.url
+            $mediaUrl = $data['mediaUrl'] ?? ($msg['media']['url'] ?? null);
+
             // =========================
             // PHONES
             // =========================
@@ -50,7 +53,6 @@ class RonibotWebhookController extends Controller
             // =========================
             $messageText = null;
             $messageType = 'text';
-            $mediaUrl = $data['mediaUrl'] ?? null;
             $mediaMimeType = null;
             $storedFile = null;
 
@@ -73,6 +75,21 @@ class RonibotWebhookController extends Controller
                 $messageType = 'document';
                 $messageText = $msg['message']['documentMessage']['fileName'] ?? null;
                 $mediaMimeType = $msg['message']['documentMessage']['mimetype'] ?? null;
+            } elseif (isset($msg['message']['stickerMessage'])) {
+                $messageType = 'sticker';
+                $mediaMimeType = $msg['message']['stickerMessage']['mimetype'] ?? null;
+            } elseif (isset($msg['message']['locationMessage'])) {
+                $messageType = 'location';
+                $loc = $msg['message']['locationMessage'];
+                $lat = $loc['degreesLatitude'] ?? null;
+                $lng = $loc['degreesLongitude'] ?? null;
+                if ($lat !== null && $lng !== null) {
+                    $messageText = 'https://www.google.com/maps?q='.$lat.','.$lng;
+                }
+            } elseif (isset($msg['message']['contactMessage'])) {
+                $messageType = 'contact';
+                $messageText = $msg['message']['contactMessage']['displayName']
+                    ?? ($msg['message']['contactMessage']['vcard'] ?? null);
             }
 
             // =========================
@@ -123,10 +140,6 @@ class RonibotWebhookController extends Controller
             $customer = $this->findCustomerByPhone($fromPhone);
             $messageText = $messageText ?? '';
 
-            Log::info('DEBUG MEDIA', [
-                'mediaUrl' => $mediaUrl,
-                'storedFile' => $storedFile,
-            ]);
             // =========================
             // SAVE
             // =========================

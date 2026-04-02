@@ -42,6 +42,25 @@ class WhatsAppMessage extends Model
     }
 
     /**
+     * Full URL for inbox/UI: public/uploads (webhook) vs storage (outgoing uploads).
+     */
+    public function resolvedMediaUrl(): ?string
+    {
+        $url = $this->media_url;
+        if (! $url) {
+            return null;
+        }
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            return $url;
+        }
+        if (str_starts_with($url, 'uploads/')) {
+            return asset($url);
+        }
+
+        return asset('storage/'.ltrim($url, '/'));
+    }
+
+    /**
      * Get the display name for the sender
      */
     public function getSenderNameAttribute(): string
