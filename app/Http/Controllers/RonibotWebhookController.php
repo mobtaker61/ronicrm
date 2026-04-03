@@ -57,7 +57,6 @@ class RonibotWebhookController extends Controller
             );
 
             $receiverRaw = (string) ($data['receiver'] ?? '');
-            $toPhone = $this->formatPhone($receiverRaw);
 
             $organizationId = $this->resolveOrganizationIdFromWebhook($request, $fromPhone, $receiverRaw);
             if ($organizationId === null) {
@@ -173,12 +172,15 @@ class RonibotWebhookController extends Controller
             $customer = $this->findCustomerByPhone($fromPhone, $organizationId);
             $messageText = $messageText ?? '';
 
+            $messageKeyId = isset($msg['key']['id']) ? (string) $msg['key']['id'] : null;
+            $toPhone = $this->resolveInboundBusinessLinePhone($organizationId, $receiverRaw, $messageKeyId);
+
             // =========================
             // SAVE
             // =========================
             $whatsappMessage = WhatsAppMessage::updateOrCreate(
                 [
-                    'message_id' => $msg['key']['id'] ?? null,
+                    'message_id' => $messageKeyId,
                 ],
                 [
                     'from_phone' => $fromPhone,
@@ -484,6 +486,67 @@ class RonibotWebhookController extends Controller
         }
 
         return $phone;
+    }
+
+    /**
+     * شمارهٔ خط «ما» برای پیام ورودی: Ronibot گاهی receiver را device_id کوتاه می‌فرستد؛
+     * نباید to_phone را با آن بازنویسی کرد (همان رکورد با updateOrCreate دوباره خورده می‌شود).
+     */
+    protected function resolveInboundBusinessLinePhone(int $organizationId, string $receiverRaw, ?string $messageIdKey): string
+    {
+        $candidate = $this->formatPhone($receiverRaw);
+
+        if ($this->receiverDigitsLookLikePhoneLine($candidate)) {
+            return $candidate;
+        }
+
+        $line = $this->getRonibotLinePhoneDigitsForOrganization($organizationId);
+        if ($line !== '') {
+            return $line;
+        }
+
+        if ($messageIdKey !== null && $messageIdKey !== '') {
+            $existing = WhatsAppMessage::withoutGlobalScope('organization')
+                ->where('organization_id', $organizationId)
+                ->where('message_id', $messageIdKey)
+                ->first();
+            if ($existing !== null) {
+                $prev = $this->formatPhone((string) ($existing->to_phone ?? ''));
+                if ($this->receiverDigitsLookLikePhoneLine($prev)) {
+                    return $prev;
+                }
+            }
+        }
+
+        return $candidate;
+    }
+
+    protected function receiverDigitsLookLikePhoneLine(string $digits): bool
+    {
+        return $digits !== '' && strlen($digits) >= 8;
+    }
+
+    protected function getRonibotLinePhoneDigitsForOrganization(int $organizationId): string
+    {
+        $row = OrganizationSetting::query()
+            ->withoutGlobalScopes()
+            ->where('organization_id', $organizationId)
+            ->where('key', 'ronibot')
+            ->first();
+
+        if ($row === null || ! is_array($row->value)) {
+            return '';
+        }
+
+        $val = $row->value;
+        foreach (['line_phone', 'wa_line_phone', 'connected_line_phone'] as $key) {
+            $line = $val[$key] ?? null;
+            if ($line !== null && $line !== '') {
+                return $this->formatPhone((string) $line);
+            }
+        }
+
+        return '';
     }
 
     /**

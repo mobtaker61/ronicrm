@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\CustomerSocialMedia;
 use App\Models\InstagramMessage;
+use App\Models\Setting;
 use App\Models\SocialMediaType;
 use App\Models\TelegramMessage;
 use App\Models\TikTokMessage;
@@ -823,10 +824,27 @@ class InboxController extends Controller
             $whatsappService = app(\App\Services\WhatsAppService::class);
             $result = $whatsappService->sendMessage($validated['to_phone'], $messageToSend, $mediaUrl);
             $customer = $this->findCustomerByPhone($validated['to_phone']);
+            $customerDigits = preg_replace('/[^0-9]/', '', (string) $validated['to_phone']);
+            if (str_starts_with($customerDigits, '00')) {
+                $customerDigits = substr($customerDigits, 2);
+            }
+            $ronibotSettings = Setting::getForOrganization('ronibot', []) ?? [];
+            $ourLineDigits = '';
+            foreach (['line_phone', 'wa_line_phone', 'connected_line_phone'] as $lineKey) {
+                $lv = $ronibotSettings[$lineKey] ?? null;
+                if ($lv !== null && $lv !== '') {
+                    $ourLineDigits = preg_replace('/[^0-9]/', '', (string) $lv);
+                    if (str_starts_with($ourLineDigits, '00')) {
+                        $ourLineDigits = substr($ourLineDigits, 2);
+                    }
+                    break;
+                }
+            }
+            $fromPhoneStored = (strlen($ourLineDigits) >= 8) ? $ourLineDigits : $customerDigits;
             WhatsAppMessage::create([
                 'message_id' => $result['message_id'] ?? null,
-                'from_phone' => $validated['to_phone'],
-                'to_phone' => $validated['to_phone'],
+                'from_phone' => $fromPhoneStored,
+                'to_phone' => $customerDigits,
                 'message' => $messageToSend ?: null,
                 'message_type' => $mediaUrl ? $fileType : 'text',
                 'media_url' => $mediaUrl,
