@@ -156,9 +156,12 @@ class CustomerController extends Controller
         $recentMessages = collect();
         if (! empty($phoneNumbers)) {
             $recentMessages = \App\Models\WhatsAppMessage::where(function ($q) use ($phoneNumbers, $customer) {
-                $q->where(function ($q) use ($phoneNumbers) {
-                    $q->whereIn('from_phone', $phoneNumbers)
-                        ->orWhereIn('to_phone', $phoneNumbers);
+                $q->where(function ($q2) use ($phoneNumbers) {
+                    foreach ($phoneNumbers as $p) {
+                        $q2->orWhere(function ($q3) use ($p) {
+                            $q3->conversationWithPeer($p);
+                        });
+                    }
                 })
                     ->orWhere('customer_id', $customer->id);
             })

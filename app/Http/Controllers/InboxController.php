@@ -340,9 +340,8 @@ class InboxController extends Controller
                 }
             }
         } elseif ($messageChannel === 'whatsapp' && $selectedContact) {
-            $messages = WhatsAppMessage::where(function ($q) use ($selectedContact) {
-                $q->where('from_phone', $selectedContact)->orWhere('to_phone', $selectedContact);
-            })
+            $messages = WhatsAppMessage::query()
+                ->conversationWithPeer($selectedContact)
                 ->orderBy('created_at', 'asc')
                 ->get()
                 ->map(function ($msg) {
@@ -414,21 +413,28 @@ class InboxController extends Controller
 
     protected function buildWhatsAppConversations(): \Illuminate\Support\Collection
     {
-        $incomingPhones = WhatsAppMessage::incoming()->select('from_phone as phone')->distinct()->pluck('phone');
-        $outgoingPhones = WhatsAppMessage::where('direction', 'outgoing')
-            ->select('from_phone as phone')->whereNotNull('from_phone')->distinct()->pluck('phone');
-        $allPhones = $incomingPhones->merge($outgoingPhones)->unique()->filter();
+        $peersFromIncoming = WhatsAppMessage::incoming()
+            ->whereNotNull('from_phone')
+            ->distinct()
+            ->pluck('from_phone');
+        $peersFromOutgoing = WhatsAppMessage::query()
+            ->where('direction', 'outgoing')
+            ->whereNotNull('to_phone')
+            ->distinct()
+            ->pluck('to_phone');
+        $allPhones = $peersFromIncoming->merge($peersFromOutgoing)->unique()->filter();
 
         $conversations = collect();
         foreach ($allPhones as $phone) {
             $customer = $this->findCustomerByPhone($phone);
-            $lastMessage = WhatsAppMessage::where(function ($q) use ($phone) {
-                $q->where('from_phone', $phone)->orWhere('to_phone', $phone);
-            })->latest()->first();
+            $lastMessage = WhatsAppMessage::query()
+                ->conversationWithPeer($phone)
+                ->latest()
+                ->first();
             $unreadCount = WhatsAppMessage::where('from_phone', $phone)->where('direction', 'incoming')->whereNull('read_at')->count();
-            $messageCount = WhatsAppMessage::where(function ($q) use ($phone) {
-                $q->where('from_phone', $phone)->orWhere('to_phone', $phone);
-            })->count();
+            $messageCount = WhatsAppMessage::query()
+                ->conversationWithPeer($phone)
+                ->count();
             $customerName = $customer?->name ?? '';
             $displayName = ($customer && trim((string) $customerName) !== '' && $customerName !== $phone) ? $customerName : $phone;
             $conversations->push([

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToOrganization;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -86,5 +87,23 @@ class WhatsAppMessage extends Model
     public function scopeFromPhone($query, string $phone)
     {
         return $query->where('from_phone', $phone);
+    }
+
+    /**
+     * پیام‌های یک گفت‌وگو با «مخاطب» (شمارهٔ طرف مقابل).
+     * ورودی: from_phone = مخاطب. خروجی (استاندارد فعلی): to_phone = مخاطب، from_phone = خط کسب‌وکار.
+     * از ترکیب سادهٔ (from_phone = X or to_phone = X) استفاده نکنید — همان پیام را دو بار می‌گیرد یا خط را به‌عنوان مخاطب نشان می‌دهد.
+     */
+    public function scopeConversationWithPeer(Builder $query, string $phone): Builder
+    {
+        $phone = trim($phone);
+
+        return $query->where(function ($q) use ($phone) {
+            $q->where(function ($q2) use ($phone) {
+                $q2->where('direction', 'incoming')->where('from_phone', $phone);
+            })->orWhere(function ($q2) use ($phone) {
+                $q2->where('direction', 'outgoing')->where('to_phone', $phone);
+            });
+        });
     }
 }
