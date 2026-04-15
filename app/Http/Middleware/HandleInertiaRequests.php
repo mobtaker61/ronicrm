@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Organization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
@@ -94,22 +95,25 @@ class HandleInertiaRequests extends Middleware
                     return [];
                 }
 
-                $q = $user->organizations()->orderBy('name');
-
-                // سوپرادمین‌ها گاهی به اشتباه به چند سازمان عضو می‌شوند؛
-                // برای اینکه UI سازمان‌های نامرتبط را نشان ندهد، فقط سازمان پیش‌فرض/فعلی را نمایش می‌دهیم.
                 if ($user->isSuperAdmin()) {
-                    $currentOrgId = (int) ($user->current_organization_id ?: 0);
-                    $q->where(function ($b) use ($currentOrgId) {
-                        // توجه: داخل closure، Builder خام داریم و wherePivot در دسترس نیست.
-                        $b->where('organization_user.is_default', true);
-                        if ($currentOrgId > 0) {
-                            $b->orWhere('organizations.id', $currentOrgId);
-                        }
-                    });
-                } else {
-                    $q->wherePivot('status', 'active');
+                    // سوپرادمین باید همه سازمان‌ها را ببیند (برای مدیریت/سوئیچ).
+                    return Organization::query()
+                        ->orderBy('name')
+                        ->get(['id', 'name', 'slug'])
+                        ->map(fn ($o) => [
+                            'id' => $o->id,
+                            'name' => $o->name,
+                            'slug' => $o->slug,
+                            'role_in_org' => null,
+                            'status' => null,
+                            'is_default' => (int) $o->id === (int) $user->current_organization_id,
+                        ])
+                        ->values();
                 }
+
+                $q = $user->organizations()
+                    ->wherePivot('status', 'active')
+                    ->orderBy('name');
 
                 return $q->get(['organizations.id', 'organizations.name', 'organizations.slug'])
                     ->map(fn ($organization) => [
