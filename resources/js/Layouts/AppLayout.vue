@@ -759,11 +759,11 @@ function settingsTabUrl(tab) {
 const canAccessSettings = computed(() => {
     const roles = page.props.auth?.user?.roles || [];
     const currentOrganizationRole = page.props.currentOrganizationRole || null;
-    return roles.includes('admin') || roles.includes('super_admin') || currentOrganizationRole === 'org_admin';
+    return roles.includes('super_admin') || currentOrganizationRole === 'org_admin';
 });
 const isSuperAdmin = computed(() => {
     const roles = page.props.auth?.user?.roles || [];
-    return roles.includes('super_admin') || roles.includes('admin');
+    return roles.includes('super_admin');
 });
 const isSuperAdminSectionActive = computed(() => {
     return isCurrentRoute('/superadmin');

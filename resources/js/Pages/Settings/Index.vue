@@ -1764,7 +1764,7 @@ const showAddModal = ref(false);
 const page = usePage();
 const isSuperAdmin = computed(() => {
     const roles = page.props.auth?.user?.roles || [];
-    return roles.includes('super_admin') || roles.includes('admin');
+    return roles.includes('super_admin');
 });
 const languages = computed(() => page.props.languages || []);
 const telegramGroupCategories = computed(() => page.props.telegramGroupCategories || []);
