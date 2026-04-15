@@ -229,6 +229,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/superadmin/languages', [\App\Http\Controllers\SuperAdmin\LanguagesPageController::class, 'index'])->name('superadmin.languages.index');
     Route::get('/superadmin/social-media-platforms', [\App\Http\Controllers\SuperAdmin\SocialMediaPlatformsController::class, 'index'])->name('superadmin.social-media-platforms.index');
     Route::get('/superadmin/organizations', [\App\Http\Controllers\SuperAdmin\OrganizationsPageController::class, 'index'])->name('superadmin.organizations.index');
+    Route::get('/superadmin/admin-users', [\App\Http\Controllers\SuperAdmin\OrgAdminUsersController::class, 'index'])->name('superadmin.admin-users.index');
+    Route::post('/superadmin/admin-users', [\App\Http\Controllers\SuperAdmin\OrgAdminUsersController::class, 'store'])->name('superadmin.admin-users.store');
+    Route::put('/superadmin/admin-users/{user}', [\App\Http\Controllers\SuperAdmin\OrgAdminUsersController::class, 'update'])->name('superadmin.admin-users.update');
+    Route::delete('/superadmin/admin-users/{user}/organization', [\App\Http\Controllers\SuperAdmin\OrgAdminUsersController::class, 'removeFromOrganization'])->name('superadmin.admin-users.organization.destroy');
     Route::post('/superadmin/translations/keys', [\App\Http\Controllers\SuperAdmin\TranslationsController::class, 'storeKey'])->name('superadmin.translations.keys.store');
     Route::put('/superadmin/translations/keys/{translationKey}', [\App\Http\Controllers\SuperAdmin\TranslationsController::class, 'updateKey'])->name('superadmin.translations.keys.update');
     Route::delete('/superadmin/translations/keys/{translationKey}', [\App\Http\Controllers\SuperAdmin\TranslationsController::class, 'destroyKey'])->name('superadmin.translations.keys.destroy');

@@ -29,7 +29,8 @@ class DatabaseSeeder extends Seeder
             'password' => bcrypt('password'),
             'email_verified_at' => now(),
         ]);
-        $admin->assignRole(['super_admin', 'admin']);
+        // نقش "admin" نباید معادل سوپرادمین باشد؛ برای جلوگیری از نشت دسترسی‌ها، فقط super_admin ست می‌شود.
+        $admin->assignRole(['super_admin']);
 
         // Create regular user
         $user = User::factory()->create([

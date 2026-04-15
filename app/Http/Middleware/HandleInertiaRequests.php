@@ -88,10 +88,30 @@ class HandleInertiaRequests extends Middleware
                     'permissions' => $request->user()->getAllPermissions()->pluck('name'),
                 ] : null,
             ],
-            'organizations' => fn () => $request->user()
-                ? $request->user()->organizations()
-                    ->orderBy('name')
-                    ->get(['organizations.id', 'organizations.name', 'organizations.slug'])
+            'organizations' => fn () => (function () use ($request) {
+                $user = $request->user();
+                if (! $user) {
+                    return [];
+                }
+
+                $q = $user->organizations()->orderBy('name');
+
+                // سوپرادمین‌ها گاهی به اشتباه به چند سازمان عضو می‌شوند؛
+                // برای اینکه UI سازمان‌های نامرتبط را نشان ندهد، فقط سازمان پیش‌فرض/فعلی را نمایش می‌دهیم.
+                if ($user->isSuperAdmin()) {
+                    $currentOrgId = (int) ($user->current_organization_id ?: 0);
+                    $q->where(function ($b) use ($currentOrgId) {
+                        // توجه: داخل closure، Builder خام داریم و wherePivot در دسترس نیست.
+                        $b->where('organization_user.is_default', true);
+                        if ($currentOrgId > 0) {
+                            $b->orWhere('organizations.id', $currentOrgId);
+                        }
+                    });
+                } else {
+                    $q->wherePivot('status', 'active');
+                }
+
+                return $q->get(['organizations.id', 'organizations.name', 'organizations.slug'])
                     ->map(fn ($organization) => [
                         'id' => $organization->id,
                         'name' => $organization->name,
@@ -100,8 +120,8 @@ class HandleInertiaRequests extends Middleware
                         'status' => $organization->pivot?->status,
                         'is_default' => (bool) ($organization->pivot?->is_default ?? false),
                     ])
-                    ->values()
-                : [],
+                    ->values();
+            })(),
             'currentOrganization' => fn () => (function () use ($request) {
                 $org = $request->user()?->currentOrganization;
                 if (! $org) {

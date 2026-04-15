@@ -503,6 +503,7 @@
                             <Link :href="getRoute('superadmin.social-media-platforms.index')" :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12', isCurrentRoute('/superadmin/social-media-platforms') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">{{ t('superadmin.social_media_platforms') }}</Link>
                             <Link :href="getRoute('superadmin.languages.index')" :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12', isCurrentRoute('/superadmin/languages') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">{{ t('superadmin.languages') }}</Link>
                             <Link :href="getRoute('superadmin.translations.index')" :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12', isCurrentRoute('/superadmin/translations') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">{{ t('superadmin.translations') }}</Link>
+                            <Link :href="getRoute('superadmin.admin-users.index')" :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12', isCurrentRoute('/superadmin/admin-users') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">Organization admins</Link>
                             <Link :href="getRoute('superadmin.organizations.index')" :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12', isCurrentRoute('/superadmin/organizations') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">{{ t('superadmin.organizations') }}</Link>
                             <Link :href="getRoute('superadmin.plans.index')" :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12', isCurrentRoute('/superadmin/plans') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">{{ t('superadmin.plans') }}</Link>
                             <Link :href="getRoute('superadmin.platform-notifications.index')" :class="['flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12', isCurrentRoute('/superadmin/platform-notifications') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100']">{{ t('superadmin.platform_notifications') }}</Link>
@@ -847,6 +848,7 @@ const getRoute = (name) => {
         'superadmin.social-media-platforms.index': '/superadmin/social-media-platforms',
         'superadmin.languages.index': '/superadmin/languages',
         'superadmin.translations.index': '/superadmin/translations',
+        'superadmin.admin-users.index': '/superadmin/admin-users',
         'superadmin.organizations.index': '/superadmin/organizations',
         'superadmin.plans.index': '/superadmin/plans',
         'superadmin.platform-notifications.index': '/superadmin/platform-notifications',

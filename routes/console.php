@@ -198,3 +198,130 @@ Artisan::command('telegram:unlock-locks {--conn= : Connection ID, defaults to ac
     $this->comment('Done. If a live process still holds flock, it will recreate/relock while running.');
     return 0;
 })->purpose('Force release Telegram fetch/session locks');
+
+Artisan::command('org:fix-superadmin-memberships {--user= : User id/email/username (optional)}', function () {
+    $needle = (string) ($this->option('user') ?? '');
+
+    $q = \App\Models\User::query();
+    if ($needle !== '') {
+        if (ctype_digit($needle)) {
+            $q->where('id', (int) $needle);
+        } else {
+            $q->where(function ($qq) use ($needle) {
+                $qq->where('email', $needle)->orWhere('username', $needle);
+            });
+        }
+    } else {
+        $q->whereHas('roles', fn ($r) => $r->where('name', 'super_admin'));
+    }
+
+    $users = $q->get();
+    if ($users->isEmpty()) {
+        $this->warn('No matching super_admin users found.');
+        return 0;
+    }
+
+    $totalDetached = 0;
+    foreach ($users as $user) {
+        $keepOrgIds = collect();
+        if ($user->current_organization_id) {
+            $keepOrgIds->push((int) $user->current_organization_id);
+        }
+
+        $ownedOrgIds = \App\Models\Organization::query()
+            ->where('owner_user_id', $user->id)
+            ->pluck('id');
+        $keepOrgIds = $keepOrgIds->merge($ownedOrgIds);
+
+        $defaultOrgId = \Illuminate\Support\Facades\DB::table('organization_user')
+            ->where('user_id', $user->id)
+            ->where('is_default', true)
+            ->value('organization_id');
+        if ($defaultOrgId) {
+            $keepOrgIds->push((int) $defaultOrgId);
+        }
+
+        $keepOrgIds = $keepOrgIds->filter()->unique()->values();
+
+        $currentOrgIds = $user->organizations()->pluck('organizations.id');
+        $detachOrgIds = $currentOrgIds->diff($keepOrgIds);
+
+        if ($detachOrgIds->isNotEmpty()) {
+            $user->organizations()->detach($detachOrgIds->all());
+            $totalDetached += $detachOrgIds->count();
+            $this->line("User {$user->id} ({$user->email}) detached from org ids: ".$detachOrgIds->implode(', '));
+        } else {
+            $this->line("User {$user->id} ({$user->email}) has no extra org memberships.");
+        }
+    }
+
+    $this->info("Done. Detached memberships: {$totalDetached}");
+    return 0;
+})->purpose('Remove unintended org memberships from super_admin users');
+
+Artisan::command('debug:user-orgs {needle : User id/email/username}', function () {
+    $needle = (string) $this->argument('needle');
+    $u = \App\Models\User::query()
+        ->when(ctype_digit($needle), fn ($q) => $q->where('id', (int) $needle))
+        ->when(! ctype_digit($needle), fn ($q) => $q->where('email', $needle)->orWhere('username', $needle))
+        ->first();
+
+    if (! $u) {
+        $this->error('User not found.');
+        return 1;
+    }
+
+    $this->info("User {$u->id}: {$u->name} <{$u->email}>");
+    $this->line('roles: '.$u->getRoleNames()->implode(','));
+    $this->line('current_organization_id: '.($u->current_organization_id ?: 'null'));
+
+    $orgs = $u->organizations()
+        ->orderBy('name')
+        ->get(['organizations.id', 'organizations.name', 'organizations.slug', 'organization_user.role_in_org', 'organization_user.status', 'organization_user.is_default']);
+
+    foreach ($orgs as $o) {
+        $this->line(" - org {$o->id}: {$o->name} ({$o->slug}) role_in_org={$o->pivot?->role_in_org} status={$o->pivot?->status} default=".((bool) ($o->pivot?->is_default ?? false) ? '1' : '0'));
+    }
+
+    return 0;
+})->purpose('Print a user roles/org memberships');
+
+Artisan::command('debug:find-user {q : Search by name/email/username contains}', function () {
+    $q = (string) $this->argument('q');
+    $users = \App\Models\User::query()
+        ->where('name', 'like', '%'.$q.'%')
+        ->orWhere('email', 'like', '%'.$q.'%')
+        ->orWhere('username', 'like', '%'.$q.'%')
+        ->orderBy('id')
+        ->limit(20)
+        ->get(['id', 'name', 'email', 'username']);
+
+    if ($users->isEmpty()) {
+        $this->warn('No users found.');
+        return 0;
+    }
+
+    foreach ($users as $u) {
+        $this->line("{$u->id}\t{$u->username}\t{$u->email}\t{$u->name}");
+    }
+    return 0;
+})->purpose('Find users by substring');
+
+Artisan::command('user:promote-superadmin {needle : User id/email/username}', function () {
+    $needle = (string) $this->argument('needle');
+    $u = \App\Models\User::query()
+        ->when(ctype_digit($needle), fn ($q) => $q->where('id', (int) $needle))
+        ->when(! ctype_digit($needle), fn ($q) => $q->where('email', $needle)->orWhere('username', $needle))
+        ->first();
+
+    if (! $u) {
+        $this->error('User not found.');
+        return 1;
+    }
+
+    if (! $u->hasRole('super_admin')) {
+        $u->assignRole('super_admin');
+    }
+    $this->info("User {$u->id} promoted: roles=".$u->getRoleNames()->implode(','));
+    return 0;
+})->purpose('Assign super_admin role to a user');
