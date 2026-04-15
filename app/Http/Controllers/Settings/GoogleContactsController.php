@@ -3,15 +3,23 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ImportGoogleContactsBulkJob;
+use App\Jobs\SyncGoogleContactPhotosBulkJob;
 use App\Jobs\SyncGoogleContactsBulkJob;
 use App\Models\Customer;
 use App\Models\GoogleContactsIntegration;
 use App\Services\GoogleContactsOAuthService;
+use App\Support\GoogleContactsBulkSyncCancel;
 use App\Support\GoogleContactsBulkSyncState;
+use App\Support\GoogleContactsImportBulkState;
+use App\Support\GoogleContactsPhotoBulkCancel;
+use App\Support\GoogleContactsPhotoBulkState;
+use App\Support\OrganizationContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class GoogleContactsController extends Controller
@@ -99,6 +107,8 @@ class GoogleContactsController extends Controller
 
         $total = (int) Customer::query()->count();
 
+        GoogleContactsBulkSyncCancel::clear();
+
         GoogleContactsBulkSyncState::put([
             'status' => 'queued',
             'total' => $total,
@@ -110,7 +120,20 @@ class GoogleContactsController extends Controller
             'errors' => [],
         ]);
 
-        SyncGoogleContactsBulkJob::dispatch()->afterResponse();
+        $orgId = OrganizationContext::getOrganizationId();
+
+        app()->terminating(function () use ($orgId) {
+            OrganizationContext::setOrganizationId($orgId);
+            try {
+                (new SyncGoogleContactsBulkJob)->handle(
+                    app(\App\Services\GoogleContactsSyncService::class),
+                    app(GoogleContactsOAuthService::class)
+                );
+            } catch (\Throwable $e) {
+                GoogleContactsBulkSyncState::markFailed($e->getMessage());
+                Log::error('Google Contacts bulk sync terminating run failed', ['exception' => $e]);
+            }
+        });
 
         return response()->json(['ok' => true, 'total' => $total]);
     }
@@ -120,5 +143,129 @@ class GoogleContactsController extends Controller
         return response()->json(
             GoogleContactsBulkSyncState::get() ?? ['status' => 'idle', 'total' => 0, 'processed' => 0, 'success' => 0, 'failed' => 0]
         );
+    }
+
+    public function requestStopBulkSync(Request $request): JsonResponse
+    {
+        GoogleContactsBulkSyncCancel::request();
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * وارد کردن مخاطبین Google به CRM (فقط رکوردهای جدید؛ تطبیق با ایمیل/تلفن فعلی CRM).
+     */
+    public function startImportBulk(Request $request): JsonResponse
+    {
+        if (! GoogleContactsIntegration::getSingleton()) {
+            return response()->json(['ok' => false, 'message' => 'Google Contacts is not connected.'], 422);
+        }
+
+        GoogleContactsImportBulkState::put([
+            'status' => 'queued',
+            'total' => 0,
+            'processed' => 0,
+            'imported' => 0,
+            'skipped_duplicate' => 0,
+            'skipped_empty' => 0,
+            'failed' => 0,
+            'started_at' => now()->toIso8601String(),
+            'finished_at' => null,
+            'errors' => [],
+        ]);
+
+        $orgId = OrganizationContext::getOrganizationId();
+
+        app()->terminating(function () use ($orgId) {
+            OrganizationContext::setOrganizationId($orgId);
+            try {
+                (new ImportGoogleContactsBulkJob)->handle(
+                    app(\App\Services\GoogleContactsSyncService::class),
+                    app(GoogleContactsOAuthService::class)
+                );
+            } catch (\Throwable $e) {
+                GoogleContactsImportBulkState::markFailed($e->getMessage());
+                Log::error('Google Contacts import terminating run failed', ['exception' => $e]);
+            }
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function importProgress(Request $request): JsonResponse
+    {
+        return response()->json(
+            GoogleContactsImportBulkState::get() ?? [
+                'status' => 'idle',
+                'total' => 0,
+                'processed' => 0,
+                'imported' => 0,
+                'skipped_duplicate' => 0,
+                'skipped_empty' => 0,
+                'failed' => 0,
+            ]
+        );
+    }
+
+    /**
+     * به‌روزرسانی تصویر CRM از Google برای مشتریانی که google_people_resource_name دارند.
+     */
+    public function startPhotoBulk(Request $request): JsonResponse
+    {
+        if (! GoogleContactsIntegration::getSingleton()) {
+            return response()->json(['ok' => false, 'message' => 'Google Contacts is not connected.'], 422);
+        }
+
+        GoogleContactsPhotoBulkCancel::clear();
+
+        GoogleContactsPhotoBulkState::put([
+            'status' => 'queued',
+            'total' => 0,
+            'processed' => 0,
+            'updated' => 0,
+            'skipped' => 0,
+            'failed' => 0,
+            'started_at' => now()->toIso8601String(),
+            'finished_at' => null,
+            'errors' => [],
+        ]);
+
+        $orgId = OrganizationContext::getOrganizationId();
+
+        app()->terminating(function () use ($orgId) {
+            OrganizationContext::setOrganizationId($orgId);
+            try {
+                (new SyncGoogleContactPhotosBulkJob)->handle(
+                    app(\App\Services\GoogleContactsSyncService::class),
+                    app(GoogleContactsOAuthService::class)
+                );
+            } catch (\Throwable $e) {
+                GoogleContactsPhotoBulkState::markFailed($e->getMessage());
+                Log::error('Google Contacts photo bulk terminating run failed', ['exception' => $e]);
+            }
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function photoProgress(Request $request): JsonResponse
+    {
+        return response()->json(
+            GoogleContactsPhotoBulkState::get() ?? [
+                'status' => 'idle',
+                'total' => 0,
+                'processed' => 0,
+                'updated' => 0,
+                'skipped' => 0,
+                'failed' => 0,
+            ]
+        );
+    }
+
+    public function requestStopPhotoBulk(Request $request): JsonResponse
+    {
+        GoogleContactsPhotoBulkCancel::request();
+
+        return response()->json(['ok' => true]);
     }
 }

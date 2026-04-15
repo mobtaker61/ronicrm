@@ -5,14 +5,14 @@ namespace App\Jobs;
 use App\Models\GoogleContactsIntegration;
 use App\Services\GoogleContactsOAuthService;
 use App\Services\GoogleContactsSyncService;
-use App\Support\GoogleContactsBulkSyncState;
+use App\Support\GoogleContactsPhotoBulkState;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
-class SyncGoogleContactsBulkJob implements ShouldBeUnique, ShouldQueue
+class SyncGoogleContactPhotosBulkJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
@@ -22,14 +22,14 @@ class SyncGoogleContactsBulkJob implements ShouldBeUnique, ShouldQueue
 
     public function uniqueId(): string
     {
-        return 'google-contacts-bulk-sync';
+        return 'google-contacts-photo-bulk';
     }
 
     public function handle(GoogleContactsSyncService $sync, GoogleContactsOAuthService $oauth): void
     {
-        $lock = Cache::lock('google-contacts-bulk-sync', 7200);
+        $lock = Cache::lock('google-contacts-photo-bulk', 7200);
         if (! $lock->get()) {
-            GoogleContactsBulkSyncState::markFailed('Another bulk sync to Google is already running.');
+            GoogleContactsPhotoBulkState::markFailed('Another photo sync from Google is already running.');
 
             return;
         }
@@ -50,35 +50,47 @@ class SyncGoogleContactsBulkJob implements ShouldBeUnique, ShouldQueue
         }
 
         if (! GoogleContactsIntegration::getSingleton()) {
-            GoogleContactsBulkSyncState::markFailed('Google Contacts is not connected.');
+            GoogleContactsPhotoBulkState::markFailed('Google Contacts is not connected.');
 
             return;
         }
 
         if (! $oauth->getValidAccessToken()) {
-            GoogleContactsBulkSyncState::markFailed('Token refresh failed. Reconnect Google in Settings.');
+            GoogleContactsPhotoBulkState::markFailed('Token refresh failed. Reconnect Google in Settings.');
 
             return;
         }
 
-        $total = (int) \App\Models\Customer::query()->count();
-        GoogleContactsBulkSyncState::startRunning($total);
+        $total = (int) \App\Models\Customer::query()
+            ->whereNotNull('google_people_resource_name')
+            ->where('google_people_resource_name', '!=', '')
+            ->count();
+
+        GoogleContactsPhotoBulkState::startRunning($total);
 
         $errorsTail = [];
 
-        $result = $sync->syncAllCustomers(function (int $processed, int $total, int $success, int $failed, ?string $lastError) use (&$errorsTail) {
+        $result = $sync->syncAllLinkedCustomerPhotosFromGoogle(function (
+            int $processed,
+            int $totalCount,
+            int $updated,
+            int $skipped,
+            int $failed,
+            ?string $lastError
+        ) use (&$errorsTail) {
             if ($lastError !== null) {
                 $errorsTail[] = $lastError;
                 $errorsTail = array_slice($errorsTail, -40);
             }
-            GoogleContactsBulkSyncState::tick($processed, $total, $success, $failed, $errorsTail);
+            GoogleContactsPhotoBulkState::tick($processed, $totalCount, $updated, $skipped, $failed, $errorsTail);
         });
 
         if (! empty($result['cancelled'])) {
-            GoogleContactsBulkSyncState::markCancelled(
+            GoogleContactsPhotoBulkState::markCancelled(
                 $result['processed'],
                 $result['total'],
-                $result['success'],
+                $result['updated'],
+                $result['skipped'],
                 $result['failed'],
                 array_slice($result['errors'], -40)
             );
@@ -86,16 +98,17 @@ class SyncGoogleContactsBulkJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        if (($result['errors'][0] ?? '') !== '' && $result['success'] === 0 && $result['failed'] === 0) {
-            GoogleContactsBulkSyncState::markFailed($result['errors'][0]);
+        if (($result['errors'][0] ?? '') !== '' && $result['updated'] === 0 && $result['failed'] === 0 && $result['skipped'] === 0) {
+            GoogleContactsPhotoBulkState::markFailed($result['errors'][0]);
 
             return;
         }
 
-        GoogleContactsBulkSyncState::markDone($result);
+        GoogleContactsPhotoBulkState::markDone($result);
 
-        Log::info('Google Contacts bulk sync finished', [
-            'success' => $result['success'],
+        Log::info('Google Contacts photo bulk finished', [
+            'updated' => $result['updated'],
+            'skipped' => $result['skipped'],
             'failed' => $result['failed'],
             'total' => $result['total'],
         ]);

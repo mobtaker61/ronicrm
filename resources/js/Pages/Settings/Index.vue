@@ -1262,6 +1262,38 @@
                                 >
                                     {{ googleBulkSyncBusy ? t('settings.syncing') : t('settings.sync_all_customers') }}
                                 </button>
+                                <button
+                                    v-if="showGoogleBulkStop"
+                                    type="button"
+                                    @click="requestGoogleBulkStop"
+                                    class="px-4 py-2 border border-amber-500 text-amber-900 bg-amber-50 rounded-lg hover:bg-amber-100 text-sm font-medium"
+                                >
+                                    {{ t('settings.sync_stop_to_google') }}
+                                </button>
+                                <button
+                                    type="button"
+                                    :disabled="googleImportBulkBusy"
+                                    @click="startGoogleImportBulk"
+                                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium"
+                                >
+                                    {{ googleImportBulkBusy ? t('settings.importing_from_google') : t('settings.import_from_google_contacts') }}
+                                </button>
+                                <button
+                                    type="button"
+                                    :disabled="googlePhotoBulkBusy"
+                                    @click="startGooglePhotoBulk"
+                                    class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 text-sm font-medium"
+                                >
+                                    {{ googlePhotoBulkBusy ? t('settings.updating_photos_from_google') : t('settings.update_photos_from_google') }}
+                                </button>
+                                <button
+                                    v-if="showGooglePhotoStop"
+                                    type="button"
+                                    @click="requestGooglePhotoStop"
+                                    class="px-4 py-2 border border-amber-500 text-amber-900 bg-amber-50 rounded-lg hover:bg-amber-100 text-sm font-medium"
+                                >
+                                    {{ t('settings.google_photo_sync_stop') }}
+                                </button>
                                 <form @submit.prevent="disconnectGoogleContacts">
                                     <button type="submit" class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium">
                                         {{ t('settings.disconnect') }}
@@ -1294,9 +1326,87 @@
                             <ul v-if="googleBulkProgress.errors && googleBulkProgress.errors.length" class="text-xs text-amber-900 list-disc list-inside max-h-32 overflow-y-auto">
                                 <li v-for="(ge, gi) in googleBulkProgress.errors" :key="gi">{{ ge }}</li>
                             </ul>
+                            <p v-if="googleBulkProgress.last_tick_at" class="text-xs text-gray-600">
+                                {{ t('settings.last_server_activity') }}:
+                                <span class="font-mono ltr:inline-block">{{ formatGoogleTick(googleBulkProgress.last_tick_at) }}</span>
+                            </p>
+                            <p class="text-xs text-gray-500">{{ t('settings.google_bulk_inline_hint') }}</p>
                             <p class="text-xs text-gray-500">
                                 {{ t('settings.google_queue_worker_hint_1') }} <code class="bg-gray-100 px-1">database</code>/<code class="bg-gray-100 px-1">redis</code> {{ t('settings.google_queue_worker_hint_2') }} <code class="bg-gray-100 px-1">php artisan queue:work</code>. {{ t('settings.google_queue_worker_hint_3') }} <code class="bg-gray-100 px-1">sync</code> {{ t('settings.google_queue_worker_hint_4') }}
                             </p>
+                        </div>
+
+                        <div
+                            v-if="googleImportBulkProgress && googleImportBulkProgress.status && googleImportBulkProgress.status !== 'idle'"
+                            class="p-4 border border-indigo-100 rounded-lg bg-indigo-50/40 space-y-2"
+                        >
+                            <div class="flex justify-between text-sm text-gray-700">
+                                <span>
+                                    {{ t('settings.import_from_google_contacts') }} —
+                                    <strong>{{ googleImportBulkStatusLabel }}</strong>
+                                </span>
+                                <span v-if="googleImportBulkProgress.total != null && googleImportBulkProgress.total > 0">
+                                    {{ googleImportBulkProgress.processed ?? 0 }} / {{ googleImportBulkProgress.total }}
+                                </span>
+                                <span v-else class="text-gray-500">{{ googleImportBulkProgress.processed ?? 0 }}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                                <div
+                                    class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300"
+                                    :style="{ width: googleImportBulkProgressPercent + '%' }"
+                                ></div>
+                            </div>
+                            <p class="text-xs text-gray-600">
+                                {{ t('settings.success') }}: {{ googleImportBulkProgress.imported ?? 0 }} ·
+                                {{ t('settings.google_import_skipped_duplicate') }}: {{ googleImportBulkProgress.skipped_duplicate ?? 0 }} ·
+                                {{ t('settings.google_import_skipped_empty') }}: {{ googleImportBulkProgress.skipped_empty ?? 0 }} ·
+                                {{ t('settings.failed') }}: {{ googleImportBulkProgress.failed ?? 0 }}
+                            </p>
+                            <p v-if="googleImportBulkProgress.message" class="text-sm text-red-700">{{ googleImportBulkProgress.message }}</p>
+                            <ul v-if="googleImportBulkProgress.errors && googleImportBulkProgress.errors.length" class="text-xs text-amber-900 list-disc list-inside max-h-32 overflow-y-auto">
+                                <li v-for="(ie, ii) in googleImportBulkProgress.errors" :key="ii">{{ ie }}</li>
+                            </ul>
+                            <p v-if="googleImportBulkProgress.last_tick_at" class="text-xs text-gray-600">
+                                {{ t('settings.last_server_activity') }}:
+                                <span class="font-mono ltr:inline-block">{{ formatGoogleTick(googleImportBulkProgress.last_tick_at) }}</span>
+                            </p>
+                            <p class="text-xs text-gray-500">{{ t('settings.import_from_google_intro') }}</p>
+                        </div>
+
+                        <div
+                            v-if="googlePhotoBulkProgress && googlePhotoBulkProgress.status && googlePhotoBulkProgress.status !== 'idle'"
+                            class="p-4 border border-teal-200 rounded-lg bg-teal-50/50 space-y-2"
+                        >
+                            <div class="flex justify-between text-sm text-gray-700">
+                                <span>
+                                    {{ t('settings.update_photos_from_google') }} —
+                                    <strong>{{ googlePhotoBulkStatusLabel }}</strong>
+                                </span>
+                                <span v-if="googlePhotoBulkProgress.total != null && googlePhotoBulkProgress.total > 0">
+                                    {{ googlePhotoBulkProgress.processed ?? 0 }} / {{ googlePhotoBulkProgress.total }}
+                                </span>
+                                <span v-else class="text-gray-500">{{ googlePhotoBulkProgress.processed ?? 0 }}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                                <div
+                                    class="bg-teal-600 h-2.5 rounded-full transition-all duration-200"
+                                    :style="{ width: googlePhotoBulkProgressPercent + '%' }"
+                                ></div>
+                            </div>
+                            <p class="text-xs text-gray-600">
+                                {{ t('settings.google_photos_updated_label') }}: {{ googlePhotoBulkProgress.updated ?? 0 }} ·
+                                {{ t('settings.google_photos_skipped_label') }}: {{ googlePhotoBulkProgress.skipped ?? 0 }} ·
+                                {{ t('settings.failed') }}: {{ googlePhotoBulkProgress.failed ?? 0 }}
+                            </p>
+                            <p v-if="googlePhotoBulkProgress.message" class="text-sm text-red-700">{{ googlePhotoBulkProgress.message }}</p>
+                            <ul v-if="googlePhotoBulkProgress.errors && googlePhotoBulkProgress.errors.length" class="text-xs text-amber-900 list-disc list-inside max-h-32 overflow-y-auto">
+                                <li v-for="(pe, pi) in googlePhotoBulkProgress.errors" :key="pi">{{ pe }}</li>
+                            </ul>
+                            <p v-if="googlePhotoBulkProgress.last_tick_at" class="text-xs text-gray-600">
+                                {{ t('settings.last_server_activity') }}:
+                                <span class="font-mono ltr:inline-block">{{ formatGoogleTick(googlePhotoBulkProgress.last_tick_at) }}</span>
+                            </p>
+                            <p class="text-xs text-gray-500">{{ t('settings.google_photo_sync_intro') }}</p>
                         </div>
 
                         <p class="text-xs text-gray-500">
@@ -2547,9 +2657,16 @@ const googleRedirectUriDisplay = computed(() => {
     return '';
 });
 
+const GOOGLE_PROGRESS_POLL_MS = 400;
+
 const googleBulkProgress = ref(null);
 const googleBulkPolling = ref(null);
 const googleBulkSyncBusy = ref(false);
+
+const showGoogleBulkStop = computed(() => {
+    const s = googleBulkProgress.value?.status;
+    return s === 'running' || s === 'queued';
+});
 
 const googleBulkProgressPercent = computed(() => {
     const p = googleBulkProgress.value;
@@ -2574,8 +2691,20 @@ const googleBulkStatusLabel = computed(() => {
     if (s === 'failed') {
         return t('common.error');
     }
-        return s || '—';
+    if (s === 'cancelled') {
+        return t('settings.cancelled');
+    }
+    return s || '—';
 });
+
+function formatGoogleTick(iso) {
+    if (!iso) return '—';
+    try {
+        return new Date(iso).toLocaleString();
+    } catch {
+        return String(iso);
+    }
+}
 
 function stopGoogleBulkPolling() {
     if (googleBulkPolling.value) {
@@ -2588,10 +2717,18 @@ async function pollGoogleBulkOnce() {
     try {
         const { data } = await window.axios.get(route('settings.google-contacts.sync-progress'));
         googleBulkProgress.value = data;
-        if (data.status === 'done' || data.status === 'failed') {
+        if (data.status === 'done' || data.status === 'failed' || data.status === 'cancelled') {
             googleBulkSyncBusy.value = false;
             stopGoogleBulkPolling();
         }
+    } catch {
+        /* ignore */
+    }
+}
+
+async function requestGoogleBulkStop() {
+    try {
+        await window.axios.post(route('settings.google-contacts.sync-stop'));
     } catch {
         /* ignore */
     }
@@ -2606,11 +2743,194 @@ async function startGoogleBulkSync() {
         }
         await pollGoogleBulkOnce();
         stopGoogleBulkPolling();
-        googleBulkPolling.value = setInterval(pollGoogleBulkOnce, 700);
+        googleBulkPolling.value = setInterval(pollGoogleBulkOnce, GOOGLE_PROGRESS_POLL_MS);
     } catch (e) {
         googleBulkSyncBusy.value = false;
         const msg = e.response?.data?.message || e.message || t('common.error');
         alert(msg);
+    }
+}
+
+const googleImportBulkProgress = ref(null);
+const googleImportBulkPolling = ref(null);
+const googleImportBulkBusy = ref(false);
+
+const googleImportBulkProgressPercent = computed(() => {
+    const p = googleImportBulkProgress.value;
+    if (!p || !p.total || p.total <= 0) {
+        return 0;
+    }
+    const done = Math.min(p.processed ?? 0, p.total);
+    return Math.round((done / p.total) * 100);
+});
+
+const googleImportBulkStatusLabel = computed(() => {
+    const s = googleImportBulkProgress.value?.status;
+    if (s === 'queued') {
+        return t('settings.queued');
+    }
+    if (s === 'running') {
+        return t('settings.processing');
+    }
+    if (s === 'done') {
+        return t('settings.done');
+    }
+    if (s === 'failed') {
+        return t('common.error');
+    }
+    if (s === 'cancelled') {
+        return t('settings.cancelled');
+    }
+    return s || '—';
+});
+
+function stopGoogleImportBulkPolling() {
+    if (googleImportBulkPolling.value) {
+        clearInterval(googleImportBulkPolling.value);
+        googleImportBulkPolling.value = null;
+    }
+}
+
+async function pollGoogleImportOnce() {
+    try {
+        const { data } = await window.axios.get(route('settings.google-contacts.import-progress'));
+        googleImportBulkProgress.value = data;
+        if (data.status === 'done' || data.status === 'failed' || data.status === 'cancelled') {
+            googleImportBulkBusy.value = false;
+            stopGoogleImportBulkPolling();
+        }
+    } catch {
+        /* ignore */
+    }
+}
+
+async function startGoogleImportBulk() {
+    googleImportBulkBusy.value = true;
+    try {
+        const { data } = await window.axios.post(route('settings.google-contacts.import-start'));
+        if (!data.ok) {
+            throw new Error(data.message || t('settings.sync_start_failed'));
+        }
+        await pollGoogleImportOnce();
+        stopGoogleImportBulkPolling();
+        googleImportBulkPolling.value = setInterval(pollGoogleImportOnce, GOOGLE_PROGRESS_POLL_MS);
+    } catch (e) {
+        googleImportBulkBusy.value = false;
+        const msg = e.response?.data?.message || e.message || t('common.error');
+        alert(msg);
+    }
+}
+
+const googlePhotoBulkProgress = ref(null);
+const googlePhotoBulkPolling = ref(null);
+const googlePhotoBulkBusy = ref(false);
+
+const showGooglePhotoStop = computed(() => {
+    const s = googlePhotoBulkProgress.value?.status;
+    return s === 'running' || s === 'queued';
+});
+
+const googlePhotoBulkProgressPercent = computed(() => {
+    const p = googlePhotoBulkProgress.value;
+    if (!p || !p.total || p.total <= 0) {
+        return 0;
+    }
+    const done = Math.min(p.processed ?? 0, p.total);
+    return Math.round((done / p.total) * 100);
+});
+
+const googlePhotoBulkStatusLabel = computed(() => {
+    const s = googlePhotoBulkProgress.value?.status;
+    if (s === 'queued') {
+        return t('settings.queued');
+    }
+    if (s === 'running') {
+        return t('settings.processing');
+    }
+    if (s === 'done') {
+        return t('settings.done');
+    }
+    if (s === 'failed') {
+        return t('common.error');
+    }
+    if (s === 'cancelled') {
+        return t('settings.cancelled');
+    }
+    return s || '—';
+});
+
+function stopGooglePhotoBulkPolling() {
+    if (googlePhotoBulkPolling.value) {
+        clearInterval(googlePhotoBulkPolling.value);
+        googlePhotoBulkPolling.value = null;
+    }
+}
+
+async function pollGooglePhotoOnce() {
+    try {
+        const { data } = await window.axios.get(route('settings.google-contacts.photo-sync-progress'));
+        googlePhotoBulkProgress.value = data;
+        if (data.status === 'done' || data.status === 'failed' || data.status === 'cancelled') {
+            googlePhotoBulkBusy.value = false;
+            stopGooglePhotoBulkPolling();
+        }
+    } catch {
+        /* ignore */
+    }
+}
+
+async function requestGooglePhotoStop() {
+    try {
+        await window.axios.post(route('settings.google-contacts.photo-sync-stop'));
+    } catch {
+        /* ignore */
+    }
+}
+
+async function startGooglePhotoBulk() {
+    googlePhotoBulkBusy.value = true;
+    try {
+        const { data } = await window.axios.post(route('settings.google-contacts.photo-sync-start'));
+        if (!data.ok) {
+            throw new Error(data.message || t('settings.sync_start_failed'));
+        }
+        await pollGooglePhotoOnce();
+        stopGooglePhotoBulkPolling();
+        googlePhotoBulkPolling.value = setInterval(pollGooglePhotoOnce, GOOGLE_PROGRESS_POLL_MS);
+    } catch (e) {
+        googlePhotoBulkBusy.value = false;
+        const msg = e.response?.data?.message || e.message || t('common.error');
+        alert(msg);
+    }
+}
+
+async function refreshGoogleContactsTabProgress() {
+    await pollGoogleBulkOnce();
+    await pollGoogleImportOnce();
+    await pollGooglePhotoOnce();
+    const st = googleBulkProgress.value?.status;
+    if (st === 'running' || st === 'queued') {
+        googleBulkSyncBusy.value = true;
+        stopGoogleBulkPolling();
+        googleBulkPolling.value = setInterval(pollGoogleBulkOnce, GOOGLE_PROGRESS_POLL_MS);
+    } else {
+        googleBulkSyncBusy.value = false;
+    }
+    const ist = googleImportBulkProgress.value?.status;
+    if (ist === 'running' || ist === 'queued') {
+        googleImportBulkBusy.value = true;
+        stopGoogleImportBulkPolling();
+        googleImportBulkPolling.value = setInterval(pollGoogleImportOnce, GOOGLE_PROGRESS_POLL_MS);
+    } else {
+        googleImportBulkBusy.value = false;
+    }
+    const pst = googlePhotoBulkProgress.value?.status;
+    if (pst === 'running' || pst === 'queued') {
+        googlePhotoBulkBusy.value = true;
+        stopGooglePhotoBulkPolling();
+        googlePhotoBulkPolling.value = setInterval(pollGooglePhotoOnce, GOOGLE_PROGRESS_POLL_MS);
+    } else {
+        googlePhotoBulkBusy.value = false;
     }
 }
 
@@ -2619,32 +2939,24 @@ watch(
     async (t) => {
         if (t !== 'google-contacts') {
             stopGoogleBulkPolling();
+            stopGoogleImportBulkPolling();
+            stopGooglePhotoBulkPolling();
             return;
         }
-        await pollGoogleBulkOnce();
-        const st = googleBulkProgress.value?.status;
-        if (st === 'running' || st === 'queued') {
-            googleBulkSyncBusy.value = true;
-            stopGoogleBulkPolling();
-            googleBulkPolling.value = setInterval(pollGoogleBulkOnce, 700);
-        }
+        await refreshGoogleContactsTabProgress();
     }
 );
 
 onMounted(async () => {
     if (activeTab.value === 'google-contacts') {
-        await pollGoogleBulkOnce();
-        const st = googleBulkProgress.value?.status;
-        if (st === 'running' || st === 'queued') {
-            googleBulkSyncBusy.value = true;
-            stopGoogleBulkPolling();
-            googleBulkPolling.value = setInterval(pollGoogleBulkOnce, 700);
-        }
+        await refreshGoogleContactsTabProgress();
     }
 });
 
 onUnmounted(() => {
     stopGoogleBulkPolling();
+    stopGoogleImportBulkPolling();
+    stopGooglePhotoBulkPolling();
     stopRonibotPartnerPolling();
 });
 

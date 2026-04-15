@@ -330,6 +330,46 @@
                 
                 <div class="px-6 py-4 flex-1 overflow-y-auto">
                     <!-- Instructions -->
+                    <div
+                        v-if="googleContactsConnected"
+                        class="mb-6 p-4 border border-indigo-200 rounded-lg bg-indigo-50/40 space-y-3"
+                    >
+                        <div>
+                            <h4 class="font-medium text-indigo-900 mb-1">{{ t('settings.import_from_google_contacts') }}</h4>
+                            <p class="text-sm text-indigo-800">{{ t('settings.import_from_google_intro') }}</p>
+                        </div>
+                        <button
+                            type="button"
+                            :disabled="customersGoogleImportBusy"
+                            @click="startCustomersGoogleImport"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium"
+                        >
+                            {{ customersGoogleImportBusy ? t('settings.importing_from_google') : t('settings.import_from_google_contacts') }}
+                        </button>
+                        <div
+                            v-if="customersGoogleImportProgress && customersGoogleImportProgress.status && customersGoogleImportProgress.status !== 'idle'"
+                            class="text-sm space-y-2"
+                        >
+                            <div class="flex flex-wrap gap-2 text-gray-700">
+                                <span><strong>{{ customersGoogleImportStatusLabel }}</strong></span>
+                                <span v-if="customersGoogleImportProgress.total > 0">
+                                    {{ customersGoogleImportProgress.processed ?? 0 }} / {{ customersGoogleImportProgress.total }}
+                                </span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                <div
+                                    class="bg-indigo-600 h-2 rounded-full transition-all"
+                                    :style="{ width: customersGoogleImportPercent + '%' }"
+                                ></div>
+                            </div>
+                            <p class="text-xs text-gray-600">
+                                +{{ customersGoogleImportProgress.imported ?? 0 }} ·
+                                {{ t('settings.google_import_skipped_duplicate') }}: {{ customersGoogleImportProgress.skipped_duplicate ?? 0 }}
+                            </p>
+                            <p v-if="customersGoogleImportProgress.message" class="text-xs text-red-700">{{ customersGoogleImportProgress.message }}</p>
+                        </div>
+                    </div>
+
                     <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                 <h4 class="font-medium text-blue-900 mb-2">{{ t('customers.import_csv_format_title') }}</h4>
                         <ul class="text-sm text-blue-800 space-y-1 list-disc list-inside">
@@ -443,7 +483,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { Link, router, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import IndustrySelect from '@/Components/IndustrySelect.vue';
@@ -455,6 +495,10 @@ const props = defineProps({
     industries: Array,
     projects: Array,
     filters: Object,
+    googleContactsConnected: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const showImportModal = ref(false);
@@ -605,6 +649,81 @@ const importCustomers = () => {
     });
 };
 
+const customersGoogleImportProgress = ref(null);
+const customersGoogleImportPolling = ref(null);
+const customersGoogleImportBusy = ref(false);
+
+const customersGoogleImportPercent = computed(() => {
+    const p = customersGoogleImportProgress.value;
+    if (!p || !p.total || p.total <= 0) {
+        return 0;
+    }
+    return Math.round((Math.min(p.processed ?? 0, p.total) / p.total) * 100);
+});
+
+const customersGoogleImportStatusLabel = computed(() => {
+    const s = customersGoogleImportProgress.value?.status;
+    if (s === 'queued') {
+        return t('settings.queued');
+    }
+    if (s === 'running') {
+        return t('settings.processing');
+    }
+    if (s === 'done') {
+        return t('settings.done');
+    }
+    if (s === 'failed') {
+        return t('common.error');
+    }
+    return s || '—';
+});
+
+function stopCustomersGoogleImportPolling() {
+    if (customersGoogleImportPolling.value) {
+        clearInterval(customersGoogleImportPolling.value);
+        customersGoogleImportPolling.value = null;
+    }
+}
+
+async function pollCustomersGoogleImportOnce() {
+    try {
+        const { data } = await window.axios.get(route('settings.google-contacts.import-progress'));
+        customersGoogleImportProgress.value = data;
+        if (data.status === 'done') {
+            customersGoogleImportBusy.value = false;
+            stopCustomersGoogleImportPolling();
+            if ((data.imported ?? 0) > 0) {
+                setTimeout(() => {
+                    router.reload({ only: ['customers'] });
+                }, 400);
+            }
+        }
+        if (data.status === 'failed') {
+            customersGoogleImportBusy.value = false;
+            stopCustomersGoogleImportPolling();
+        }
+    } catch {
+        /* ignore */
+    }
+}
+
+async function startCustomersGoogleImport() {
+    customersGoogleImportBusy.value = true;
+    try {
+        const { data } = await window.axios.post(route('settings.google-contacts.import-start'));
+        if (!data.ok) {
+            throw new Error(data.message || t('settings.sync_start_failed'));
+        }
+        await pollCustomersGoogleImportOnce();
+        stopCustomersGoogleImportPolling();
+        customersGoogleImportPolling.value = setInterval(pollCustomersGoogleImportOnce, 700);
+    } catch (e) {
+        customersGoogleImportBusy.value = false;
+        const msg = e.response?.data?.message || e.message || t('common.error');
+        alert(msg);
+    }
+}
+
 const closeImportModal = () => {
     showImportModal.value = false;
     selectedFile.value = null;
@@ -612,10 +731,15 @@ const closeImportModal = () => {
     previewData.value = null;
     isLoadingPreview.value = false;
     importForm.reset();
+    stopCustomersGoogleImportPolling();
     if (fileInput.value) {
         fileInput.value.value = '';
     }
 };
+
+onUnmounted(() => {
+    stopCustomersGoogleImportPolling();
+});
 
 const updateIndustry = (customer) => {
     router.patch(route('customers.quick-update', customer.id), {

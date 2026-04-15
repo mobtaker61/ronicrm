@@ -5,11 +5,11 @@ namespace App\Support;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * وضعیت همگام‌سازی انبوه Google Contacts (برای polling در UI).
+ * وضعیت واردات انبوه از Google Contacts به CRM (برای polling در UI).
  */
-class GoogleContactsBulkSyncState
+class GoogleContactsImportBulkState
 {
-    public const CACHE_KEY = 'google_contacts_bulk_sync_v1';
+    public const CACHE_KEY = 'google_contacts_import_bulk_v1';
 
     public const TTL_SECONDS = 7200;
 
@@ -36,15 +36,18 @@ class GoogleContactsBulkSyncState
         Cache::forget(self::CACHE_KEY);
     }
 
-    public static function startRunning(int $total): void
+    public static function startRunning(): void
     {
+        $prev = self::get() ?? [];
         self::put([
             'status' => 'running',
-            'total' => $total,
+            'total' => (int) ($prev['total'] ?? 0),
             'processed' => 0,
-            'success' => 0,
+            'imported' => 0,
+            'skipped_duplicate' => 0,
+            'skipped_empty' => 0,
             'failed' => 0,
-            'started_at' => now()->toIso8601String(),
+            'started_at' => $prev['started_at'] ?? now()->toIso8601String(),
             'finished_at' => null,
             'errors' => [],
             'last_tick_at' => now()->toIso8601String(),
@@ -54,13 +57,22 @@ class GoogleContactsBulkSyncState
     /**
      * @param  array<int, string>  $errorsTail
      */
-    public static function tick(int $processed, int $total, int $success, int $failed, array $errorsTail): void
-    {
+    public static function tick(
+        int $processed,
+        int $total,
+        int $imported,
+        int $skippedDuplicate,
+        int $skippedEmpty,
+        int $failed,
+        array $errorsTail
+    ): void {
         $cur = self::get() ?? [];
         $cur['status'] = 'running';
         $cur['total'] = $total;
         $cur['processed'] = $processed;
-        $cur['success'] = $success;
+        $cur['imported'] = $imported;
+        $cur['skipped_duplicate'] = $skippedDuplicate;
+        $cur['skipped_empty'] = $skippedEmpty;
         $cur['failed'] = $failed;
         $cur['errors'] = $errorsTail;
         $cur['last_tick_at'] = now()->toIso8601String();
@@ -68,7 +80,14 @@ class GoogleContactsBulkSyncState
     }
 
     /**
-     * @param  array{success: int, failed: int, errors: array<int, string>, total: int}  $result
+     * @param  array{
+     *     imported: int,
+     *     skipped_duplicate: int,
+     *     skipped_empty: int,
+     *     failed: int,
+     *     errors: array<int, string>,
+     *     total: int
+     * }  $result
      */
     public static function markDone(array $result): void
     {
@@ -77,31 +96,13 @@ class GoogleContactsBulkSyncState
             'status' => 'done',
             'total' => $result['total'],
             'processed' => $result['total'],
-            'success' => $result['success'],
+            'imported' => $result['imported'],
+            'skipped_duplicate' => $result['skipped_duplicate'],
+            'skipped_empty' => $result['skipped_empty'],
             'failed' => $result['failed'],
             'started_at' => $prev['started_at'] ?? now()->toIso8601String(),
             'finished_at' => now()->toIso8601String(),
             'errors' => array_slice($result['errors'], 0, 50),
-            'last_tick_at' => now()->toIso8601String(),
-        ]);
-    }
-
-    /**
-     * @param  array<int, string>  $errorsTail
-     */
-    public static function markCancelled(int $processed, int $total, int $success, int $failed, array $errorsTail): void
-    {
-        $prev = self::get() ?? [];
-        self::put([
-            'status' => 'cancelled',
-            'total' => $total,
-            'processed' => $processed,
-            'success' => $success,
-            'failed' => $failed,
-            'started_at' => $prev['started_at'] ?? null,
-            'finished_at' => now()->toIso8601String(),
-            'message' => 'Stopped by user.',
-            'errors' => $errorsTail,
             'last_tick_at' => now()->toIso8601String(),
         ]);
     }
@@ -112,13 +113,14 @@ class GoogleContactsBulkSyncState
             'status' => 'failed',
             'total' => 0,
             'processed' => 0,
-            'success' => 0,
+            'imported' => 0,
+            'skipped_duplicate' => 0,
+            'skipped_empty' => 0,
             'failed' => 0,
             'started_at' => null,
             'finished_at' => now()->toIso8601String(),
             'message' => $message,
             'errors' => [$message],
-            'last_tick_at' => now()->toIso8601String(),
         ]);
     }
 }

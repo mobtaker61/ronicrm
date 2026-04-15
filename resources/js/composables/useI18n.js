@@ -39,7 +39,14 @@ export function useI18n() {
         }
         const dict = messages.value || {};
         if (Object.prototype.hasOwnProperty.call(dict, key)) {
-            return dict[key];
+            const v = dict[key];
+            if (v !== null && v !== undefined) {
+                const s = String(v).trim();
+                if (s !== '') {
+                    return String(v);
+                }
+            }
+            return fallback ?? key;
         }
 
         return fallback ?? key;

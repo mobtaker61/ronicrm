@@ -183,7 +183,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/google-contacts/callback', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'callback'])->name('settings.google-contacts.callback');
     Route::post('/settings/google-contacts/disconnect', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'disconnect'])->name('settings.google-contacts.disconnect');
     Route::post('/settings/google-contacts/sync-start', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'startBulkSync'])->name('settings.google-contacts.sync-start');
+    Route::post('/settings/google-contacts/sync-stop', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'requestStopBulkSync'])->name('settings.google-contacts.sync-stop');
     Route::get('/settings/google-contacts/sync-progress', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'syncProgress'])->name('settings.google-contacts.sync-progress');
+    Route::post('/settings/google-contacts/import-start', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'startImportBulk'])->name('settings.google-contacts.import-start');
+    Route::get('/settings/google-contacts/import-progress', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'importProgress'])->name('settings.google-contacts.import-progress');
+    Route::post('/settings/google-contacts/photo-sync-start', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'startPhotoBulk'])->name('settings.google-contacts.photo-sync-start');
+    Route::get('/settings/google-contacts/photo-sync-progress', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'photoProgress'])->name('settings.google-contacts.photo-sync-progress');
+    Route::post('/settings/google-contacts/photo-sync-stop', [\App\Http\Controllers\Settings\GoogleContactsController::class, 'requestStopPhotoBulk'])->name('settings.google-contacts.photo-sync-stop');
     Route::get('/settings/telegram/qr-code', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'qrCode'])->name('settings.telegram.qr-code');
     Route::get('/settings/telegram/status', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'status'])->name('settings.telegram.status');
     Route::post('/settings/telegram/start-phone-login', [\App\Http\Controllers\Settings\TelegramConnectionController::class, 'startPhoneLogin'])->name('settings.telegram.start-phone-login');

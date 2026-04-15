@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Jobs\PushCustomerToGoogleContactsJob;
 use App\Models\Customer;
+use App\Models\GoogleContactsIntegration;
 use App\Models\Industry;
 use App\Models\Project;
 use App\Models\SocialMediaType;
+use App\Services\GoogleContactsSyncService;
+use App\Support\OrganizationContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -62,6 +65,8 @@ class CustomerController extends Controller
             'industries' => Industry::with('children')->whereNull('parent_id')->orderBy('sort_order')->orderBy('name')->get(),
             'projects' => Project::orderBy('name')->get(),
             'filters' => $request->only(['search', 'type', 'industry_id', 'project_id', 'status', 'source']),
+            'googleContactsConnected' => Auth::user()?->canManageOrganizationSettings()
+                && GoogleContactsIntegration::getSingleton() !== null,
         ]);
     }
 
@@ -128,7 +133,7 @@ class CustomerController extends Controller
             $customer->socialMedia()->create($sm);
         }
 
-        PushCustomerToGoogleContactsJob::dispatch($customer->id)->afterResponse();
+        $this->pushCustomerToGoogleAfterResponse($customer->id);
 
         return redirect()->route('customers.index')
             ->with('success', 'Customer created successfully.');
@@ -313,7 +318,7 @@ class CustomerController extends Controller
             }
         }
 
-        PushCustomerToGoogleContactsJob::dispatch($customer->id)->afterResponse();
+        $this->pushCustomerToGoogleAfterResponse($customer->id);
 
         return redirect()->route('customers.show', $customer)
             ->with('success', 'Customer updated successfully.');
@@ -1034,5 +1039,21 @@ class CustomerController extends Controller
         }
 
         return $out === [] ? null : array_values(array_unique($out));
+    }
+
+    protected function pushCustomerToGoogleAfterResponse(int $customerId): void
+    {
+        $orgId = OrganizationContext::getOrganizationId();
+        app()->terminating(function () use ($orgId, $customerId) {
+            OrganizationContext::setOrganizationId($orgId);
+            try {
+                (new PushCustomerToGoogleContactsJob($customerId))->handle(app(GoogleContactsSyncService::class));
+            } catch (\Throwable $e) {
+                Log::warning('Push customer to Google Contacts failed', [
+                    'customer_id' => $customerId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        });
     }
 }
