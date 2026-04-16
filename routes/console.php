@@ -325,3 +325,122 @@ Artisan::command('user:promote-superadmin {needle : User id/email/username}', fu
     $this->info("User {$u->id} promoted: roles=".$u->getRoleNames()->implode(','));
     return 0;
 })->purpose('Assign super_admin role to a user');
+
+Artisan::command('whatsapp:fix-lid-senders {--dry-run : Only report changes, do not update database}', function () {
+    $dryRun = (bool) $this->option('dry-run');
+
+    $this->info('Fix WhatsApp inbound LID senders (15-digit from_phone)');
+    $this->line(' - dry_run: '.($dryRun ? 'yes' : 'no'));
+
+    $extractDigits = function (?string $value): string {
+        $value = $value === null ? '' : trim($value);
+        if ($value === '') {
+            return '';
+        }
+        if (str_contains($value, '@')) {
+            $value = explode('@', $value, 2)[0] ?? $value;
+        }
+        $digits = preg_replace('/\D+/', '', $value) ?? '';
+        if (str_starts_with($digits, '00')) {
+            $digits = substr($digits, 2);
+        }
+        return $digits;
+    };
+
+    $pickBest = function (array $candidates) {
+        $candidates = array_values(array_filter($candidates, fn ($d) => is_string($d) && $d !== ''));
+        if ($candidates === []) {
+            return '';
+        }
+        usort($candidates, function (string $a, string $b) {
+            $score = function (int $len): int {
+                if ($len >= 10 && $len <= 14) {
+                    return 0;
+                }
+                if ($len >= 8 && $len <= 9) {
+                    return 1;
+                }
+                if ($len === 15) {
+                    return 3;
+                }
+                return 2;
+            };
+            $sa = $score(strlen($a));
+            $sb = $score(strlen($b));
+            if ($sa !== $sb) {
+                return $sa <=> $sb;
+            }
+            return strlen($a) <=> strlen($b);
+        });
+        return $candidates[0] ?? '';
+    };
+
+    $q = \App\Models\WhatsAppMessage::withoutGlobalScope('organization')
+        ->where('direction', 'incoming')
+        ->whereNotNull('from_phone')
+        ->whereRaw('CHAR_LENGTH(from_phone) = 15');
+
+    $total = (int) $q->count();
+    $this->info("Found {$total} messages to inspect.");
+    if ($total === 0) {
+        $this->comment('Nothing to do.');
+        return 0;
+    }
+
+    $updated = 0;
+    $skipped = 0;
+    $failed = 0;
+
+    $q->orderBy('id')->chunkById(200, function ($rows) use ($dryRun, $extractDigits, $pickBest, &$updated, &$skipped, &$failed) {
+        /** @var \App\Models\WhatsAppMessage $row */
+        foreach ($rows as $row) {
+            try {
+                $meta = is_array($row->metadata) ? $row->metadata : [];
+                $payload = is_array($meta['payload'] ?? null) ? ($meta['payload'] ?? []) : [];
+                $data0 = null;
+                if (isset($payload['data'][0]) && is_array($payload['data'][0])) {
+                    $data0 = $payload['data'][0];
+                }
+
+                $remoteJid = is_array($data0) ? (($data0['key']['remoteJid'] ?? null) ?: null) : null;
+                $participant = is_array($data0) ? (($data0['key']['participant'] ?? null) ?: null) : null;
+                $remoteJidAlt = is_array($data0) ? (($data0['key']['remoteJidAlt'] ?? null) ?: null) : null;
+
+                $candidates = [
+                    $extractDigits(is_string($remoteJid) ? $remoteJid : null),
+                    $extractDigits(is_string($participant) ? $participant : null),
+                    $extractDigits(is_string($remoteJidAlt) ? $remoteJidAlt : null),
+                ];
+                $best = $pickBest($candidates);
+
+                // Only update if we found a phone-like replacement.
+                if ($best === '' || strlen($best) === 15) {
+                    $skipped++;
+                    continue;
+                }
+
+                if ($dryRun) {
+                    $this->line("would_update\tid={$row->id}\torg={$row->organization_id}\tfrom={$row->from_phone}\t=>\t{$best}");
+                    $updated++;
+                    continue;
+                }
+
+                $row->from_phone = $best;
+                $row->save();
+                $updated++;
+            } catch (\Throwable $e) {
+                $failed++;
+                $this->warn("failed\tid={$row->id}\t".$e->getMessage());
+            }
+        }
+    });
+
+    $this->info('Done.');
+    $this->line(" - updated: {$updated}");
+    $this->line(" - skipped: {$skipped}");
+    $this->line(" - failed: {$failed}");
+    if ($dryRun) {
+        $this->comment('Tip: rerun without --dry-run to apply changes.');
+    }
+    return $failed > 0 ? 1 : 0;
+})->purpose('Fix inbound WhatsApp messages where from_phone was saved as 15-digit LID (use metadata.remoteJid)');

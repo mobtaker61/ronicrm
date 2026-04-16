@@ -51,10 +51,7 @@ class RonibotWebhookController extends Controller
             // =========================
             // PHONES
             // =========================
-            $fromPhone = $this->formatPhone(
-                $data['sender']
-                ?? ($msg['key']['remoteJidAlt'] ?? '')
-            );
+            $fromPhone = $this->extractInboundSenderPhone($data, $msg);
 
             $receiverRaw = (string) ($data['receiver'] ?? '');
 
@@ -209,6 +206,133 @@ class RonibotWebhookController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Ronibot (Baileys) may send `sender` (derived from remoteJidAlt) as a 15-digit LID for some accounts
+     * (often WhatsApp Business / privacy). Inbox matching and replies require the real phone/MSISDN.
+     *
+     * Strategy:
+     * - Prefer extracting digits from standard JIDs (`remoteJid`, `participant`, `remoteJidAlt`) when they contain @.
+     * - Prefer "phone-like" lengths (10-14 digits). Avoid 15-digit LID if a better candidate exists.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $msg
+     */
+    protected function extractInboundSenderPhone(array $data, array $msg): string
+    {
+        $candidates = [];
+
+        $pushCandidate = function (?string $value, string $source) use (&$candidates): void {
+            $value = $value === null ? '' : trim($value);
+            if ($value === '') {
+                return;
+            }
+            $digits = $this->extractDigitsFromWaAddress($value);
+            if ($digits === '') {
+                return;
+            }
+            $candidates[] = [
+                'source' => $source,
+                'value' => $value,
+                'digits' => $digits,
+                'len' => strlen($digits),
+            ];
+        };
+
+        // Standard places (remoteJid usually remains the real number even when remoteJidAlt becomes @lid)
+        $pushCandidate($msg['key']['remoteJid'] ?? null, 'msg.key.remoteJid');
+        $pushCandidate($msg['key']['participant'] ?? null, 'msg.key.participant');
+        $pushCandidate($msg['key']['remoteJidAlt'] ?? null, 'msg.key.remoteJidAlt');
+
+        // Ronibot wrapper fields
+        $pushCandidate(isset($data['sender']) ? (string) $data['sender'] : null, 'data.sender');
+        $pushCandidate(isset($data['from']) ? (string) $data['from'] : null, 'data.from');
+
+        if ($candidates === []) {
+            return '';
+        }
+
+        // Rank: prefer 10-14 digits (common MSISDN lengths), then 8-9, then 15 (LID-ish), then others.
+        usort($candidates, function ($a, $b) {
+            $score = function (int $len): int {
+                if ($len >= 10 && $len <= 14) {
+                    return 0;
+                }
+                if ($len >= 8 && $len <= 9) {
+                    return 1;
+                }
+                if ($len === 15) {
+                    return 3;
+                }
+                return 2;
+            };
+
+            $sa = $score((int) $a['len']);
+            $sb = $score((int) $b['len']);
+            if ($sa !== $sb) {
+                return $sa <=> $sb;
+            }
+
+            // Tie-break: prefer values that look like a JID (contain '@') over plain digits
+            $ajid = str_contains((string) $a['value'], '@') ? 0 : 1;
+            $bjid = str_contains((string) $b['value'], '@') ? 0 : 1;
+            if ($ajid !== $bjid) {
+                return $ajid <=> $bjid;
+            }
+
+            // Finally: prefer shorter (phone) over longer (ids)
+            return ((int) $a['len']) <=> ((int) $b['len']);
+        });
+
+        $best = (string) ($candidates[0]['digits'] ?? '');
+
+        // If we ended up with a 15-digit id but another candidate is 10-14, switch and log.
+        if (strlen($best) === 15) {
+            foreach ($candidates as $c) {
+                $len = (int) ($c['len'] ?? 0);
+                if ($len >= 10 && $len <= 14) {
+                    Log::warning('Ronibot webhook: sender looked like LID; using phone-like candidate instead', [
+                        'lid_digits' => $best,
+                        'chosen_digits' => (string) $c['digits'],
+                        'chosen_source' => (string) ($c['source'] ?? ''),
+                        'all_sources' => array_map(fn ($x) => (string) ($x['source'] ?? ''), $candidates),
+                    ]);
+                    $best = (string) $c['digits'];
+                    break;
+                }
+            }
+        }
+
+        return $this->formatPhone($best);
+    }
+
+    /**
+     * Extract digits from:
+     * - plain phone strings ("+98912...")
+     * - WhatsApp JIDs ("98912@s.whatsapp.net", "98912@c.us", "...@lid")
+     */
+    protected function extractDigitsFromWaAddress(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        // JID-like
+        if (str_contains($value, '@')) {
+            $value = explode('@', $value, 2)[0] ?? $value;
+        }
+
+        // Keep digits only
+        $digits = preg_replace('/\D+/', '', $value) ?? '';
+
+        // Normalize leading 00 (international prefix)
+        if (str_starts_with($digits, '00')) {
+            $digits = substr($digits, 2);
+        }
+
+        return $digits;
     }
 
     /**
