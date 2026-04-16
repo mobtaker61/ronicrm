@@ -45,32 +45,45 @@ class RonibotWebhookController extends Controller
                 $participant = (string) ($msg['key']['participant'] ?? '');
                 $participantDigits = $this->extractDigitsFromWaAddress($participant);
 
-                // For groups, prefer receiver-based resolution (line phone / session id) to avoid
-                // mis-attributing the group to another org due to shared contacts/history.
-                $organizationId = $this->resolveOrganizationIdFromReceiverFirst($request, $receiverRaw)
-                    ?? $this->resolveOrganizationIdFromWebhook($request, $participantDigits, $receiverRaw);
-                if ($organizationId !== null) {
-                    OrganizationContext::setOrganizationId($organizationId);
+                // For groups, if multiple orgs share the same receiver (same WA session/line),
+                // we must upsert the group for ALL matching orgs.
+                $orgIds = $this->resolveOrganizationIdsFromReceiver($request, $receiverRaw);
+                if ($orgIds === []) {
+                    $fallbackOrg = $this->resolveOrganizationIdFromWebhook($request, $participantDigits, $receiverRaw);
+                    $orgIds = $fallbackOrg ? [$fallbackOrg] : [];
+                }
 
+                if ($orgIds !== []) {
                     $groupTitle = $data['groupTitle'] ?? $data['title'] ?? null;
                     if (! is_string($groupTitle) || trim($groupTitle) === '') {
                         $groupTitle = null;
                     }
 
-                    TelegramGroup::withoutGlobalScope('organization')->updateOrCreate(
-                        [
-                            'organization_id' => $organizationId,
-                            'channel' => 'whatsapp',
-                            'telegram_group_id' => (string) $remoteJid,
-                        ],
-                        [
-                            'telegram_user_connection_id' => null,
-                            'title' => $groupTitle,
-                            'type' => 'group',
-                            'is_active' => true,
-                            'last_synced_at' => now(),
-                        ]
-                    );
+                    if (count($orgIds) > 1) {
+                        Log::info('Ronibot webhook: group receiver matched multiple organizations; upserting for all', [
+                            'groupJid' => (string) $remoteJid,
+                            'receiver' => $receiverRaw,
+                            'org_ids' => $orgIds,
+                        ]);
+                    }
+
+                    foreach (array_unique($orgIds) as $organizationId) {
+                        OrganizationContext::setOrganizationId((int) $organizationId);
+                        TelegramGroup::withoutGlobalScope('organization')->updateOrCreate(
+                            [
+                                'organization_id' => (int) $organizationId,
+                                'channel' => 'whatsapp',
+                                'telegram_group_id' => (string) $remoteJid,
+                            ],
+                            [
+                                'telegram_user_connection_id' => null,
+                                'title' => $groupTitle,
+                                'type' => 'group',
+                                'is_active' => true,
+                                'last_synced_at' => now(),
+                            ]
+                        );
+                    }
                 } else {
                     Log::warning('Ronibot webhook: group message received but organization could not be resolved', [
                         'groupJid' => (string) $remoteJid,
@@ -602,6 +615,71 @@ class RonibotWebhookController extends Controller
 
         // Non-phone receiver: treat as session id
         return $this->findOrganizationIdByRonibotSessionId($receiverTrim);
+    }
+
+    /**
+     * Resolve possibly-multiple org ids from receiver (line digits or session id).
+     * When multiple orgs are configured with the same WA session/line, group messages must be
+     * registered for all of them.
+     *
+     * @return array<int, int> organization ids
+     */
+    protected function resolveOrganizationIdsFromReceiver(Request $request, string $receiverRaw): array
+    {
+        $override = $request->input('organization_id');
+        if ($override !== null && $override !== '') {
+            $id = (int) $override;
+            if ($id > 0 && Organization::query()->whereKey($id)->exists()) {
+                return [$id];
+            }
+        }
+
+        $receiverTrim = trim((string) $receiverRaw);
+        if ($receiverTrim === '') {
+            return [];
+        }
+
+        $receiverDigits = $this->formatPhone(preg_replace('/\D+/', '', $receiverTrim) ?: '');
+        $looksLikePhone = $receiverDigits !== '' && strlen($receiverDigits) >= 8;
+
+        $rows = OrganizationSetting::query()
+            ->withoutGlobalScopes()
+            ->where('key', 'ronibot')
+            ->get();
+
+        $matched = [];
+        foreach ($rows as $row) {
+            $val = $row->value;
+            if (! is_array($val)) {
+                continue;
+            }
+
+            if ($looksLikePhone) {
+                foreach (['line_phone', 'wa_line_phone', 'connected_line_phone'] as $k) {
+                    $line = $val[$k] ?? null;
+                    if ($line === null || $line === '') {
+                        continue;
+                    }
+                    if ($this->formatPhone((string) $line) === $receiverDigits) {
+                        $matched[] = (int) $row->organization_id;
+                        break;
+                    }
+                }
+            } else {
+                foreach (['wa_session_id', 'session_id', 'device_session_id'] as $k) {
+                    $sid = $val[$k] ?? null;
+                    if ($sid === null || $sid === '') {
+                        continue;
+                    }
+                    if (trim((string) $sid) === $receiverTrim) {
+                        $matched[] = (int) $row->organization_id;
+                        break;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($matched, fn ($id) => $id > 0)));
     }
 
     protected function findOrganizationIdByRonibotLinePhone(string $normalizedDigits): ?int
