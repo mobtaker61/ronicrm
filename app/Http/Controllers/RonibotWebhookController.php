@@ -39,6 +39,13 @@ class RonibotWebhookController extends Controller
 
             $remoteJid = $msg['key']['remoteJid'] ?? '';
             if (str_ends_with((string) $remoteJid, '@g.us')) {
+                Log::warning('Ronibot webhook: group message received', [
+                    'receiver' => (string) ($data['receiver'] ?? ''),
+                    'message_id' => (string) ($msg['key']['id'] ?? ''),
+                    'group_jid' => (string) $remoteJid,
+                    'participant' => (string) ($msg['key']['participant'] ?? ''),
+                ]);
+
                 // Group message: do not store in inbox (whatsapp_messages).
                 // Instead, upsert basic group info so group lists stay in sync.
                 $receiverRaw = (string) ($data['receiver'] ?? '');
@@ -62,6 +69,7 @@ class RonibotWebhookController extends Controller
                         'participant_digits' => $participantDigits,
                         'resolved_org_ids' => $orgIds,
                         'receiver_debug' => $receiverDebug,
+                        'group_title' => $groupTitle,                        
                     ]);
 
                     if (count($orgIds) > 1) {
