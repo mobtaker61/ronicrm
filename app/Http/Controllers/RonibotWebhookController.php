@@ -39,9 +39,46 @@ class RonibotWebhookController extends Controller
 
             $remoteJid = $msg['key']['remoteJid'] ?? '';
             if (str_ends_with((string) $remoteJid, '@g.us')) {
+                // Group message: do not store in inbox (whatsapp_messages).
+                // Instead, upsert basic group info so group lists stay in sync.
+                $receiverRaw = (string) ($data['receiver'] ?? '');
+                $participant = (string) ($msg['key']['participant'] ?? '');
+                $participantDigits = $this->extractDigitsFromWaAddress($participant);
+
+                $organizationId = $this->resolveOrganizationIdFromWebhook($request, $participantDigits, $receiverRaw);
+                if ($organizationId !== null) {
+                    OrganizationContext::setOrganizationId($organizationId);
+
+                    $groupTitle = $data['groupTitle'] ?? $data['title'] ?? null;
+                    if (! is_string($groupTitle) || trim($groupTitle) === '') {
+                        $groupTitle = null;
+                    }
+
+                    TelegramGroup::withoutGlobalScope('organization')->updateOrCreate(
+                        [
+                            'organization_id' => $organizationId,
+                            'channel' => 'whatsapp',
+                            'telegram_group_id' => (string) $remoteJid,
+                        ],
+                        [
+                            'telegram_user_connection_id' => null,
+                            'title' => $groupTitle,
+                            'type' => 'group',
+                            'is_active' => true,
+                            'last_synced_at' => now(),
+                        ]
+                    );
+                } else {
+                    Log::warning('Ronibot webhook: group message received but organization could not be resolved', [
+                        'groupJid' => (string) $remoteJid,
+                        'receiver' => $receiverRaw,
+                        'participant' => $participant,
+                    ]);
+                }
+
                 return response()->json([
                     'success' => true,
-                    'message' => 'Group chat ignored for inbox',
+                    'message' => 'Group chat stored (metadata only) and ignored for inbox',
                 ]);
             }
 
