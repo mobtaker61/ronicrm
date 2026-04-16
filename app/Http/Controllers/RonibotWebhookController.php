@@ -45,7 +45,10 @@ class RonibotWebhookController extends Controller
                 $participant = (string) ($msg['key']['participant'] ?? '');
                 $participantDigits = $this->extractDigitsFromWaAddress($participant);
 
-                $organizationId = $this->resolveOrganizationIdFromWebhook($request, $participantDigits, $receiverRaw);
+                // For groups, prefer receiver-based resolution (line phone / session id) to avoid
+                // mis-attributing the group to another org due to shared contacts/history.
+                $organizationId = $this->resolveOrganizationIdFromReceiverFirst($request, $receiverRaw)
+                    ?? $this->resolveOrganizationIdFromWebhook($request, $participantDigits, $receiverRaw);
                 if ($organizationId !== null) {
                     OrganizationContext::setOrganizationId($organizationId);
 
@@ -567,6 +570,38 @@ class RonibotWebhookController extends Controller
         }
 
         return $fallback;
+    }
+
+    /**
+     * Resolve org using receiver only (strict).
+     * - receiver as phone line digits -> org by line_phone/wa_line_phone/connected_line_phone
+     * - receiver as session id        -> org by wa_session_id/session_id/device_session_id
+     *
+     * This is useful for WhatsApp group messages where participant is not a reliable org hint
+     * and contact-based fallbacks can mis-attribute to a different organization.
+     */
+    protected function resolveOrganizationIdFromReceiverFirst(Request $request, string $receiverRaw): ?int
+    {
+        $override = $request->input('organization_id');
+        if ($override !== null && $override !== '') {
+            $id = (int) $override;
+            if ($id > 0 && Organization::query()->whereKey($id)->exists()) {
+                return $id;
+            }
+        }
+
+        $receiverTrim = trim((string) $receiverRaw);
+        if ($receiverTrim === '') {
+            return null;
+        }
+
+        $receiverDigits = $this->formatPhone(preg_replace('/\D+/', '', $receiverTrim) ?: '');
+        if ($receiverDigits !== '' && strlen($receiverDigits) >= 8) {
+            return $this->findOrganizationIdByRonibotLinePhone($receiverDigits);
+        }
+
+        // Non-phone receiver: treat as session id
+        return $this->findOrganizationIdByRonibotSessionId($receiverTrim);
     }
 
     protected function findOrganizationIdByRonibotLinePhone(string $normalizedDigits): ?int
