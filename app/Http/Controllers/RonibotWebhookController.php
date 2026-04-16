@@ -47,17 +47,22 @@ class RonibotWebhookController extends Controller
 
                 // For groups, if multiple orgs share the same receiver (same WA session/line),
                 // we must upsert the group for ALL matching orgs.
-                $orgIds = $this->resolveOrganizationIdsFromReceiver($request, $receiverRaw);
-                if ($orgIds === []) {
-                    $fallbackOrg = $this->resolveOrganizationIdFromWebhook($request, $participantDigits, $receiverRaw);
-                    $orgIds = $fallbackOrg ? [$fallbackOrg] : [];
-                }
+                [$orgIds, $receiverDebug] = $this->resolveOrganizationIdsFromReceiver($request, $receiverRaw, true);
 
                 if ($orgIds !== []) {
                     $groupTitle = $data['groupTitle'] ?? $data['title'] ?? null;
                     if (! is_string($groupTitle) || trim($groupTitle) === '') {
                         $groupTitle = null;
                     }
+
+                    Log::info('Ronibot webhook: group org resolution', [
+                        'groupJid' => (string) $remoteJid,
+                        'receiver' => $receiverRaw,
+                        'participant' => $participant,
+                        'participant_digits' => $participantDigits,
+                        'resolved_org_ids' => $orgIds,
+                        'receiver_debug' => $receiverDebug,
+                    ]);
 
                     if (count($orgIds) > 1) {
                         Log::info('Ronibot webhook: group receiver matched multiple organizations; upserting for all', [
@@ -85,16 +90,22 @@ class RonibotWebhookController extends Controller
                         );
                     }
                 } else {
-                    Log::warning('Ronibot webhook: group message received but organization could not be resolved', [
+                    // For group messages, DO NOT fallback to contact/history-based org resolution.
+                    // A shared receiver/webhook can map to multiple orgs and fallback is often wrong,
+                    // causing groups to be registered under the wrong organization.
+                    Log::warning('Ronibot webhook: group message received but receiver did not match any organization; group not stored', [
                         'groupJid' => (string) $remoteJid,
                         'receiver' => $receiverRaw,
                         'participant' => $participant,
+                        'receiver_debug' => $receiverDebug,
                     ]);
                 }
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Group chat stored (metadata only) and ignored for inbox',
+                    'message' => $orgIds !== []
+                        ? 'Group chat stored (metadata only) and ignored for inbox'
+                        : 'Group chat ignored for inbox (unmapped receiver)',
                 ]);
             }
 
@@ -624,19 +635,22 @@ class RonibotWebhookController extends Controller
      *
      * @return array<int, int> organization ids
      */
-    protected function resolveOrganizationIdsFromReceiver(Request $request, string $receiverRaw): array
+    /**
+     * @return array{0: array<int, int>, 1: array<string, mixed>}
+     */
+    protected function resolveOrganizationIdsFromReceiver(Request $request, string $receiverRaw, bool $withDebug = false): array
     {
         $override = $request->input('organization_id');
         if ($override !== null && $override !== '') {
             $id = (int) $override;
             if ($id > 0 && Organization::query()->whereKey($id)->exists()) {
-                return [$id];
+                return [[$id], ['override' => $id]];
             }
         }
 
         $receiverTrim = trim((string) $receiverRaw);
         if ($receiverTrim === '') {
-            return [];
+            return [[], ['reason' => 'empty_receiver']];
         }
 
         $receiverDigits = $this->formatPhone(preg_replace('/\D+/', '', $receiverTrim) ?: '');
@@ -648,6 +662,7 @@ class RonibotWebhookController extends Controller
             ->get();
 
         $matched = [];
+        $debugMatches = [];
         foreach ($rows as $row) {
             $val = $row->value;
             if (! is_array($val)) {
@@ -662,6 +677,15 @@ class RonibotWebhookController extends Controller
                     }
                     if ($this->formatPhone((string) $line) === $receiverDigits) {
                         $matched[] = (int) $row->organization_id;
+                        if ($withDebug) {
+                            $debugMatches[] = [
+                                'org_id' => (int) $row->organization_id,
+                                'match_type' => 'line_phone',
+                                'key' => $k,
+                                'receiver_digits' => $receiverDigits,
+                                'stored' => (string) $line,
+                            ];
+                        }
                         break;
                     }
                 }
@@ -673,13 +697,35 @@ class RonibotWebhookController extends Controller
                     }
                     if (trim((string) $sid) === $receiverTrim) {
                         $matched[] = (int) $row->organization_id;
+                        if ($withDebug) {
+                            $debugMatches[] = [
+                                'org_id' => (int) $row->organization_id,
+                                'match_type' => 'session_id',
+                                'key' => $k,
+                                'receiver' => $receiverTrim,
+                                'stored' => (string) $sid,
+                            ];
+                        }
                         break;
                     }
                 }
             }
         }
 
-        return array_values(array_unique(array_filter($matched, fn ($id) => $id > 0)));
+        $orgIds = array_values(array_unique(array_filter($matched, fn ($id) => $id > 0)));
+
+        $debug = [];
+        if ($withDebug) {
+            $debug = [
+                'receiver_trim' => $receiverTrim,
+                'receiver_digits' => $receiverDigits,
+                'looks_like_phone' => $looksLikePhone,
+                'matched' => $debugMatches,
+                'total_settings_rows' => $rows->count(),
+            ];
+        }
+
+        return [$orgIds, $debug];
     }
 
     protected function findOrganizationIdByRonibotLinePhone(string $normalizedDigits): ?int

@@ -444,3 +444,86 @@ Artisan::command('whatsapp:fix-lid-senders {--dry-run : Only report changes, do 
     }
     return $failed > 0 ? 1 : 0;
 })->purpose('Fix inbound WhatsApp messages where from_phone was saved as 15-digit LID (use metadata.remoteJid)');
+
+Artisan::command('whatsapp:debug-receiver-orgs {receiver : Receiver value from webhook (session id or line phone)}', function () {
+    $receiver = (string) $this->argument('receiver');
+    $receiverTrim = trim($receiver);
+    if ($receiverTrim === '') {
+        $this->error('Receiver is empty.');
+        return 1;
+    }
+
+    $formatPhone = function (string $phone): string {
+        $phone = preg_replace('/[^0-9]/', '', $phone) ?? '';
+        if (str_starts_with($phone, '00')) {
+            $phone = substr($phone, 2);
+        }
+        return $phone;
+    };
+
+    $receiverDigits = $formatPhone(preg_replace('/\D+/', '', $receiverTrim) ?: '');
+    $looksLikePhone = $receiverDigits !== '' && strlen($receiverDigits) >= 8;
+
+    $this->info('Receiver diagnostics');
+    $this->line(' - receiver_raw: '.$receiver);
+    $this->line(' - receiver_trim: '.$receiverTrim);
+    $this->line(' - receiver_digits: '.$receiverDigits);
+    $this->line(' - looks_like_phone: '.($looksLikePhone ? 'yes' : 'no (treat as session id)'));
+
+    $rows = \App\Models\OrganizationSetting::query()
+        ->withoutGlobalScopes()
+        ->where('key', 'ronibot')
+        ->get();
+
+    $matched = [];
+    foreach ($rows as $row) {
+        $val = $row->value;
+        if (! is_array($val)) {
+            continue;
+        }
+
+        if ($looksLikePhone) {
+            foreach (['line_phone', 'wa_line_phone', 'connected_line_phone'] as $k) {
+                $line = $val[$k] ?? null;
+                if ($line === null || $line === '') {
+                    continue;
+                }
+                if ($formatPhone((string) $line) === $receiverDigits) {
+                    $matched[] = [
+                        'org_id' => (int) $row->organization_id,
+                        'match_type' => 'line_phone',
+                        'key' => $k,
+                        'stored' => (string) $line,
+                    ];
+                    break;
+                }
+            }
+        } else {
+            foreach (['wa_session_id', 'session_id', 'device_session_id'] as $k) {
+                $sid = $val[$k] ?? null;
+                if ($sid === null || $sid === '') {
+                    continue;
+                }
+                if (trim((string) $sid) === $receiverTrim) {
+                    $matched[] = [
+                        'org_id' => (int) $row->organization_id,
+                        'match_type' => 'session_id',
+                        'key' => $k,
+                        'stored' => (string) $sid,
+                    ];
+                    break;
+                }
+            }
+        }
+    }
+
+    $orgIds = collect($matched)->pluck('org_id')->unique()->values()->all();
+    $this->info('Matched organizations');
+    $this->line(' - total_settings_rows: '.$rows->count());
+    $this->line(' - matched_org_ids: '.($orgIds ? implode(', ', $orgIds) : '(none)'));
+    foreach ($matched as $m) {
+        $this->line(" - org {$m['org_id']} via {$m['match_type']} ({$m['key']}) stored={$m['stored']}");
+    }
+
+    return 0;
+})->purpose('Debug which organizations match a given Ronibot receiver (line/session) for WhatsApp groups');
