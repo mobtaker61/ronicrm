@@ -13,20 +13,19 @@ class OrganizationNotificationService
     public const EVENT_CUSTOMER_CREATED = 'customer_created';
 
     /**
-     * متغیرهای مجاز برای قالب‌ها (کلید => توضیح)
+     * Allowed template placeholders (token => short description for logs).
      *
      * @return array<string, string>
      */
     public function allowedVariablesForEvent(string $event): array
     {
-        // کلیدها باید دقیقا همان placeholder داخل متن باشند (مثلاً {name})
         $base = [
-            '{name}' => 'نام مخاطب',
-            '{company}' => 'نام شرکت مخاطب',
-            '{email}' => 'ایمیل مخاطب',
-            '{phone}' => 'شماره مخاطب',
-            '{public_link}' => 'لینک پابلیک کارت مخاطب',
-            '{org_name}' => 'نام سازمان',
+            '{name}' => 'Customer name',
+            '{company}' => 'Company name',
+            '{email}' => 'Email',
+            '{phone}' => 'Phone',
+            '{public_link}' => 'Public customer card URL',
+            '{org_name}' => 'Organization name',
         ];
 
         return match ($event) {
@@ -48,12 +47,12 @@ class OrganizationNotificationService
                     'channels' => [
                         'email' => [
                             'enabled' => false,
-                            'subject' => 'خوش آمدید {name}',
-                            'body' => "سلام {name}\n\nبه {org_name} خوش آمدید.\nلینک کارت شما: {public_link}",
+                            'subject' => 'Welcome {name}',
+                            'body' => "Hi {name},\n\nWelcome to {org_name}.\nYour public card link: {public_link}",
                         ],
                         'whatsapp' => [
                             'enabled' => false,
-                            'body' => "سلام {name}\nبه {org_name} خوش آمدید.\n{public_link}",
+                            'body' => "Hi {name}, welcome to {org_name}.\n{public_link}",
                         ],
                     ],
                 ],

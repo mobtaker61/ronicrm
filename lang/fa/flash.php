@@ -8,4 +8,5 @@ return [
     'password_updated' => 'رمز عبور با موفقیت به‌روزرسانی شد. می‌توانید وارد شوید.',
     'password_reset_failed' => 'امکان تغییر رمز نبود. لینک ممکن است منقضی یا نامعتبر باشد.',
     'superadmin_notifications_saved' => 'تنظیمات اعلان‌های پلتفرم ذخیره شد.',
+    'org_notifications_saved' => 'تنظیمات اعلان‌های سازمان ذخیره شد.',
 ];

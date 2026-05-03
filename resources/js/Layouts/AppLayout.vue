@@ -442,6 +442,18 @@
                             >
                                 {{ t('settings.tabs.users') }}
                             </Link>
+                            <Link
+                                v-if="canManageOrganizationSettings"
+                                :href="settingsTabUrl('notifications')"
+                                :class="[
+                                    'flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-lg transition-colors ltr:pl-12 rtl:pr-12',
+                                    isSettingsNotificationsNavActive
+                                        ? 'bg-blue-50 text-blue-700'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                ]"
+                            >
+                                {{ t('settings.tabs.notifications') }}
+                            </Link>
                             <div v-if="canManageOrganizationSettings" class="space-y-1">
                                 <button
                                     type="button"
@@ -659,7 +671,6 @@ const openMenus = ref({
 const channelNavItems = [
     { tab: 'smtp', labelKey: 'settings.tabs.smtp' },
     { tab: 'ronibot', labelKey: 'settings.tabs.ronibot' },
-    { tab: 'notifications', labelKey: 'settings.tabs.notifications' },
     { tab: 'telegram', labelKey: 'settings.tabs.telegram_inbox' },
     { tab: 'instagram', labelKey: 'settings.tabs.instagram_inbox' },
     { tab: 'tiktok', labelKey: 'settings.tabs.tiktok_inbox' },
@@ -725,6 +736,17 @@ const isSettingsOrganizationNavActive = computed(() => {
     return t === 'organization' || t === null || t === '';
 });
 
+const isSettingsNotificationsNavActive = computed(() => {
+    if (!canManageOrganizationSettings.value) {
+        return false;
+    }
+    const path = String(page.url || '').split('?')[0];
+    if (path !== '/settings') {
+        return false;
+    }
+    return settingsQueryTab() === 'notifications';
+});
+
 const isChannelsMenuSectionActive = computed(() => {
     if (!canManageOrganizationSettings.value) {
         return false;
@@ -734,11 +756,12 @@ const isChannelsMenuSectionActive = computed(() => {
         return false;
     }
     const t = settingsQueryTab() || '';
-    return ['smtp', 'ronibot', 'notifications', 'telegram', 'instagram', 'tiktok', 'google-contacts'].includes(t);
+    return ['smtp', 'ronibot', 'telegram', 'instagram', 'tiktok', 'google-contacts'].includes(t);
 });
 
 const isSettingsSubtreeActive = computed(() => {
     return isSettingsOrganizationNavActive.value
+        || isSettingsNotificationsNavActive.value
         || isCurrentRoute('/settings/users')
         || isChannelsMenuSectionActive.value;
 });

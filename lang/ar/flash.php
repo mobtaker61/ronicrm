@@ -8,4 +8,5 @@ return [
     'password_updated' => 'تم تحديث كلمة المرور. يمكنك تسجيل الدخول الآن.',
     'password_reset_failed' => 'تعذر تغيير كلمة المرور. قد يكون الرابط غير صالح أو منتهيًا.',
     'superadmin_notifications_saved' => 'تم حفظ إعدادات إشعارات المنصة.',
+    'org_notifications_saved' => 'تم حفظ إعدادات إشعارات المؤسسة.',
 ];

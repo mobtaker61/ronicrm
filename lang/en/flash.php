@@ -8,4 +8,5 @@ return [
     'password_updated' => 'Your password has been updated. You can sign in now.',
     'password_reset_failed' => 'Could not reset password. The link may be invalid or expired.',
     'superadmin_notifications_saved' => 'Platform notification settings saved.',
+    'org_notifications_saved' => 'Organization notification settings saved.',
 ];

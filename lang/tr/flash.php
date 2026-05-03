@@ -8,4 +8,5 @@ return [
     'password_updated' => 'Şifreniz güncellendi. Giriş yapabilirsiniz.',
     'password_reset_failed' => 'Şifre sıfırlanamadı. Bağlantı geçersiz veya süresi dolmuş olabilir.',
     'superadmin_notifications_saved' => 'Platform bildirim ayarları kaydedildi.',
+    'org_notifications_saved' => 'Kuruluş bildirim ayarları kaydedildi.',
 ];

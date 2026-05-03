@@ -814,102 +814,138 @@
 
                 <!-- Organization Notifications Tab -->
                 <div v-if="activeTab === 'notifications' && canManageOrganizationSettings" class="p-6">
-                    <h2 class="text-xl font-bold text-gray-900 mb-2">اعلان‌های سازمان</h2>
-                    <p class="text-sm text-gray-600 mb-6">
-                        در این بخش می‌توانید ارسال پیام‌های خودکار (مثلاً خوش‌آمدگویی هنگام افزودن مخاطب) را برای ایمیل و واتساپ مدیریت کنید.
-                        متغیرهای قابل استفاده: <code class="bg-gray-100 px-1 rounded">{name}</code>،
-                        <code class="bg-gray-100 px-1 rounded">{company}</code>،
-                        <code class="bg-gray-100 px-1 rounded">{public_link}</code>،
-                        <code class="bg-gray-100 px-1 rounded">{org_name}</code>
-                    </p>
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">{{ t('settings.tabs.notifications') }}</h2>
+                    <p class="text-sm text-gray-600 mb-2">{{ t('settings.org_notifications.page_intro') }}</p>
+                    <p class="text-xs text-gray-500 mb-6 font-mono">{{ t('settings.org_notifications.variables_help') }}</p>
 
                     <form @submit.prevent="saveOrgNotifications" class="space-y-6">
-                        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                            <div class="flex items-center justify-between gap-4">
-                                <div class="min-w-0">
-                                    <p class="font-semibold text-gray-900">افزودن مخاطب جدید</p>
-                                    <p class="text-xs text-gray-600">وقتی مخاطب جدید ساخته می‌شود (از فرم، اینباکس، وب‌هوک و ...)</p>
-                                </div>
-                                <label class="flex items-center gap-2">
-                                    <input
-                                        v-model="orgNotificationsForm.events.customer_created.enabled"
-                                        type="checkbox"
-                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    <span class="text-sm font-medium text-gray-700">فعال</span>
-                                </label>
-                            </div>
+                        <div
+                            v-if="orgNotificationsForm.errors && Object.keys(orgNotificationsForm.errors).length"
+                            class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                        >
+                            <ul class="list-disc list-inside space-y-1">
+                                <li v-for="(msg, key) in orgNotificationsForm.errors" :key="key">{{ msg }}</li>
+                            </ul>
                         </div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div class="rounded-lg border border-gray-200 p-4 space-y-4">
-                                <div class="flex items-center justify-between">
-                                    <h3 class="font-semibold text-gray-900">ایمیل</h3>
-                                    <label class="flex items-center gap-2">
+                        <div class="border-b border-gray-200 flex flex-wrap gap-2">
+                            <button
+                                v-for="tab in orgNotificationTabs"
+                                :key="tab.id"
+                                type="button"
+                                @click="orgNotifActiveTab = tab.id"
+                                :class="[
+                                    'px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 -mb-px transition-colors',
+                                    orgNotifActiveTab === tab.id
+                                        ? 'border-blue-600 text-blue-700 bg-white'
+                                        : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300',
+                                ]"
+                            >
+                                {{ t(tab.labelKey) }}
+                            </button>
+                        </div>
+
+                        <div v-show="orgNotifActiveTab === 'customer_created'" class="space-y-6">
+                            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                    <div class="min-w-0">
+                                        <p class="font-semibold text-gray-900">{{ t('settings.org_notifications.tab_customer_created') }}</p>
+                                        <p class="text-xs text-gray-600 mt-1">{{ t('settings.org_notifications.customer_created_help') }}</p>
+                                    </div>
+                                    <label class="flex items-center gap-2 shrink-0">
                                         <input
-                                            v-model="orgNotificationsForm.events.customer_created.channels.email.enabled"
+                                            v-model="orgNotificationsForm.events.customer_created.enabled"
                                             type="checkbox"
                                             class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                         />
-                                        <span class="text-sm text-gray-700">ارسال</span>
+                                        <span class="text-sm font-medium text-gray-700">{{ t('settings.org_notifications.enabled') }}</span>
                                     </label>
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">موضوع ایمیل</label>
-                                    <input
-                                        v-model="orgNotificationsForm.events.customer_created.channels.email.subject"
-                                        type="text"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                                        placeholder="مثلاً: خوش آمدید {name}"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">متن ایمیل</label>
-                                    <textarea
-                                        v-model="orgNotificationsForm.events.customer_created.channels.email.body"
-                                        rows="8"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                                        placeholder="متن پیام..."
-                                    ></textarea>
-                                    <p class="mt-1 text-xs text-gray-500">می‌توانید متن ساده یا HTML وارد کنید.</p>
                                 </div>
                             </div>
 
-                            <div class="rounded-lg border border-gray-200 p-4 space-y-4">
-                                <div class="flex items-center justify-between">
-                                    <h3 class="font-semibold text-gray-900">واتساپ (Ronibot)</h3>
-                                    <label class="flex items-center gap-2">
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div class="rounded-lg border border-gray-200 p-4 space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="font-semibold text-gray-900">{{ t('settings.org_notifications.email_section') }}</h3>
+                                        <label class="flex items-center gap-2">
+                                            <input
+                                                v-model="orgNotificationsForm.events.customer_created.channels.email.enabled"
+                                                type="checkbox"
+                                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <span class="text-sm text-gray-700">{{ t('settings.org_notifications.send') }}</span>
+                                        </label>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{
+                                            t('settings.org_notifications.email_subject')
+                                        }}</label>
                                         <input
-                                            v-model="orgNotificationsForm.events.customer_created.channels.whatsapp.enabled"
-                                            type="checkbox"
-                                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            v-model="orgNotificationsForm.events.customer_created.channels.email.subject"
+                                            type="text"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                            :placeholder="t('settings.org_notifications.placeholder_email_subject')"
                                         />
-                                        <span class="text-sm text-gray-700">ارسال</span>
-                                    </label>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{
+                                            t('settings.org_notifications.email_body')
+                                        }}</label>
+                                        <textarea
+                                            v-model="orgNotificationsForm.events.customer_created.channels.email.body"
+                                            rows="8"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                            :placeholder="t('settings.org_notifications.placeholder_message')"
+                                        ></textarea>
+                                        <p class="mt-1 text-xs text-gray-500">{{ t('settings.org_notifications.email_body_hint') }}</p>
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">متن پیام واتساپ</label>
-                                    <textarea
-                                        v-model="orgNotificationsForm.events.customer_created.channels.whatsapp.body"
-                                        rows="10"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                                        placeholder="متن پیام..."
-                                    ></textarea>
-                                    <p class="mt-1 text-xs text-gray-500">حداکثر ۵۰۰۰ کاراکتر.</p>
+                                <div class="rounded-lg border border-gray-200 p-4 space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="font-semibold text-gray-900">{{ t('settings.org_notifications.whatsapp_section') }}</h3>
+                                        <label class="flex items-center gap-2">
+                                            <input
+                                                v-model="orgNotificationsForm.events.customer_created.channels.whatsapp.enabled"
+                                                type="checkbox"
+                                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <span class="text-sm text-gray-700">{{ t('settings.org_notifications.send') }}</span>
+                                        </label>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{
+                                            t('settings.org_notifications.whatsapp_body')
+                                        }}</label>
+                                        <textarea
+                                            v-model="orgNotificationsForm.events.customer_created.channels.whatsapp.body"
+                                            rows="10"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                            :placeholder="t('settings.org_notifications.placeholder_message')"
+                                        ></textarea>
+                                        <p class="mt-1 text-xs text-gray-500">{{ t('settings.org_notifications.whatsapp_body_hint') }}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-end gap-3">
+                        <div
+                            v-show="orgNotifActiveTab === 'more'"
+                            class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-600"
+                        >
+                            {{ t('settings.org_notifications.coming_soon_body') }}
+                        </div>
+
+                        <div class="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
                             <button
                                 type="submit"
                                 :disabled="orgNotificationsForm.processing"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                             >
-                                {{ orgNotificationsForm.processing ? t('settings.saving') : 'ذخیره تنظیمات اعلان‌ها' }}
+                                {{ orgNotificationsForm.processing ? t('settings.saving') : t('settings.org_notifications.save') }}
                             </button>
                         </div>
                     </form>
@@ -2083,6 +2119,12 @@ const ronibotForm = useForm({
     ronibot_user_id: props.ronibotSettings.ronibot_user_id || '',
 });
 
+const orgNotifActiveTab = ref('customer_created');
+const orgNotificationTabs = [
+    { id: 'customer_created', labelKey: 'settings.org_notifications.tab_customer_created' },
+    { id: 'more', labelKey: 'settings.org_notifications.tab_coming_soon' },
+];
+
 const orgNotificationsForm = useForm({
     events: {
         customer_created: {
@@ -2090,7 +2132,7 @@ const orgNotificationsForm = useForm({
             channels: {
                 email: {
                     enabled: !!(props.orgNotificationsSettings?.events?.customer_created?.channels?.email?.enabled ?? false),
-                    subject: props.orgNotificationsSettings?.events?.customer_created?.channels?.email?.subject ?? 'خوش آمدید {name}',
+                    subject: props.orgNotificationsSettings?.events?.customer_created?.channels?.email?.subject ?? 'Welcome {name}',
                     body: props.orgNotificationsSettings?.events?.customer_created?.channels?.email?.body ?? '',
                 },
                 whatsapp: {
@@ -2107,7 +2149,7 @@ function syncOrgNotificationsFormFromProps() {
     const ev = s.events?.customer_created || {};
     orgNotificationsForm.events.customer_created.enabled = !!(ev.enabled ?? false);
     orgNotificationsForm.events.customer_created.channels.email.enabled = !!(ev.channels?.email?.enabled ?? false);
-    orgNotificationsForm.events.customer_created.channels.email.subject = ev.channels?.email?.subject ?? 'خوش آمدید {name}';
+    orgNotificationsForm.events.customer_created.channels.email.subject = ev.channels?.email?.subject ?? 'Welcome {name}';
     orgNotificationsForm.events.customer_created.channels.email.body = ev.channels?.email?.body ?? '';
     orgNotificationsForm.events.customer_created.channels.whatsapp.enabled = !!(ev.channels?.whatsapp?.enabled ?? false);
     orgNotificationsForm.events.customer_created.channels.whatsapp.body = ev.channels?.whatsapp?.body ?? '';

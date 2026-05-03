@@ -81,6 +81,7 @@ const routeHelper = (name, params = null, absolute = false) => {
         'settings.index': '/settings',
         'settings.smtp.update': '/settings/smtp',
         'settings.ronibot.update': '/settings/ronibot',
+        'settings.notifications.update': '/settings/notifications',
         'settings.smtp.test': '/settings/smtp/test',
         'settings.ronibot.test': '/settings/ronibot/test',
         'inbox.index': (params) => params && Object.keys(params).length ? '/inbox?' + new URLSearchParams(params).toString() : '/inbox',

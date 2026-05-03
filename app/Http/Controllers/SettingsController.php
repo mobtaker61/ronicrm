@@ -243,7 +243,7 @@ class SettingsController extends Controller
         ]);
         $service->saveSettingsForOrganization($toSave, Auth::user()?->current_organization_id);
 
-        return redirect()->back()->with('success', 'تنظیمات اعلان‌ها با موفقیت ذخیره شد.');
+        return redirect()->back()->with('success', __('flash.org_notifications_saved'));
     }
 
     protected function getSubscriptionSummaryForFront(): ?array
