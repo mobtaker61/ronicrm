@@ -132,7 +132,7 @@ class SettingsController extends Controller
             }
         }
 
-        $allowedTabs = ['smtp', 'ronibot', 'telegram', 'instagram', 'tiktok', 'google-contacts'];
+        $allowedTabs = ['smtp', 'ronibot', 'telegram', 'instagram', 'tiktok', 'google-contacts', 'notifications'];
         if ($canManageOrganizationSettings) {
             $allowedTabs[] = 'organization';
         }
@@ -191,6 +191,8 @@ class SettingsController extends Controller
 
                 return $stored;
             })(),
+            'orgNotificationsSettings' => app(\App\Services\OrganizationNotificationService::class)
+                ->getSettingsForOrganization($authUser->current_organization_id),
             'telegramSettings' => array_merge(Setting::getScoped('telegram', [
                 'bot_token' => '',
                 'webhook_url' => '',
@@ -215,6 +217,33 @@ class SettingsController extends Controller
             'instagramWebhookEvents' => $canManageSystemSettings ? $this->getInstagramWebhookEventsLast20() : [],
             'subscriptionSummary' => $this->getSubscriptionSummaryForFront(),
         ]);
+    }
+
+    public function updateOrganizationNotifications(Request $request)
+    {
+        $validated = $request->validate([
+            'events' => 'required|array',
+            'events.customer_created' => 'nullable|array',
+            'events.customer_created.enabled' => 'nullable|boolean',
+            'events.customer_created.channels' => 'nullable|array',
+            'events.customer_created.channels.email' => 'nullable|array',
+            'events.customer_created.channels.email.enabled' => 'nullable|boolean',
+            'events.customer_created.channels.email.subject' => 'nullable|string|max:255',
+            'events.customer_created.channels.email.body' => 'nullable|string|max:20000',
+            'events.customer_created.channels.whatsapp' => 'nullable|array',
+            'events.customer_created.channels.whatsapp.enabled' => 'nullable|boolean',
+            'events.customer_created.channels.whatsapp.body' => 'nullable|string|max:5000',
+        ]);
+
+        $service = app(\App\Services\OrganizationNotificationService::class);
+        $current = $service->getSettingsForOrganization(Auth::user()?->current_organization_id);
+        $toSave = array_replace_recursive($current, [
+            'version' => $current['version'] ?? 1,
+            'events' => $validated['events'] ?? [],
+        ]);
+        $service->saveSettingsForOrganization($toSave, Auth::user()?->current_organization_id);
+
+        return redirect()->back()->with('success', 'تنظیمات اعلان‌ها با موفقیت ذخیره شد.');
     }
 
     protected function getSubscriptionSummaryForFront(): ?array

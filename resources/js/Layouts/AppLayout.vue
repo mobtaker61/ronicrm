@@ -659,6 +659,7 @@ const openMenus = ref({
 const channelNavItems = [
     { tab: 'smtp', labelKey: 'settings.tabs.smtp' },
     { tab: 'ronibot', labelKey: 'settings.tabs.ronibot' },
+    { tab: 'notifications', labelKey: 'settings.tabs.notifications' },
     { tab: 'telegram', labelKey: 'settings.tabs.telegram_inbox' },
     { tab: 'instagram', labelKey: 'settings.tabs.instagram_inbox' },
     { tab: 'tiktok', labelKey: 'settings.tabs.tiktok_inbox' },
@@ -733,7 +734,7 @@ const isChannelsMenuSectionActive = computed(() => {
         return false;
     }
     const t = settingsQueryTab() || '';
-    return ['smtp', 'ronibot', 'telegram', 'instagram', 'tiktok', 'google-contacts'].includes(t);
+    return ['smtp', 'ronibot', 'notifications', 'telegram', 'instagram', 'tiktok', 'google-contacts'].includes(t);
 });
 
 const isSettingsSubtreeActive = computed(() => {

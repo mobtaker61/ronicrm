@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Customer;
 use App\Models\MediaFile;
 use App\Models\MediaFolder;
 use App\Models\Organization;
+use App\Observers\CustomerObserver;
 use App\Policies\MediaFilePolicy;
 use App\Policies\MediaFolderPolicy;
 use App\Policies\OrganizationPolicy;
@@ -31,6 +33,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Organization::class, OrganizationPolicy::class);
         Gate::policy(MediaFolder::class, MediaFolderPolicy::class);
         Gate::policy(MediaFile::class, MediaFilePolicy::class);
+
+        Customer::observe(CustomerObserver::class);
     }
 
     /**

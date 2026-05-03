@@ -812,6 +812,109 @@
                     </form>
                 </div>
 
+                <!-- Organization Notifications Tab -->
+                <div v-if="activeTab === 'notifications' && canManageOrganizationSettings" class="p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-2">اعلان‌های سازمان</h2>
+                    <p class="text-sm text-gray-600 mb-6">
+                        در این بخش می‌توانید ارسال پیام‌های خودکار (مثلاً خوش‌آمدگویی هنگام افزودن مخاطب) را برای ایمیل و واتساپ مدیریت کنید.
+                        متغیرهای قابل استفاده: <code class="bg-gray-100 px-1 rounded">{name}</code>،
+                        <code class="bg-gray-100 px-1 rounded">{company}</code>،
+                        <code class="bg-gray-100 px-1 rounded">{public_link}</code>،
+                        <code class="bg-gray-100 px-1 rounded">{org_name}</code>
+                    </p>
+
+                    <form @submit.prevent="saveOrgNotifications" class="space-y-6">
+                        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="min-w-0">
+                                    <p class="font-semibold text-gray-900">افزودن مخاطب جدید</p>
+                                    <p class="text-xs text-gray-600">وقتی مخاطب جدید ساخته می‌شود (از فرم، اینباکس، وب‌هوک و ...)</p>
+                                </div>
+                                <label class="flex items-center gap-2">
+                                    <input
+                                        v-model="orgNotificationsForm.events.customer_created.enabled"
+                                        type="checkbox"
+                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span class="text-sm font-medium text-gray-700">فعال</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="rounded-lg border border-gray-200 p-4 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="font-semibold text-gray-900">ایمیل</h3>
+                                    <label class="flex items-center gap-2">
+                                        <input
+                                            v-model="orgNotificationsForm.events.customer_created.channels.email.enabled"
+                                            type="checkbox"
+                                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <span class="text-sm text-gray-700">ارسال</span>
+                                    </label>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">موضوع ایمیل</label>
+                                    <input
+                                        v-model="orgNotificationsForm.events.customer_created.channels.email.subject"
+                                        type="text"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                        placeholder="مثلاً: خوش آمدید {name}"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">متن ایمیل</label>
+                                    <textarea
+                                        v-model="orgNotificationsForm.events.customer_created.channels.email.body"
+                                        rows="8"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                        placeholder="متن پیام..."
+                                    ></textarea>
+                                    <p class="mt-1 text-xs text-gray-500">می‌توانید متن ساده یا HTML وارد کنید.</p>
+                                </div>
+                            </div>
+
+                            <div class="rounded-lg border border-gray-200 p-4 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="font-semibold text-gray-900">واتساپ (Ronibot)</h3>
+                                    <label class="flex items-center gap-2">
+                                        <input
+                                            v-model="orgNotificationsForm.events.customer_created.channels.whatsapp.enabled"
+                                            type="checkbox"
+                                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <span class="text-sm text-gray-700">ارسال</span>
+                                    </label>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">متن پیام واتساپ</label>
+                                    <textarea
+                                        v-model="orgNotificationsForm.events.customer_created.channels.whatsapp.body"
+                                        rows="10"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                        placeholder="متن پیام..."
+                                    ></textarea>
+                                    <p class="mt-1 text-xs text-gray-500">حداکثر ۵۰۰۰ کاراکتر.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-3">
+                            <button
+                                type="submit"
+                                :disabled="orgNotificationsForm.processing"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {{ orgNotificationsForm.processing ? t('settings.saving') : 'ذخیره تنظیمات اعلان‌ها' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
                 <!-- Telegram Settings Tab -->
                 <div v-if="activeTab === 'telegram' && canManageOrganizationSettings" class="p-6">
                     <h2 class="text-xl font-bold text-gray-900 mb-6">{{ t('settings.tabs.telegram_inbox') }}</h2>
@@ -1691,6 +1794,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    orgNotificationsSettings: {
+        type: Object,
+        default: () => ({}),
+    },
     telegramSettings: {
         type: Object,
         default: () => ({}),
@@ -1750,6 +1857,7 @@ const settingsPageTitle = computed(() => {
         organization: () => t('settings.tabs.organization_subscription'),
         smtp: () => t('settings.tabs.smtp'),
         ronibot: () => t('settings.tabs.ronibot'),
+        notifications: () => t('settings.tabs.notifications'),
         telegram: () => t('settings.tabs.telegram_inbox'),
         instagram: () => t('settings.tabs.instagram_inbox'),
         tiktok: () => t('settings.tabs.tiktok_inbox'),
@@ -1974,6 +2082,44 @@ const ronibotForm = useForm({
     device_uuid: props.ronibotSettings.device_uuid || '',
     ronibot_user_id: props.ronibotSettings.ronibot_user_id || '',
 });
+
+const orgNotificationsForm = useForm({
+    events: {
+        customer_created: {
+            enabled: !!(props.orgNotificationsSettings?.events?.customer_created?.enabled ?? false),
+            channels: {
+                email: {
+                    enabled: !!(props.orgNotificationsSettings?.events?.customer_created?.channels?.email?.enabled ?? false),
+                    subject: props.orgNotificationsSettings?.events?.customer_created?.channels?.email?.subject ?? 'خوش آمدید {name}',
+                    body: props.orgNotificationsSettings?.events?.customer_created?.channels?.email?.body ?? '',
+                },
+                whatsapp: {
+                    enabled: !!(props.orgNotificationsSettings?.events?.customer_created?.channels?.whatsapp?.enabled ?? false),
+                    body: props.orgNotificationsSettings?.events?.customer_created?.channels?.whatsapp?.body ?? '',
+                },
+            },
+        },
+    },
+});
+
+function syncOrgNotificationsFormFromProps() {
+    const s = props.orgNotificationsSettings || {};
+    const ev = s.events?.customer_created || {};
+    orgNotificationsForm.events.customer_created.enabled = !!(ev.enabled ?? false);
+    orgNotificationsForm.events.customer_created.channels.email.enabled = !!(ev.channels?.email?.enabled ?? false);
+    orgNotificationsForm.events.customer_created.channels.email.subject = ev.channels?.email?.subject ?? 'خوش آمدید {name}';
+    orgNotificationsForm.events.customer_created.channels.email.body = ev.channels?.email?.body ?? '';
+    orgNotificationsForm.events.customer_created.channels.whatsapp.enabled = !!(ev.channels?.whatsapp?.enabled ?? false);
+    orgNotificationsForm.events.customer_created.channels.whatsapp.body = ev.channels?.whatsapp?.body ?? '';
+}
+
+watch(() => props.orgNotificationsSettings, () => syncOrgNotificationsFormFromProps(), { deep: true });
+
+function saveOrgNotifications() {
+    orgNotificationsForm.post(route('settings.notifications.update'), {
+        preserveScroll: true,
+    });
+}
 
 function syncRonibotFormFromProps() {
     const s = props.ronibotSettings;

@@ -3968,6 +3968,13 @@ class SeedDefaultTranslations extends Command
                     'tr' => 'Ronibot Settings',
                     'ku' => 'Ronibot Settings',
                 ],
+                'tabs.notifications' => [
+                    'en' => 'Organization Notifications',
+                    'fa' => 'اعلان‌های سازمان',
+                    'ar' => 'إشعارات المؤسسة',
+                    'tr' => 'Kuruluş bildirimleri',
+                    'ku' => 'ئاگادارییەکانی ڕێکخراو',
+                ],
                 'tabs.telegram_inbox' => [
                     'en' => 'Telegram (Inbox)',
                     'fa' => 'Telegram (Inbox)',
