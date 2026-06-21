@@ -165,6 +165,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/settings/whatsapp/test', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'test'])->name('settings.whatsapp.test');
     Route::post('/settings/whatsapp/connect', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'connect'])->name('settings.whatsapp.connect');
     Route::post('/settings/whatsapp/pairing-code', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'pairingCode'])->name('settings.whatsapp.pairing-code');
+    Route::post('/settings/whatsapp/reset-session', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'resetSession'])->name('settings.whatsapp.reset-session');
     Route::get('/settings/whatsapp/qr-code', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'qrCode'])->name('settings.whatsapp.qr-code');
     Route::get('/settings/whatsapp/status', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'status'])->name('settings.whatsapp.status');
     Route::post('/settings/whatsapp/disconnect', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'disconnect'])->name('settings.whatsapp.disconnect');

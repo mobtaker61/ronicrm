@@ -4171,6 +4171,13 @@ class SeedDefaultTranslations extends Command
                     'tr' => 'Bu kuruluş için WhatsApp oturumu kapatılsın mı?',
                     'ku' => 'پەیوەندی WhatsApp بۆ ئەم ڕێکخراوە بپچڕێت؟',
                 ],
+                'whatsapp_reset_session_confirm' => [
+                    'en' => 'Reset WhatsApp session? All remote sessions for this organization will be deleted and a new session name will be created. Use this if QR shows "Could not connect" or pairing code fails.',
+                    'fa' => 'سشن واتساپ بازنشانی شود؟ همه سشن‌های ریموت این سازمان حذف می‌شوند و نام سشن جدید ساخته می‌شود. اگر QR خطای «Could not connect» می‌دهد یا pairing code کار نمی‌کند، از این گزینه استفاده کنید.',
+                    'ar' => 'إعادة ضبط جلسة واتساب؟ سيتم حذف جميع الجلسات البعيدة لهذه المؤسسة وإنشاء اسم جلسة جديد.',
+                    'tr' => 'WhatsApp oturumu sıfırlansın mı? Bu kuruluşun tüm uzak oturumları silinir ve yeni bir oturum adı oluşturulur.',
+                    'ku' => 'سێشنی WhatsApp نوێ بکرێتەوە؟ هەموو سێشنە دوورەکان دەسڕدرێنەوە و ناوێکی نوێ دروست دەکرێت.',
+                ],
                 'tabs.notifications' => [
                     'en' => 'Notifications',
                     'fa' => 'اعلان‌ها',

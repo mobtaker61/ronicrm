@@ -80,15 +80,22 @@ class WhatsAppYarApiService
         ));
     }
 
+    public static function isSessionConnectedStatus(string $status): bool
+    {
+        return in_array($status, ['ready', 'authenticated', 'connected', 'open'], true);
+    }
+
     public static function isSessionRunningStatus(string $status): bool
     {
         return in_array($status, [
+            'initializing',
+            'qr_ready',
+            'authenticating',
             'starting',
             'started',
             'scanning',
             'qr',
             'pairing',
-            'authenticated',
             'ready',
             'connected',
             'open',
@@ -105,6 +112,19 @@ class WhatsAppYarApiService
             'stopped',
             'killed',
             'timeout',
+        ], true);
+    }
+
+    public static function isPairingEligibleStatus(string $status): bool
+    {
+        return in_array($status, [
+            'initializing',
+            'qr_ready',
+            'starting',
+            'started',
+            'scanning',
+            'qr',
+            'pairing',
         ], true);
     }
 
@@ -135,6 +155,10 @@ class WhatsAppYarApiService
         }
 
         $status = self::normalizeSessionStatus($session);
+
+        if (self::isSessionConnectedStatus($status)) {
+            return $session;
+        }
 
         if (self::isSessionBrokenStatus($status)) {
             try {
@@ -168,15 +192,54 @@ class WhatsAppYarApiService
     }
 
     /**
+     * Wait until session engine is ready for pairing-code request (WhatsAppYar requires started + qr_ready).
+     *
+     * @return array<string, mixed>
+     */
+    public function waitForPairingEligibility(string $sessionId, int $maxSeconds = 25): array
+    {
+        $deadline = time() + max(5, $maxSeconds);
+        $last = [];
+
+        while (time() < $deadline) {
+            $last = $this->getSession($sessionId);
+            $status = self::normalizeSessionStatus($last);
+
+            if (self::isSessionConnectedStatus($status)) {
+                throw new \RuntimeException('Session is already authenticated.');
+            }
+
+            if (self::isSessionBrokenStatus($status)) {
+                $reason = (string) ($last['lastError'] ?? $last['data']['lastError'] ?? '');
+                throw new \RuntimeException($reason !== '' ? $reason : 'Session failed before pairing could start.');
+            }
+
+            if ($status === 'created' || $status === '') {
+                $this->startSession($sessionId);
+            } elseif (self::isPairingEligibleStatus($status)) {
+                sleep(3);
+
+                return $last;
+            }
+
+            usleep(500_000);
+        }
+
+        throw new \RuntimeException('Session did not become ready for pairing in time. Use "Reset session" and try again.');
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function requestPairingCode(string $sessionId, string $phoneNumber): array
     {
         $digits = self::normalizePhoneDigits($phoneNumber);
+        if ($digits === '' || strlen($digits) < 8 || strlen($digits) > 15) {
+            throw new \InvalidArgumentException('Enter phone in international format without + (e.g. 971562858133).');
+        }
 
         return $this->request('post', '/sessions/'.$sessionId.'/pairing-code', [
             'phoneNumber' => $digits,
-            'phone' => $digits,
         ]);
     }
 

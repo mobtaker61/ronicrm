@@ -145,7 +145,7 @@ class WhatsAppConnectionController extends Controller
             $phoneRaw = $data['phone'] ?? $data['data']['phone'] ?? null;
             $phone = is_string($phoneRaw) ? $phoneRaw : (is_numeric($phoneRaw) ? (string) $phoneRaw : '');
 
-            $connected = in_array($status, ['ready', 'authenticated', 'connected'], true);
+            $connected = WhatsAppYarApiService::isSessionConnectedStatus($status);
             $update = [
                 'status' => $status,
                 'enabled' => $connected,
@@ -196,6 +196,7 @@ class WhatsAppConnectionController extends Controller
             $sessionId = $resolved['session_id'];
 
             $api->ensureSessionStarted($sessionId);
+            $api->waitForPairingEligibility($sessionId);
             $webhookWarning = $this->tryEnsureWebhook($api, $org, $sessionId);
 
             $result = $api->requestPairingCode($sessionId, $validated['phone']);
@@ -219,6 +220,32 @@ class WhatsAppConnectionController extends Controller
         } catch (\Throwable $e) {
             return response()->json(['ok' => false, 'message' => $e->getMessage()], 422);
         }
+    }
+
+    public function resetSession(WhatsAppYarApiService $api, WhatsAppSessionManager $sessions): RedirectResponse
+    {
+        $org = Organization::query()->find(Auth::user()->current_organization_id);
+        if (! $org) {
+            return redirect()->route('settings.index', ['tab' => 'whatsapp'])
+                ->with('error', 'Organization not found.');
+        }
+
+        if (! WhatsAppSettings::isConfigured($org->id)) {
+            return redirect()->route('settings.index', ['tab' => 'whatsapp'])
+                ->with('error', 'WhatsAppYar API key is not configured.');
+        }
+
+        try {
+            $sessions->forceResetSession($api->forOrganization($org->id), $org);
+        } catch (\Throwable $e) {
+            Log::warning('WhatsApp reset session failed', ['error' => $e->getMessage(), 'org_id' => $org->id]);
+
+            return redirect()->route('settings.index', ['tab' => 'whatsapp'])
+                ->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('settings.index', ['tab' => 'whatsapp'])
+            ->with('success', 'WhatsApp session reset. Connect again with QR or pairing code.');
     }
 
     public function disconnect(WhatsAppYarApiService $api, WhatsAppSessionManager $sessions): RedirectResponse

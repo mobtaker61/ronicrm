@@ -86,6 +86,8 @@ const routeHelper = (name, params = null, absolute = false) => {
         'settings.smtp.test': '/settings/smtp/test',
         'settings.whatsapp.test': '/settings/whatsapp/test',
         'settings.whatsapp.connect': '/settings/whatsapp/connect',
+        'settings.whatsapp.pairing-code': '/settings/whatsapp/pairing-code',
+        'settings.whatsapp.reset-session': '/settings/whatsapp/reset-session',
         'settings.whatsapp.qr-code': '/settings/whatsapp/qr-code',
         'settings.whatsapp.status': '/settings/whatsapp/status',
         'settings.whatsapp.disconnect': '/settings/whatsapp/disconnect',

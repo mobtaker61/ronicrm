@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Organization;
 use App\Models\Setting;
+use App\Services\WhatsAppYarApiService;
 
 class WhatsAppSettings
 {
@@ -97,13 +98,21 @@ class WhatsAppSettings
         return true;
     }
 
-    public static function sessionNameForOrganization(Organization $organization): string
+    public static function sessionNamePrefixForOrganization(Organization $organization): string
     {
         $slug = strtolower((string) $organization->slug);
         $slug = preg_replace('/[^a-z0-9-]+/', '-', $slug) ?? 'org';
         $slug = trim($slug, '-') ?: 'org';
 
         return 'ronicrm-'.$slug.'-'.$organization->id;
+    }
+
+    public static function sessionNameForOrganization(Organization $organization, ?string $suffix = null): string
+    {
+        $base = self::sessionNamePrefixForOrganization($organization);
+        $name = ($suffix !== null && $suffix !== '') ? $base.'-'.$suffix : $base;
+
+        return substr($name, 0, 50);
     }
 
     public static function resolveApiKey(?int $organizationId = null): string
@@ -128,6 +137,6 @@ class WhatsAppSettings
 
         return ($settings['enabled'] ?? false)
             && filled($settings['session_id'] ?? null)
-            && in_array((string) ($settings['status'] ?? ''), ['ready', 'authenticated', 'connected'], true);
+            && WhatsAppYarApiService::isSessionConnectedStatus((string) ($settings['status'] ?? ''));
     }
 }

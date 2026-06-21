@@ -669,6 +669,13 @@
                                     <p v-if="whatsappWebhookWarning" class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-2">{{ whatsappWebhookWarning }}</p>
                                     <p v-if="whatsappQrPolling" class="text-sm text-blue-800">{{ t('settings.whatsapp_waiting_scan') }}</p>
                                     <p class="text-xs text-gray-500">{{ t('settings.whatsapp_qr_connect_hint') }}</p>
+                                    <button
+                                        type="button"
+                                        class="px-3 py-1.5 text-sm border border-amber-300 text-amber-900 rounded-lg hover:bg-amber-50"
+                                        @click="resetWhatsAppSession"
+                                    >
+                                        {{ t('settings.reset_session') }}
+                                    </button>
                                 </div>
 
                                 <div v-if="whatsappConnectMode === 'qr'" class="rounded-xl border-2 border-dashed border-green-200 bg-white p-4 flex flex-col items-center justify-center min-h-[280px]">
@@ -2250,6 +2257,16 @@ async function startWhatsAppConnection() {
 function disconnectWhatsApp() {
     if (!confirm(t('settings.disconnect_whatsapp_confirm'))) return;
     router.post(route('settings.whatsapp.disconnect'), {}, { preserveScroll: true });
+}
+
+function resetWhatsAppSession() {
+    if (!confirm(t('settings.whatsapp_reset_session_confirm'))) return;
+    stopWhatsAppQrPolling();
+    whatsappConnectError.value = '';
+    whatsappWebhookWarning.value = '';
+    whatsappQrSrc.value = '';
+    whatsappPairingCode.value = '';
+    router.post(route('settings.whatsapp.reset-session'), {}, { preserveScroll: true });
 }
 
 const telegramForm = useForm({
