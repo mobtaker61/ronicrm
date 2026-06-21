@@ -17,6 +17,7 @@ class WhatsAppMessage extends Model
     protected $fillable = [
         'organization_id',
         'message_id',
+        'chat_id',
         'from_phone',
         'to_phone',
         'message',
@@ -87,6 +88,11 @@ class WhatsAppMessage extends Model
     public function scopeFromPhone($query, string $phone)
     {
         return $query->where('from_phone', $phone);
+    }
+
+    public function scopeForChat(Builder $query, string $chatId): Builder
+    {
+        return $query->where('chat_id', trim($chatId));
     }
 
     /**

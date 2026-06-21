@@ -29,8 +29,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'telegram-webhook',
             'telegram-webhook/*',
-            'wpwebhook',
-            'wpwebhook-group',
+            'whatsapp-webhook',
+            'whatsapp-webhook/*',
             'instagram-webhook',
             'instagram-webhook/*',
             'tiktok-webhook',

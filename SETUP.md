@@ -36,9 +36,9 @@ DB_DATABASE=ronicrm
 DB_USERNAME=root
 DB_PASSWORD=
 
-# RoniBot WhatsApp API
-RONIBOT_API_URL=https://api.ronibot.com
-RONIBOT_API_KEY=your_api_key_here
+# WhatsAppYar (OpenWA API) — https://api.whatsappyar.com/api/docs
+WHATSAPPYAR_API_URL=https://api.whatsappyar.com
+WHATSAPPYAR_API_KEY=your_api_key_here
 
 # Mail Configuration
 MAIL_MAILER=smtp
@@ -142,10 +142,11 @@ php artisan queue:work --daemon
 php artisan schedule:run
 ```
 
-## تنظیمات RoniBot API
+## تنظیمات WhatsAppYar API
 
-1. به پنل RoniBot بروید و API Key خود را دریافت کنید
-2. در فایل `.env`، `RONIBOT_API_URL` و `RONIBOT_API_KEY` را تنظیم کنید
+1. از پنل [WhatsAppYar](https://whatsappyar.com) یک API Key بسازید (هدر `X-API-Key`)
+2. در `.env` مقادیر `WHATSAPPYAR_API_URL` و `WHATSAPPYAR_API_KEY` را تنظیم کنید
+3. در CRM → Settings → WhatsApp، اتصال را با QR برقرار کنید؛ وب‌هوک به‌صورت خودکار روی `{APP_URL}/whatsapp-webhook/{organization-slug}` ثبت می‌شود
 
 ## تنظیمات SMTP
 

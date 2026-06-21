@@ -35,17 +35,21 @@ class EnsureSubscriptionActive
             return $next($request);
         }
 
+        if ($request->user()?->isSuperAdmin()) {
+            return $next($request);
+        }
+
         $sub = app(SubscriptionService::class)->getOrCreateForOrganization((int) $orgId);
         if (app(SubscriptionService::class)->isActive($sub)) {
             return $next($request);
         }
 
-        if ($request->expectsJson()) {
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
             return response()->json(['success' => false, 'error' => 'subscription_expired'], 402);
         }
 
         return redirect()
             ->route('settings.index', ['tab' => 'organization'])
-            ->with('error', 'اشتراک سازمان شما منقضی شده است. لطفاً اشتراک را تمدید کنید یا با پشتیبانی تماس بگیرید.');
+            ->with('error', \App\Support\FlashTranslator::get('subscription_expired'));
     }
 }

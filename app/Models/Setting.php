@@ -64,11 +64,6 @@ class Setting extends Model
 
     public static function getScoped(string $key, $default = null, ?int $organizationId = null)
     {
-        $value = self::getForOrganization($key, null, $organizationId);
-        if ($value !== null) {
-            return $value;
-        }
-
-        return self::get($key, $default);
+        return self::getForOrganization($key, $default, $organizationId);
     }
 }

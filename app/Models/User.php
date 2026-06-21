@@ -122,6 +122,39 @@ class User extends Authenticatable implements CanResetPasswordContract, MustVeri
         return $this->canManageOrganizationSettings($organizationId);
     }
 
+    public function organizationRole(?int $organizationId = null): ?string
+    {
+        if ($this->isSuperAdmin()) {
+            return 'org_admin';
+        }
+
+        $orgId = $organizationId ?? $this->current_organization_id;
+        if (! $orgId) {
+            return null;
+        }
+
+        $pivot = $this->organizations()
+            ->where('organizations.id', $orgId)
+            ->wherePivot('status', 'active')
+            ->first()?->pivot;
+
+        return $pivot?->role_in_org;
+    }
+
+    public function hasOrgPermission(string $permission, ?int $organizationId = null): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        $role = $this->organizationRole($organizationId);
+        if (! $role) {
+            return false;
+        }
+
+        return \App\Support\OrganizationRolePermissions::allows($role, $permission);
+    }
+
     public function sendPasswordResetNotification($token): void
     {
         $this->notify(new \App\Notifications\Auth\ResetPasswordNotification($token));

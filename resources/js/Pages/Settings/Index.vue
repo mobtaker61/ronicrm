@@ -590,223 +590,164 @@
                     </div>
                 </div>
 
-                <!-- Ronibot Settings Tab -->
-                <div v-if="activeTab === 'ronibot' && canManageOrganizationSettings" class="p-6">
-                    <h2 class="text-xl font-bold text-gray-900 mb-6">{{ t('settings.ronibot_settings') }}</h2>
+                <!-- WhatsApp Settings Tab (WhatsAppYar) -->
+                <div v-if="activeTab === 'whatsapp' && canManageOrganizationSettings" class="p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-6">{{ t('settings.whatsapp_settings') }}</h2>
+                    <p class="text-sm text-gray-600 mb-6">{{ t('settings.whatsapp_intro') }}</p>
 
-                    <!-- اتصال خودکار از طریق Partner API (RoniBot) — دو ستون: فرم / QR -->
-                    <div class="mb-8 rounded-lg border border-blue-200 bg-blue-50/80 p-5">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('settings.ronibot_partner_section_title') }}</h3>
-                        <p class="text-sm text-gray-600 mb-4">{{ t('settings.ronibot_partner_intro') }}</p>
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">{{ t('settings.whatsapp_connection') }}</h3>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
-                            <!-- ستون فرم -->
-                            <div class="space-y-4 min-w-0">
-                                <p
-                                    v-if="!ronibotPartnerDisplayWebhook"
-                                    class="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-md p-2"
-                                >
-                                    {{ t('settings.ronibot_partner_app_url_missing') }}
-                                </p>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.ronibot_partner_phone_label') }}</label>
-                                    <input
-                                        v-model="ronibotPartnerPhone"
-                                        type="tel"
-                                        autocomplete="tel"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
-                                        :placeholder="t('settings.ronibot_partner_phone_placeholder')"
-                                    />
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.ronibot_partner_crm_password_label') }}</label>
-                                    <input
-                                        v-model="ronibotPartnerPassword"
-                                        type="password"
-                                        autocomplete="current-password"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white"
-                                        :placeholder="t('settings.ronibot_partner_crm_password_placeholder')"
-                                    />
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.webhook_url') }}</label>
-                                    <div
-                                        class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-800 text-sm break-all min-h-[2.5rem]"
-                                    >
-                                        {{ ronibotPartnerDisplayWebhook || '—' }}
+                        <div v-if="!whatsappConnection?.connected" class="p-6 border border-gray-200 rounded-lg bg-gray-50">
+                            <p v-if="!whatsappSettings.api_key_configured" class="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
+                                {{ t('settings.whatsapp_api_key_missing') }}
+                            </p>
+                            <p v-if="!whatsappSettings.webhook_public" class="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
+                                {{ t('settings.whatsapp_webhook_local_hint') }}
+                            </p>
+
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                                <div class="space-y-4">
+                                    <div class="flex gap-2">
+                                        <button
+                                            type="button"
+                                            class="px-3 py-1.5 text-sm rounded-lg border"
+                                            :class="whatsappConnectMode === 'qr' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'"
+                                            @click="whatsappConnectMode = 'qr'"
+                                        >
+                                            {{ t('settings.whatsapp_mode_qr') }}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="px-3 py-1.5 text-sm rounded-lg border"
+                                            :class="whatsappConnectMode === 'pairing' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-700 border-gray-300'"
+                                            @click="whatsappConnectMode = 'pairing'"
+                                        >
+                                            {{ t('settings.whatsapp_mode_pairing') }}
+                                        </button>
                                     </div>
-                                    <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_webhook_readonly_hint') }}</p>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.webhook_url') }}</label>
+                                        <div class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-800 text-sm break-all min-h-[2.5rem]">
+                                            {{ whatsappSettings.webhook_url || '—' }}
+                                        </div>
+                                    </div>
+                                    <template v-if="whatsappConnectMode === 'qr'">
+                                        <button
+                                            type="button"
+                                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                                            :disabled="whatsappConnectLoading || !whatsappSettings.api_key_configured"
+                                            @click="startWhatsAppConnection"
+                                        >
+                                            {{ whatsappConnectLoading ? t('settings.loading') : t('settings.whatsapp_connect_qr') }}
+                                        </button>
+                                    </template>
+                                    <template v-else>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('settings.whatsapp_pairing_phone') }}</label>
+                                            <input
+                                                v-model="whatsappPairingPhone"
+                                                type="text"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                                :placeholder="t('settings.whatsapp_pairing_phone_placeholder')"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                                            :disabled="whatsappConnectLoading || !whatsappSettings.api_key_configured || !whatsappPairingPhone.trim()"
+                                            @click="requestWhatsAppPairingCode"
+                                        >
+                                            {{ whatsappConnectLoading ? t('settings.loading') : t('settings.whatsapp_request_pairing_code') }}
+                                        </button>
+                                        <p v-if="whatsappPairingCode" class="text-2xl font-mono font-bold tracking-widest text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-center">
+                                            {{ whatsappPairingCode }}
+                                        </p>
+                                        <p v-if="whatsappPairingCode" class="text-xs text-gray-600">{{ t('settings.whatsapp_pairing_instructions') }}</p>
+                                    </template>
+                                    <p v-if="whatsappConnectError" class="text-sm text-red-600">{{ whatsappConnectError }}</p>
+                                    <p v-if="whatsappWebhookWarning" class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-2">{{ whatsappWebhookWarning }}</p>
+                                    <p v-if="whatsappQrPolling" class="text-sm text-blue-800">{{ t('settings.whatsapp_waiting_scan') }}</p>
+                                    <p class="text-xs text-gray-500">{{ t('settings.whatsapp_qr_connect_hint') }}</p>
                                 </div>
-                                <div class="flex flex-wrap gap-2">
-                                    <button
-                                        type="button"
-                                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
-                                        :disabled="
-                                            ronibotPartnerLoading ||
-                                            ronibotPartnerPolling ||
-                                            !String(ronibotPartnerPhone || '').trim() ||
-                                            !String(ronibotPartnerPassword || '').trim() ||
-                                            !ronibotPartnerDisplayWebhook
-                                        "
-                                        @click="ronibotPartnerStartAutoFlow"
-                                    >
-                                        {{ t('settings.ronibot_partner_start_connection') }}
-                                    </button>
-                                    <button
-                                        v-if="ronibotPartnerNeedsAppRetry"
-                                        type="button"
-                                        class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 text-sm"
-                                        :disabled="ronibotPartnerLoading"
-                                        @click="ronibotPartnerRetryCreateApp"
-                                    >
-                                        {{ t('settings.ronibot_partner_retry_app') }}
-                                    </button>
-                                </div>
-                                <p v-if="ronibotPartnerStepLabel" class="text-sm text-gray-800">{{ ronibotPartnerStepLabel }}</p>
-                                <p v-if="ronibotPartnerError" class="text-sm text-red-600">{{ ronibotPartnerError }}</p>
-                                <p v-if="ronibotPartnerMessage" class="text-sm text-green-700">{{ ronibotPartnerMessage }}</p>
-                                <p v-if="ronibotPartnerPolling" class="text-sm text-blue-800">{{ t('settings.ronibot_partner_waiting_whatsapp') }}</p>
-                            </div>
 
-                            <!-- ستون QR -->
-                            <div
-                                class="min-w-0 rounded-xl border-2 border-dashed border-blue-200 bg-white/90 p-4 flex flex-col items-center justify-center min-h-[300px] lg:min-h-[360px] lg:sticky lg:top-4"
+                                <div v-if="whatsappConnectMode === 'qr'" class="rounded-xl border-2 border-dashed border-green-200 bg-white p-4 flex flex-col items-center justify-center min-h-[280px]">
+                                    <template v-if="whatsappQrSrc">
+                                        <p class="text-xs text-gray-600 mb-3 text-center">{{ t('settings.whatsapp_scan_qr') }}</p>
+                                        <img :src="whatsappQrSrc" alt="WhatsApp QR" class="max-w-[280px] w-full h-auto rounded-lg shadow-md" />
+                                    </template>
+                                    <p v-else class="text-sm text-gray-400 text-center px-4">{{ t('settings.whatsapp_qr_placeholder') }}</p>
+                                </div>
+                                <div v-else class="rounded-xl border-2 border-dashed border-green-200 bg-white p-4 flex flex-col items-center justify-center min-h-[280px] text-center text-sm text-gray-500 px-6">
+                                    {{ t('settings.whatsapp_pairing_side_hint') }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-else class="p-6 border border-gray-200 rounded-lg bg-white flex flex-wrap items-start gap-6">
+                            <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-2xl">WA</div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold text-gray-900">{{ whatsappConnection.phone || t('settings.whatsapp_account') }}</p>
+                                <p class="text-sm text-gray-500">{{ whatsappConnection.session_name }}</p>
+                                <p class="text-sm text-green-600 mt-1">{{ t('settings.connected') }}</p>
+                                <p v-if="whatsappConnection?.webhook_pending" class="text-sm text-amber-700 mt-2">
+                                    {{ t('settings.whatsapp_webhook_pending') }}: {{ whatsappConnection.webhook_error }}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                @click="disconnectWhatsApp"
+                                class="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium"
                             >
-                                <template v-if="ronibotQrSrc && !ronibotPartnerSetupComplete">
-                                    <p class="text-xs text-gray-600 mb-3 text-center w-full">{{ t('settings.ronibot_partner_qr_scan') }}</p>
-                                    <img
-                                        :src="ronibotQrSrc"
-                                        alt="WhatsApp QR"
-                                        class="max-w-[280px] w-full h-auto object-contain rounded-lg shadow-md"
-                                    />
-                                </template>
-                                <div v-else-if="ronibotPartnerSetupComplete" class="text-center px-2">
-                                    <p class="text-green-700 font-medium text-sm">{{ t('settings.ronibot_partner_qr_done_hint') }}</p>
-                                </div>
-                                <p v-else class="text-sm text-gray-400 text-center px-4">{{ t('settings.ronibot_partner_qr_placeholder') }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <form @submit.prevent="saveRonibotSettings" class="space-y-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="flex items-center space-x-3 rtl:space-x-reverse">
-                                <label class="flex items-center space-x-2 rtl:space-x-reverse">
-                                    <input
-                                        v-model="ronibotForm.enabled"
-                                        type="checkbox"
-                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    <span class="text-sm font-medium text-gray-700">{{ t('settings.enable_ronibot') }}</span>
-                                </label>
-                            </div>
+                                {{ t('settings.disconnect') }}
+                            </button>
                         </div>
 
-                        <div class="space-y-4">
+                        <p v-if="whatsappConnection?.connected" class="text-sm mt-2">
+                            <a :href="route('inbox.index', { channel: 'whatsapp' })" class="text-blue-600 hover:underline">{{ t('settings.open_inbox') }} →</a>
+                        </p>
+                    </div>
+
+                    <form @submit.prevent="saveWhatsAppSettings" class="space-y-6 border-t pt-6">
+                        <div class="flex items-center space-x-2 rtl:space-x-reverse">
+                            <input v-model="whatsappForm.enabled" type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500" />
+                            <span class="text-sm font-medium text-gray-700">{{ t('settings.enable_whatsapp') }}</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('settings.api_url_required') }}</label>
                                 <input
-                                    v-model="ronibotForm.api_url"
+                                    v-model="whatsappForm.api_url"
                                     type="url"
                                     readonly
-                                    tabindex="-1"
-                                    :placeholder="t('settings.ronibot_api_url_placeholder')"
-                                    class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-800 cursor-default focus:outline-none"
+                                    class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-800 cursor-default"
                                 />
-                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_managed_by_system') }}</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.whatsapp_managed_by_system') }}</p>
                             </div>
-
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('settings.app_key_required') }}</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('settings.whatsapp_api_key_label') }}</label>
                                 <input
-                                    v-model="ronibotForm.appkey"
-                                    type="text"
-                                    :placeholder="t('settings.ronibot_app_key_placeholder')"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_app_key_help') }}</p>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('settings.auth_key_required') }}</label>
-                                <input
-                                    v-model="ronibotForm.authkey"
-                                    type="text"
-                                    :placeholder="t('settings.ronibot_auth_key_placeholder')"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_auth_key_help') }}</p>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('settings.webhook_url') }}</label>
-                                <input
-                                    v-model="ronibotForm.webhook_url"
-                                    type="url"
-                                    readonly
-                                    tabindex="-1"
-                                    :placeholder="t('settings.ronibot_webhook_placeholder')"
-                                    class="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-800 cursor-default focus:outline-none"
-                                />
-                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_managed_by_system') }}</p>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('settings.ronibot_line_phone_label') }}</label>
-                                <input
-                                    v-model="ronibotForm.line_phone"
-                                    type="text"
+                                    v-model="whatsappForm.api_key"
+                                    type="password"
                                     autocomplete="off"
-                                    :placeholder="t('settings.ronibot_line_phone_placeholder')"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    :placeholder="t('settings.whatsapp_api_key_placeholder')"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                                 />
-                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_line_phone_help') }}</p>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('settings.ronibot_session_id_label') }}</label>
-                                <input
-                                    v-model="ronibotForm.wa_session_id"
-                                    type="text"
-                                    autocomplete="off"
-                                    :placeholder="t('settings.ronibot_session_id_placeholder')"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.ronibot_session_id_help') }}</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ t('settings.whatsapp_api_key_help') }}</p>
                             </div>
                         </div>
 
                         <div class="flex items-center justify-between pt-4 border-t">
-                            <div class="flex items-center space-x-4 rtl:space-x-reverse">
-                                <input
-                                    v-model="testPhone"
-                                    type="text"
-                                    :placeholder="t('settings.test_phone_placeholder')"
-                                    :disabled="testRonibotForm.processing"
-                                    class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                                />
-                                <input
-                                    v-model="testMessage"
-                                    type="text"
-                                    :placeholder="t('settings.test_message_optional')"
-                                    :disabled="testRonibotForm.processing"
-                                    class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                                />
-                                <button
-                                    type="button"
-                                    @click="testRonibot"
-                                    :disabled="testRonibotForm.processing || !testPhone"
-                                    class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {{ testRonibotForm.processing ? t('settings.sending') : t('settings.send_test_message') }}
+                            <div class="flex items-center space-x-4 rtl:space-x-reverse flex-wrap gap-2">
+                                <input v-model="testPhone" type="text" :placeholder="t('settings.test_phone_placeholder')" class="px-3 py-2 border border-gray-300 rounded-md" />
+                                <input v-model="testMessage" type="text" :placeholder="t('settings.test_message_optional')" class="px-3 py-2 border border-gray-300 rounded-md" />
+                                <button type="button" @click="testWhatsApp" :disabled="testWhatsAppForm.processing || !testPhone" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50">
+                                    {{ testWhatsAppForm.processing ? t('settings.sending') : t('settings.send_test_message') }}
                                 </button>
                             </div>
-                            <button
-                                type="submit"
-                                :disabled="ronibotForm.processing"
-                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                {{ ronibotForm.processing ? t('settings.saving') : t('settings.save_ronibot_settings') }}
+                            <button type="submit" :disabled="whatsappForm.processing" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+                                {{ whatsappForm.processing ? t('settings.saving') : t('settings.save_whatsapp_settings') }}
                             </button>
                         </div>
                     </form>
@@ -1676,7 +1617,22 @@
                                     <span class="text-gray-500">{{ t('settings.subscription_ends_at') }}</span>
                                     <span class="font-medium ltr:ml-2 rtl:mr-2">{{ formatIsoDate(props.subscriptionSummary?.ends_at) || '-' }}</span>
                                 </div>
+                                <div v-if="props.subscriptionSummary?.trial_ends_at">
+                                    <span class="text-gray-500">{{ t('settings.subscription_trial_ends_at') }}</span>
+                                    <span class="font-medium ltr:ml-2 rtl:mr-2">{{ formatIsoDate(props.subscriptionSummary?.trial_ends_at) }}</span>
+                                </div>
+                                <div v-if="props.subscriptionSummary?.grace_ends_at">
+                                    <span class="text-gray-500">{{ t('settings.subscription_grace_ends_at') }}</span>
+                                    <span class="font-medium ltr:ml-2 rtl:mr-2">{{ formatIsoDate(props.subscriptionSummary?.grace_ends_at) }}</span>
+                                </div>
                             </div>
+                        </div>
+
+                        <div
+                            v-if="props.subscriptionSummary && !props.subscriptionSummary.is_active"
+                            class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+                        >
+                            {{ t('settings.subscription_expired_notice') }}
                         </div>
 
                         <div class="flex items-center gap-3">
@@ -1826,9 +1782,13 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
-    ronibotSettings: {
+    whatsappSettings: {
         type: Object,
         default: () => ({}),
+    },
+    whatsappConnection: {
+        type: Object,
+        default: null,
     },
     orgNotificationsSettings: {
         type: Object,
@@ -1892,7 +1852,7 @@ const settingsPageTitle = computed(() => {
     const map = {
         organization: () => t('settings.tabs.organization_subscription'),
         smtp: () => t('settings.tabs.smtp'),
-        ronibot: () => t('settings.tabs.ronibot'),
+        whatsapp: () => t('settings.tabs.whatsapp'),
         notifications: () => t('settings.tabs.notifications'),
         telegram: () => t('settings.tabs.telegram_inbox'),
         instagram: () => t('settings.tabs.instagram_inbox'),
@@ -1934,12 +1894,19 @@ function formatIsoDate(v) {
 
 async function renewSubscription() {
     renewingSubscription.value = true;
-    try {
-        await axios.post(route('settings.subscription.renew'), { months: renewMonths.value || 1 });
-        router.reload({ preserveState: true, preserveScroll: true });
-    } finally {
-        renewingSubscription.value = false;
-    }
+    router.post(route('settings.subscription.renew'), { months: renewMonths.value || 1 }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            router.visit(route('dashboard'));
+        },
+        onError: (errors) => {
+            const msg = errors?.message || Object.values(errors || {})[0];
+            alert(msg || t('common.error'));
+        },
+        onFinish: () => {
+            renewingSubscription.value = false;
+        },
+    });
 }
 
 // Languages
@@ -2106,17 +2073,11 @@ const smtpForm = useForm({
     imap_encryption: props.smtpSettings.imap_encryption || 'ssl',
 });
 
-const ronibotForm = useForm({
-    api_url: props.ronibotSettings.api_url || 'https://ronibot.com/api/create-message',
-    appkey: props.ronibotSettings.appkey || '',
-    authkey: props.ronibotSettings.authkey || '',
-    webhook_url: props.ronibotSettings.webhook_url || 'https://ronicrm.com/wpwebhook',
-    enabled: props.ronibotSettings.enabled || false,
-    line_phone: props.ronibotSettings.line_phone || '',
-    wa_session_id: props.ronibotSettings.wa_session_id || '',
-    device_id: props.ronibotSettings.device_id || '',
-    device_uuid: props.ronibotSettings.device_uuid || '',
-    ronibot_user_id: props.ronibotSettings.ronibot_user_id || '',
+const whatsappForm = useForm({
+    api_url: props.whatsappSettings.api_url || 'https://api.whatsappyar.com',
+    api_key: props.whatsappSettings.api_key || '',
+    webhook_url: props.whatsappSettings.webhook_url || '',
+    enabled: props.whatsappSettings.enabled || false,
 });
 
 const orgNotifActiveTab = ref('customer_created');
@@ -2163,264 +2124,132 @@ function saveOrgNotifications() {
     });
 }
 
-function syncRonibotFormFromProps() {
-    const s = props.ronibotSettings;
+function syncWhatsAppFormFromProps() {
+    const s = props.whatsappSettings;
     if (!s) return;
-    ronibotForm.api_url = s.api_url || ronibotForm.api_url;
-    ronibotForm.appkey = s.appkey ?? '';
-    ronibotForm.authkey = s.authkey ?? '';
-    ronibotForm.webhook_url = s.webhook_url || ronibotForm.webhook_url;
-    ronibotForm.enabled = !!s.enabled;
-    ronibotForm.line_phone = s.line_phone ?? '';
-    ronibotForm.wa_session_id = s.wa_session_id ?? '';
-    ronibotForm.device_id = s.device_id ?? '';
-    ronibotForm.device_uuid = s.device_uuid ?? '';
-    ronibotForm.ronibot_user_id = s.ronibot_user_id ?? '';
+    whatsappForm.api_url = s.api_url || whatsappForm.api_url;
+    whatsappForm.api_key = s.api_key ?? '';
+    whatsappForm.webhook_url = s.webhook_url || whatsappForm.webhook_url;
+    whatsappForm.enabled = !!s.enabled;
 }
 
-watch(() => props.ronibotSettings, () => syncRonibotFormFromProps(), { deep: true });
+watch(() => props.whatsappSettings, () => syncWhatsAppFormFromProps(), { deep: true });
 
-const ronibotPartnerPhone = ref(props.organizationProfile?.phone ?? '');
-const ronibotPartnerPassword = ref('');
-const ronibotPartnerLoading = ref(false);
-const ronibotPartnerPolling = ref(false);
-/** فقط پس از ساخت موفق App و ذخیرهٔ تنظیمات */
-const ronibotPartnerSetupComplete = ref(false);
-const ronibotPartnerNeedsAppRetry = ref(false);
-const ronibotPartnerError = ref('');
-const ronibotPartnerMessage = ref('');
-const ronibotPartnerStepLabel = ref('');
-const ronibotQrSrc = ref('');
-let ronibotPartnerPollTimer = null;
-const ronibotPartnerFinalizeStarted = ref(false);
-/** دو poll پیاپی با همان پاسخ معتبر از سرور (کاهش false positive) */
-const ronibotPartnerLinkConfirmCount = ref(0);
+const whatsappConnectLoading = ref(false);
+const whatsappConnectError = ref('');
+const whatsappWebhookWarning = ref('');
+const whatsappConnectMode = ref('qr');
+const whatsappPairingPhone = ref('');
+const whatsappPairingCode = ref('');
+const whatsappQrSrc = ref('');
+const whatsappQrPolling = ref(false);
+let whatsappQrPollTimer = null;
 
-watch(
-    () => props.organizationProfile?.phone,
-    (p) => {
-        if (p && !String(ronibotPartnerPhone.value || '').trim()) {
-            ronibotPartnerPhone.value = p;
-        }
-    }
-);
-
-const ronibotPartnerDisplayWebhook = computed(() => {
-    const w = String(ronibotForm.webhook_url || '').trim();
-    if (w) {
-        return w;
-    }
-    if (typeof window !== 'undefined' && window.location?.origin) {
-        return `${window.location.origin}/wpwebhook`;
-    }
-    return '';
-});
-
-watch(ronibotPartnerPhone, (v) => {
-    const s = String(v || '').trim();
-    if (s) {
-        ronibotForm.line_phone = s;
-    }
-});
-
-function reloadRonibotSettingsOnly() {
-    router.reload({
-        only: ['ronibotSettings'],
-        preserveScroll: true,
-        preserveState: true,
-        onFinish: () => {
-            syncRonibotFormFromProps();
-        },
-    });
-}
-
-function reloadRonibotSettingsOnlyAsync() {
-    return new Promise((resolve) => {
-        router.reload({
-            only: ['ronibotSettings'],
-            preserveScroll: true,
-            preserveState: true,
-            onFinish: () => {
-                syncRonibotFormFromProps();
-                resolve();
-            },
-        });
-    });
-}
-
-function stopRonibotPartnerPolling() {
-    ronibotPartnerPolling.value = false;
-    if (ronibotPartnerPollTimer) {
-        clearInterval(ronibotPartnerPollTimer);
-        ronibotPartnerPollTimer = null;
-    }
-}
-
-function ronibotQrToDataUrl(qrcode) {
+function whatsappQrToDataUrl(qrcode) {
     if (!qrcode) return '';
     const s = String(qrcode).trim();
     if (s.startsWith('data:')) return s;
     return `data:image/png;base64,${s}`;
 }
 
-function partnerErr(e) {
-    const d = e.response?.data;
-    return d?.errors?.password?.[0] || d?.errors?.phone?.[0] || d?.message || e.message || 'Error';
-}
-
-/**
- * هم‌راستا با RonibotPartnerController::status: هم connected و هم session باید تأیید شوند.
- */
-function ronibotPartnerIsServerConnected(data) {
-    if (!data || data.ok !== true) {
-        return false;
-    }
-    if (data.connected !== true) {
-        return false;
-    }
-    const s = String(data.session_status || '')
-        .toLowerCase()
-        .trim();
-    return s === 'authenticated' || s === 'connected';
-}
-
-async function ronibotPartnerStartAutoFlow() {
-    ronibotPartnerError.value = '';
-    ronibotPartnerMessage.value = '';
-    ronibotPartnerStepLabel.value = '';
-    ronibotPartnerSetupComplete.value = false;
-    ronibotPartnerNeedsAppRetry.value = false;
-    ronibotQrSrc.value = '';
-    ronibotPartnerFinalizeStarted.value = false;
-    ronibotPartnerLinkConfirmCount.value = 0;
-    stopRonibotPartnerPolling();
-
-    const phone = String(ronibotPartnerPhone.value || '').trim();
-    if (!phone) {
-        ronibotPartnerError.value = t('settings.ronibot_partner_phone_required');
-        return;
-    }
-    if (!String(ronibotPartnerPassword.value || '').trim()) {
-        ronibotPartnerError.value = t('settings.ronibot_partner_password_required');
-        return;
-    }
-    if (!ronibotPartnerDisplayWebhook.value) {
-        ronibotPartnerError.value = t('settings.ronibot_partner_app_url_missing');
-        return;
-    }
-
-    ronibotPartnerLoading.value = true;
-    try {
-        ronibotPartnerStepLabel.value = t('settings.ronibot_partner_step_register');
-        const { data: d1 } = await axios.post(route('settings.ronibot.partner.register'), {
-            phone,
-            password: ronibotPartnerPassword.value,
-        });
-        if (!d1.ok) throw new Error(d1.message || 'Error');
-        ronibotPartnerMessage.value = d1.message || '';
-        await reloadRonibotSettingsOnlyAsync();
-
-        ronibotPartnerStepLabel.value = t('settings.ronibot_partner_step_device');
-        const { data: d2 } = await axios.post(route('settings.ronibot.partner.device'), { phone });
-        if (!d2.ok) throw new Error(d2.message || 'Error');
-        ronibotPartnerMessage.value = d2.message || '';
-        await reloadRonibotSettingsOnlyAsync();
-
-        ronibotPartnerStepLabel.value = t('settings.ronibot_partner_step_qr');
-        const { data: d3 } = await axios.post(route('settings.ronibot.partner.qr'));
-        if (!d3.ok) throw new Error(d3.message || 'Error');
-        ronibotQrSrc.value = ronibotQrToDataUrl(d3.qrcode);
-        ronibotPartnerMessage.value = t('settings.ronibot_partner_qr_ready');
-        ronibotPartnerError.value = '';
-
-        ronibotPartnerStepLabel.value = t('settings.ronibot_partner_step_waiting_scan');
-        startRonibotPartnerStatusPolling();
-    } catch (e) {
-        ronibotPartnerError.value = partnerErr(e);
-        ronibotPartnerStepLabel.value = '';
-    } finally {
-        ronibotPartnerLoading.value = false;
-        ronibotPartnerPassword.value = '';
+function stopWhatsAppQrPolling() {
+    whatsappQrPolling.value = false;
+    if (whatsappQrPollTimer) {
+        clearInterval(whatsappQrPollTimer);
+        whatsappQrPollTimer = null;
     }
 }
 
-function startRonibotPartnerStatusPolling() {
-    stopRonibotPartnerPolling();
-    ronibotPartnerPolling.value = true;
-    ronibotPartnerError.value = '';
-    ronibotPartnerNeedsAppRetry.value = false;
-    ronibotPartnerLinkConfirmCount.value = 0;
+async function fetchWhatsAppQr() {
+    const { data } = await axios.get(route('settings.whatsapp.qr-code'));
+    if (!data.ok) throw new Error(data.message || 'Error');
+    whatsappQrSrc.value = whatsappQrToDataUrl(data.qrCode);
+}
 
-    const statusAxiosConfig = {
-        validateStatus: (status) => status >= 200 && status < 500,
-    };
-
+function startWhatsAppStatusPolling() {
+    stopWhatsAppQrPolling();
+    whatsappQrPolling.value = true;
     const tick = async () => {
         try {
-            const res = await axios.post(route('settings.ronibot.partner.status'), {}, statusAxiosConfig);
-            const data = res.data;
-            if (!data || data.ok !== true) {
-                ronibotPartnerLinkConfirmCount.value = 0;
+            const { data } = await axios.get(route('settings.whatsapp.status'));
+            if (data.webhook_warning) {
+                whatsappWebhookWarning.value = data.webhook_warning;
+            }
+            if (data.session_stale) {
+                stopWhatsAppQrPolling();
+                whatsappConnectError.value = data.message || t('settings.whatsapp_session_stale');
                 return;
             }
-            if (!ronibotPartnerIsServerConnected(data)) {
-                ronibotPartnerLinkConfirmCount.value = 0;
+            if (data.session_failed) {
+                stopWhatsAppQrPolling();
+                whatsappConnectError.value = t('settings.whatsapp_session_failed');
                 return;
             }
-            ronibotPartnerLinkConfirmCount.value += 1;
-            if (ronibotPartnerLinkConfirmCount.value < 2) {
-                return;
-            }
-            if (ronibotPartnerFinalizeStarted.value) {
-                return;
-            }
-            ronibotPartnerFinalizeStarted.value = true;
-            stopRonibotPartnerPolling();
-            ronibotPartnerStepLabel.value = t('settings.ronibot_partner_step_finishing');
-            try {
-                await reloadRonibotSettingsOnlyAsync();
-                const { data: appData } = await axios.post(route('settings.ronibot.partner.app'), {});
-                if (!appData.ok) throw new Error(appData.message || 'Error');
-                ronibotQrSrc.value = '';
-                ronibotPartnerSetupComplete.value = true;
-                ronibotPartnerMessage.value = appData.message || t('settings.ronibot_partner_connected_success');
-                ronibotPartnerStepLabel.value = '';
-                await reloadRonibotSettingsOnlyAsync();
-            } catch (err) {
-                ronibotPartnerFinalizeStarted.value = false;
-                ronibotPartnerLinkConfirmCount.value = 0;
-                ronibotPartnerNeedsAppRetry.value = true;
-                ronibotPartnerError.value = partnerErr(err);
-                ronibotPartnerStepLabel.value = '';
+            if (data.ok && data.connected) {
+                stopWhatsAppQrPolling();
+                whatsappQrSrc.value = '';
+                router.reload({ only: ['whatsappSettings', 'whatsappConnection'], preserveScroll: true });
             }
         } catch {
-            /* شبکه یا ۵۰۰ — QR را نگه دار */
+            /* keep polling */
         }
     };
-
-    ronibotPartnerPollTimer = setInterval(tick, 3000);
+    whatsappQrPollTimer = setInterval(tick, 3000);
     tick();
 }
 
-async function ronibotPartnerRetryCreateApp() {
-    ronibotPartnerError.value = '';
-    ronibotPartnerLoading.value = true;
-    ronibotPartnerStepLabel.value = t('settings.ronibot_partner_step_finishing');
+async function requestWhatsAppPairingCode() {
+    whatsappConnectError.value = '';
+    whatsappWebhookWarning.value = '';
+    whatsappPairingCode.value = '';
+    whatsappConnectLoading.value = true;
+    stopWhatsAppQrPolling();
     try {
-        await reloadRonibotSettingsOnlyAsync();
-        const { data: appData } = await axios.post(route('settings.ronibot.partner.app'), {});
-        if (!appData.ok) throw new Error(appData.message || 'Error');
-        ronibotQrSrc.value = '';
-        ronibotPartnerSetupComplete.value = true;
-        ronibotPartnerNeedsAppRetry.value = false;
-        ronibotPartnerMessage.value = appData.message || t('settings.ronibot_partner_connected_success');
-        ronibotPartnerStepLabel.value = '';
-        await reloadRonibotSettingsOnlyAsync();
+        const { data } = await axios.post(route('settings.whatsapp.pairing-code'), {
+            phone: whatsappPairingPhone.value.trim(),
+        });
+        if (!data.ok) throw new Error(data.message || 'Error');
+        whatsappPairingCode.value = data.pairing_code || '';
+        if (data.session_recreated) {
+            whatsappWebhookWarning.value = t('settings.whatsapp_session_recreated');
+        }
+        if (data.webhook_warning) {
+            whatsappWebhookWarning.value = data.webhook_warning;
+        }
+        startWhatsAppStatusPolling();
     } catch (e) {
-        ronibotPartnerError.value = partnerErr(e);
+        whatsappConnectError.value = e.response?.data?.message || e.message || 'Error';
     } finally {
-        ronibotPartnerLoading.value = false;
+        whatsappConnectLoading.value = false;
     }
+}
+
+async function startWhatsAppConnection() {
+    whatsappConnectError.value = '';
+    whatsappWebhookWarning.value = '';
+    whatsappConnectLoading.value = true;
+    stopWhatsAppQrPolling();
+    try {
+        const { data } = await axios.post(route('settings.whatsapp.connect'));
+        if (!data.ok) throw new Error(data.message || 'Error');
+        if (data.session_recreated) {
+            whatsappWebhookWarning.value = t('settings.whatsapp_session_recreated');
+        }
+        if (data.webhook_warning) {
+            whatsappWebhookWarning.value = data.webhook_warning;
+        }
+        await fetchWhatsAppQr();
+        startWhatsAppStatusPolling();
+    } catch (e) {
+        whatsappConnectError.value = e.response?.data?.message || e.message || 'Error';
+    } finally {
+        whatsappConnectLoading.value = false;
+    }
+}
+
+function disconnectWhatsApp() {
+    if (!confirm(t('settings.disconnect_whatsapp_confirm'))) return;
+    router.post(route('settings.whatsapp.disconnect'), {}, { preserveScroll: true });
 }
 
 const telegramForm = useForm({
@@ -2801,11 +2630,10 @@ const saveSmtpSettings = () => {
     });
 };
 
-const saveRonibotSettings = () => {
-    ronibotForm.post(route('settings.ronibot.update'), {
+const saveWhatsAppSettings = () => {
+    whatsappForm.post(route('settings.whatsapp.update'), {
         preserveState: true,
         preserveScroll: true,
-        onSuccess: () => {},
     });
 };
 
@@ -3145,7 +2973,7 @@ onUnmounted(() => {
     stopGoogleBulkPolling();
     stopGoogleImportBulkPolling();
     stopGooglePhotoBulkPolling();
-    stopRonibotPartnerPolling();
+    stopWhatsAppQrPolling();
 });
 
 const disconnectGoogleContacts = () => {
@@ -3207,29 +3035,23 @@ const testSmtp = () => {
 const testPhone = ref('');
 const testMessage = ref('');
 
-const testRonibotForm = useForm({
+const testWhatsAppForm = useForm({
     test_phone: '',
     test_message: '',
 });
 
-const testRonibot = () => {
+const testWhatsApp = () => {
     if (!testPhone.value) {
         alert(t('settings.enter_test_phone_number'));
         return;
     }
 
-    testRonibotForm.test_phone = testPhone.value;
-    testRonibotForm.test_message = testMessage.value || '';
-    
-    testRonibotForm.post(route('settings.ronibot.test'), {
+    testWhatsAppForm.test_phone = testPhone.value;
+    testWhatsAppForm.test_message = testMessage.value || '';
+
+    testWhatsAppForm.post(route('settings.whatsapp.test'), {
         preserveState: true,
         preserveScroll: true,
-        onSuccess: () => {
-            // Success/error message is handled by flash
-        },
-        onError: (errors) => {
-            console.error('Ronibot Test Error:', errors);
-        },
     });
 };
 

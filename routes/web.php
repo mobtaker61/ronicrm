@@ -33,9 +33,9 @@ Route::get('/p/{shareToken}', [\App\Http\Controllers\PublicProjectShareControlle
 Route::get('/p/{shareToken}/customer/{shareKey}', [\App\Http\Controllers\PublicProjectShareController::class, 'getCustomer'])->name('public.project.customer');
 Route::get('/p/{shareToken}/export-excel', [\App\Http\Controllers\PublicProjectShareController::class, 'exportExcel'])->name('public.project.export-excel');
 
-// Webhooks (no auth, no CSRF – called by Telegram, Ronibot, Meta)
-Route::post('/wpwebhook', [\App\Http\Controllers\RonibotWebhookController::class, 'handle'])->name('ronibot.webhook');
-Route::post('/wpwebhook-group', [\App\Http\Controllers\RonibotWebhookController::class, 'groupSync'])->name('ronibot.webhook.group');
+// Webhooks (no auth, no CSRF – called by Telegram, WhatsAppYar, Meta)
+Route::post('/whatsapp-webhook/{organization?}', [\App\Http\Controllers\WhatsAppYarWebhookController::class, 'handle'])->name('whatsapp.webhook');
+Route::post('/whatsapp-webhook', [\App\Http\Controllers\WhatsAppYarWebhookController::class, 'handle'])->name('whatsapp.webhook.default');
 Route::post('/telegram-webhook', [\App\Http\Controllers\TelegramWebhookController::class, 'handle'])->name('telegram.webhook');
 Route::post('/telegram-webhook/{organization}', [\App\Http\Controllers\TelegramWebhookController::class, 'handle'])->name('telegram.webhook.organization');
 Route::get('/instagram-webhook', [\App\Http\Controllers\InstagramWebhookController::class, 'verify'])->name('instagram.webhook.verify');
@@ -106,6 +106,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('/groups/{group}', [\App\Http\Controllers\TelegramCrawlerController::class, 'groupsUpdate'])->name('groups.update');
     Route::patch('/telegram-groups/{group}', [\App\Http\Controllers\TelegramCrawlerController::class, 'groupsUpdate'])->name('telegram-groups.update');
     Route::get('/telegram-crawler/groups', [\App\Http\Controllers\TelegramCrawlerController::class, 'groups'])->name('telegram-crawler.groups');
+    Route::get('/whatsapp/groups/sync', [\App\Http\Controllers\WhatsAppGroupsController::class, 'sync'])->name('whatsapp.groups.sync');
+    Route::post('/whatsapp/groups/{group}/leave', [\App\Http\Controllers\WhatsAppGroupsController::class, 'leave'])->name('whatsapp.groups.leave');
     Route::post('/telegram-crawler/crawl', [\App\Http\Controllers\TelegramCrawlerController::class, 'crawl'])->name('telegram-crawler.crawl');
     Route::get('/telegram-crawler/crawl-status/{crawlId}', [\App\Http\Controllers\TelegramCrawlerController::class, 'crawlStatus'])->name('telegram-crawler.crawl-status');
     Route::post('/telegram-crawler/send-to-groups', [\App\Http\Controllers\TelegramCrawlerController::class, 'sendToGroups'])->name('telegram-crawler.send-to-groups');
@@ -159,14 +161,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Settings
     Route::get('/settings', [\App\Http\Controllers\SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings/smtp', [\App\Http\Controllers\SettingsController::class, 'updateSmtp'])->name('settings.smtp.update');
-    Route::post('/settings/ronibot', [\App\Http\Controllers\SettingsController::class, 'updateRonibot'])->name('settings.ronibot.update');
+    Route::post('/settings/whatsapp', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'update'])->name('settings.whatsapp.update');
+    Route::post('/settings/whatsapp/test', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'test'])->name('settings.whatsapp.test');
+    Route::post('/settings/whatsapp/connect', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'connect'])->name('settings.whatsapp.connect');
+    Route::post('/settings/whatsapp/pairing-code', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'pairingCode'])->name('settings.whatsapp.pairing-code');
+    Route::get('/settings/whatsapp/qr-code', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'qrCode'])->name('settings.whatsapp.qr-code');
+    Route::get('/settings/whatsapp/status', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'status'])->name('settings.whatsapp.status');
+    Route::post('/settings/whatsapp/disconnect', [\App\Http\Controllers\Settings\WhatsAppConnectionController::class, 'disconnect'])->name('settings.whatsapp.disconnect');
     Route::post('/settings/smtp/test', [\App\Http\Controllers\SettingsController::class, 'testSmtp'])->name('settings.smtp.test');
-    Route::post('/settings/ronibot/test', [\App\Http\Controllers\SettingsController::class, 'testRonibot'])->name('settings.ronibot.test');
-    Route::post('/settings/ronibot/partner/register', [\App\Http\Controllers\Settings\RonibotPartnerController::class, 'register'])->name('settings.ronibot.partner.register');
-    Route::post('/settings/ronibot/partner/device', [\App\Http\Controllers\Settings\RonibotPartnerController::class, 'createDevice'])->name('settings.ronibot.partner.device');
-    Route::post('/settings/ronibot/partner/qr', [\App\Http\Controllers\Settings\RonibotPartnerController::class, 'qr'])->name('settings.ronibot.partner.qr');
-    Route::post('/settings/ronibot/partner/status', [\App\Http\Controllers\Settings\RonibotPartnerController::class, 'status'])->name('settings.ronibot.partner.status');
-    Route::post('/settings/ronibot/partner/app', [\App\Http\Controllers\Settings\RonibotPartnerController::class, 'createApp'])->name('settings.ronibot.partner.app');
     Route::post('/settings/telegram', [\App\Http\Controllers\SettingsController::class, 'updateTelegram'])->name('settings.telegram.update');
     Route::post('/settings/telegram/test', [\App\Http\Controllers\SettingsController::class, 'testTelegram'])->name('settings.telegram.test');
     Route::post('/settings/telegram/register-webhook', [\App\Http\Controllers\SettingsController::class, 'registerTelegramWebhook'])->name('settings.telegram.register-webhook');

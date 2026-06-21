@@ -860,6 +860,14 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    selectedWhatsAppChatId: {
+        type: String,
+        default: null,
+    },
+    whatsappIsGroup: {
+        type: Boolean,
+        default: false,
+    },
     selectedIgUserId: {
         type: String,
         default: null,
@@ -886,12 +894,12 @@ const channel = computed(() => props.channel || 'all');
 const messageChannel = computed(() => props.messageChannel ?? null);
 const selectedContact = computed(() => {
     if (channel.value === 'all') {
-        return props.selectedTikTokOpenId || props.selectedIgUserId || props.selectedChatId || props.selectedPhone || null;
+        return props.selectedWhatsAppChatId || props.selectedTikTokOpenId || props.selectedIgUserId || props.selectedChatId || props.selectedPhone || null;
     }
     if (channel.value === 'telegram') return props.selectedChatId || null;
     if (channel.value === 'instagram') return props.selectedIgUserId || null;
     if (channel.value === 'tiktok') return props.selectedTikTokOpenId || null;
-    return props.selectedPhone || null;
+    return props.selectedWhatsAppChatId || props.selectedPhone || null;
 });
 
 const searchPlaceholder = computed(() => {
@@ -915,7 +923,10 @@ function isConversationSelected(conv) {
         if (conv.channel === 'telegram') return conv.chat_id === props.selectedChatId && !!props.selectedChatId;
         if (conv.channel === 'instagram') return conv.ig_user_id === props.selectedIgUserId && !!props.selectedIgUserId;
         if (conv.channel === 'tiktok') return conv.tiktok_open_id === props.selectedTikTokOpenId && !!props.selectedTikTokOpenId;
-        if (conv.channel === 'whatsapp') return conv.phone === props.selectedPhone && !!props.selectedPhone;
+        if (conv.channel === 'whatsapp') {
+            if (conv.is_whatsapp_group) return conv.chat_id === props.selectedWhatsAppChatId && !!props.selectedWhatsAppChatId;
+            return conv.phone === props.selectedPhone && !!props.selectedPhone;
+        }
         return false;
     }
     const id = conv.phone || conv.chat_id || conv.ig_user_id || conv.tiktok_open_id;
@@ -1095,14 +1106,17 @@ const selectedConversation = computed(() => {
             if (c.channel === 'telegram') return c.chat_id === props.selectedChatId && !!props.selectedChatId;
             if (c.channel === 'instagram') return c.ig_user_id === props.selectedIgUserId && !!props.selectedIgUserId;
             if (c.channel === 'tiktok') return c.tiktok_open_id === props.selectedTikTokOpenId && !!props.selectedTikTokOpenId;
-            if (c.channel === 'whatsapp') return c.phone === props.selectedPhone && !!props.selectedPhone;
+            if (c.channel === 'whatsapp') {
+                if (c.is_whatsapp_group) return c.chat_id === props.selectedWhatsAppChatId && !!props.selectedWhatsAppChatId;
+                return c.phone === props.selectedPhone && !!props.selectedPhone;
+            }
             return false;
         }
         return (
             (channel.value === 'telegram' && c.chat_id === props.selectedChatId) ||
             (channel.value === 'instagram' && c.ig_user_id === props.selectedIgUserId) ||
             (channel.value === 'tiktok' && c.tiktok_open_id === props.selectedTikTokOpenId) ||
-            (channel.value === 'whatsapp' && c.phone === props.selectedPhone)
+            (channel.value === 'whatsapp' && (c.is_whatsapp_group ? c.chat_id === props.selectedWhatsAppChatId : c.phone === props.selectedPhone))
         );
     });
 });
@@ -1114,7 +1128,9 @@ const getDisplayName = (conversation) => {
         ? conversation.chat_id
         : (mc === 'instagram'
             ? conversation.ig_user_id
-            : (mc === 'tiktok' ? conversation.tiktok_open_id : conversation.phone));
+            : (mc === 'tiktok'
+                ? conversation.tiktok_open_id
+                : (conversation.is_whatsapp_group ? conversation.chat_id : conversation.phone)));
     if (conversation.name && conversation.name !== id) return conversation.name;
     return id || selectedContact.value;
 };
@@ -1300,11 +1316,13 @@ const selectConversation = (conv) => {
         if (ch === 'telegram') params.chat_id = conv.chat_id;
         else if (ch === 'instagram') params.ig_user_id = conv.ig_user_id;
         else if (ch === 'tiktok') params.tiktok_open_id = conv.tiktok_open_id;
+        else if (ch === 'whatsapp' && conv.is_whatsapp_group) params.chat_id = conv.chat_id;
         else params.phone = conv.phone;
     } else {
         if (channel.value === 'telegram') params.chat_id = conv.chat_id;
         else if (channel.value === 'instagram') params.ig_user_id = conv.ig_user_id;
         else if (channel.value === 'tiktok') params.tiktok_open_id = conv.tiktok_open_id;
+        else if (conv.is_whatsapp_group) params.chat_id = conv.chat_id;
         else params.phone = conv.phone;
     }
     router.get(route('inbox.index'), params, {
@@ -1381,6 +1399,8 @@ const sendMessage = () => {
         formData.append('to_ig_user_id', selectedContact.value);
     } else if (mc === 'tiktok') {
         formData.append('to_tiktok_open_id', selectedContact.value);
+    } else if (mc === 'whatsapp' && props.whatsappIsGroup) {
+        formData.append('to_chat_id', selectedContact.value);
     } else {
         formData.append('to_phone', selectedContact.value);
     }

@@ -472,7 +472,7 @@ Artisan::command('whatsapp:debug-receiver-orgs {receiver : Receiver value from w
 
     $rows = \App\Models\OrganizationSetting::query()
         ->withoutGlobalScopes()
-        ->where('key', 'ronibot')
+        ->where('key', 'whatsapp')
         ->get();
 
     $matched = [];
@@ -483,36 +483,24 @@ Artisan::command('whatsapp:debug-receiver-orgs {receiver : Receiver value from w
         }
 
         if ($looksLikePhone) {
-            foreach (['line_phone', 'wa_line_phone', 'connected_line_phone'] as $k) {
-                $line = $val[$k] ?? null;
-                if ($line === null || $line === '') {
-                    continue;
-                }
-                if ($formatPhone((string) $line) === $receiverDigits) {
-                    $matched[] = [
-                        'org_id' => (int) $row->organization_id,
-                        'match_type' => 'line_phone',
-                        'key' => $k,
-                        'stored' => (string) $line,
-                    ];
-                    break;
-                }
+            $line = $val['line_phone'] ?? null;
+            if ($line !== null && $line !== '' && $formatPhone((string) $line) === $receiverDigits) {
+                $matched[] = [
+                    'org_id' => (int) $row->organization_id,
+                    'match_type' => 'line_phone',
+                    'key' => 'line_phone',
+                    'stored' => (string) $line,
+                ];
             }
         } else {
-            foreach (['wa_session_id', 'session_id', 'device_session_id'] as $k) {
-                $sid = $val[$k] ?? null;
-                if ($sid === null || $sid === '') {
-                    continue;
-                }
-                if (trim((string) $sid) === $receiverTrim) {
-                    $matched[] = [
-                        'org_id' => (int) $row->organization_id,
-                        'match_type' => 'session_id',
-                        'key' => $k,
-                        'stored' => (string) $sid,
-                    ];
-                    break;
-                }
+            $sid = $val['session_id'] ?? null;
+            if ($sid !== null && $sid !== '' && trim((string) $sid) === $receiverTrim) {
+                $matched[] = [
+                    'org_id' => (int) $row->organization_id,
+                    'match_type' => 'session_id',
+                    'key' => 'session_id',
+                    'stored' => (string) $sid,
+                ];
             }
         }
     }
@@ -526,4 +514,4 @@ Artisan::command('whatsapp:debug-receiver-orgs {receiver : Receiver value from w
     }
 
     return 0;
-})->purpose('Debug which organizations match a given Ronibot receiver (line/session) for WhatsApp groups');
+})->purpose('Debug which organizations match a given WhatsAppYar session/line for WhatsApp groups');

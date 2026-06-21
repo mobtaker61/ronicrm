@@ -26,6 +26,7 @@ const routeHelper = (name, params = null, absolute = false) => {
         'locale.set': '/locale',
         'login': '/login',
         'register': '/register',
+        'settings.subscription.renew': '/settings/subscription/renew',
         'dashboard': '/dashboard',
         'groups.index': '/groups',
         'settings.instagram.connect': '/settings/instagram/connect',
@@ -80,16 +81,20 @@ const routeHelper = (name, params = null, absolute = false) => {
         'public.customer.share-via-whatsapp': (shareKey) => `/c/${shareKey}/share-via-whatsapp`,
         'settings.index': '/settings',
         'settings.smtp.update': '/settings/smtp',
-        'settings.ronibot.update': '/settings/ronibot',
+        'settings.whatsapp.update': '/settings/whatsapp',
         'settings.notifications.update': '/settings/notifications',
         'settings.smtp.test': '/settings/smtp/test',
-        'settings.ronibot.test': '/settings/ronibot/test',
+        'settings.whatsapp.test': '/settings/whatsapp/test',
+        'settings.whatsapp.connect': '/settings/whatsapp/connect',
+        'settings.whatsapp.qr-code': '/settings/whatsapp/qr-code',
+        'settings.whatsapp.status': '/settings/whatsapp/status',
+        'settings.whatsapp.disconnect': '/settings/whatsapp/disconnect',
         'inbox.index': (params) => params && Object.keys(params).length ? '/inbox?' + new URLSearchParams(params).toString() : '/inbox',
         'inbox.send': '/inbox/send',
         'inbox.create-customer': '/inbox/create-customer',
         'inbox.assign-customer': '/inbox/assign-customer',
         'inbox.customers-for-assign': '/inbox/customers-for-assign',
-        'ronibot.webhook': '/wpwebhook',
+        'whatsapp.webhook': '/whatsapp-webhook',
         'settings.social-media-types.store': '/settings/social-media-types',
         'settings.social-media-types.update': (id) => `/settings/social-media-types/${id}`,
         'settings.social-media-types.destroy': (id) => `/settings/social-media-types/${id}`,
@@ -127,7 +132,6 @@ createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) => resolvePageComponent(`./Pages/${name}.vue`, import.meta.glob('./Pages/**/*.vue')),
     setup({ el, App, props, plugin }) {
-        const app = createApp({ render: () => h(App, props) });
         const i18n = useI18n();
 
         function applyDocumentLangDir(page) {
@@ -144,32 +148,53 @@ createInertiaApp({
             document.documentElement.setAttribute('dir', html?.dir === 'rtl' ? 'rtl' : 'ltr');
         }
 
-        const syncI18nFromPage = (page) => {
+        const syncI18nFromPage = async (page) => {
             const locale = page?.props?.i18n?.locale;
             const jsonUrl = page?.props?.i18n?.json_url;
+
+            if (locale) {
+                try {
+                    const cached = localStorage.getItem(`i18n_${locale}`);
+                    if (cached) {
+                        const parsed = JSON.parse(cached);
+                        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+                            i18n.setMessages(parsed);
+                            i18n.locale.value = locale;
+                        }
+                    }
+                } catch {
+                    // ignore
+                }
+            }
+
             if (locale && jsonUrl) {
-                i18n.load(locale, jsonUrl);
+                await i18n.load(locale, jsonUrl);
             }
             applyDocumentLangDir(page);
         };
 
-        syncI18nFromPage(props?.initialPage);
+        const mountApp = () => {
+            const app = createApp({ render: () => h(App, props) });
 
-        const onInertiaPage = (event) => {
-            const page = event?.detail?.page;
-            if (page) {
-                syncI18nFromPage(page);
-            }
+            const onInertiaPage = (event) => {
+                const page = event?.detail?.page;
+                if (page) {
+                    syncI18nFromPage(page);
+                }
+            };
+            router.on('success', onInertiaPage);
+
+            app.config.globalProperties.route = routeHelper;
+            app.config.globalProperties.t = (key, fallback = null) => {
+                i18n.revision.value;
+                return i18n.t(key, fallback);
+            };
+            app.provide('i18n', i18n);
+
+            return app.use(plugin).mount(el);
         };
-        // success: بعد از بارگذاری کامل صفحه (شامل redirect بعد از عوض کردن زبان)
-        router.on('success', onInertiaPage);
-        
-        // Make route helper available globally in templates
-        app.config.globalProperties.route = routeHelper;
-        app.config.globalProperties.t = i18n.t;
-        app.provide('i18n', i18n);
-        
-        return app.use(plugin).mount(el);
+
+        return syncI18nFromPage(props?.initialPage).then(() => mountApp());
     },
     progress: {
         color: '#4B5563',

@@ -8,8 +8,9 @@ use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\CustomerSocialMedia;
 use App\Models\InstagramMessage;
-use App\Models\Setting;
-use App\Models\SocialMediaType;
+use App\Services\WhatsAppYarApiService;
+use App\Services\WhatsAppInboxService;
+use App\Support\WhatsAppSettings;
 use App\Models\TelegramMessage;
 use App\Models\TikTokMessage;
 use App\Models\WhatsAppMessage;
@@ -34,6 +35,7 @@ class InboxController extends Controller
 
         $messageChannel = null;
         $selectedContact = null;
+        $whatsappIsGroup = false;
         $instagramCustomerId = $request->get('customer_id');
         $tiktokCustomerId = $request->get('customer_id');
 
@@ -45,8 +47,15 @@ class InboxController extends Controller
                 $selectedContact = $request->get('ig_user_id');
                 $messageChannel = 'instagram';
             } elseif ($request->filled('chat_id')) {
-                $selectedContact = $request->get('chat_id');
-                $messageChannel = 'telegram';
+                $chatIdParam = (string) $request->get('chat_id');
+                if (WhatsAppYarApiService::isGroupChatId($chatIdParam)) {
+                    $selectedContact = $chatIdParam;
+                    $messageChannel = 'whatsapp';
+                    $whatsappIsGroup = true;
+                } else {
+                    $selectedContact = $chatIdParam;
+                    $messageChannel = 'telegram';
+                }
             } elseif ($request->filled('phone')) {
                 $selectedContact = $request->get('phone');
                 $messageChannel = 'whatsapp';
@@ -95,7 +104,13 @@ class InboxController extends Controller
             }
         } else {
             $messageChannel = 'whatsapp';
-            $selectedContact = $request->get('phone');
+            $chatIdParam = (string) $request->get('chat_id', '');
+            if ($chatIdParam !== '' && WhatsAppYarApiService::isGroupChatId($chatIdParam)) {
+                $selectedContact = $chatIdParam;
+                $whatsappIsGroup = true;
+            } else {
+                $selectedContact = $request->get('phone');
+            }
         }
 
         $searchPhone = trim((string) $request->get('search_phone', ''));
@@ -340,11 +355,28 @@ class InboxController extends Controller
                 }
             }
         } elseif ($messageChannel === 'whatsapp' && $selectedContact) {
-            $messages = WhatsAppMessage::query()
-                ->conversationWithPeer($selectedContact)
+            try {
+                if ($whatsappIsGroup) {
+                    app(WhatsAppInboxService::class)->syncChatHistoryForChatId($selectedContact);
+                } else {
+                    app(WhatsAppInboxService::class)->syncChatHistoryForPeer($selectedContact);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('WhatsApp chat history sync failed', [
+                    'contact' => $selectedContact,
+                    'is_group' => $whatsappIsGroup,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            $messageQuery = $whatsappIsGroup
+                ? WhatsAppMessage::forChat($selectedContact)
+                : WhatsAppMessage::query()->conversationWithPeer($selectedContact);
+
+            $messages = $messageQuery
                 ->orderBy('created_at', 'asc')
                 ->get()
-                ->map(function ($msg) {
+                ->map(function ($msg) use ($whatsappIsGroup) {
                     return [
                         'id' => $msg->id,
                         'message' => $msg->message,
@@ -354,14 +386,17 @@ class InboxController extends Controller
                         'status' => $msg->status,
                         'created_at' => $msg->created_at,
                         'read_at' => $msg->read_at,
+                        'sender' => $whatsappIsGroup && $msg->direction === 'incoming' ? $msg->from_phone : null,
                     ];
                 });
             $this->scheduleMarkConversationReadAfterResponse('whatsapp', $selectedContact);
-            $selectedCustomer = $this->findCustomerByPhone($selectedContact);
-            if ($selectedCustomer) {
-                $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
-                if ($selectedCustomer->avatar) {
-                    $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
+            if (! $whatsappIsGroup) {
+                $selectedCustomer = $this->findCustomerByPhone($selectedContact);
+                if ($selectedCustomer) {
+                    $selectedCustomer->load(['industry', 'contacts', 'socialMedia.socialMediaType']);
+                    if ($selectedCustomer->avatar) {
+                        $selectedCustomer->avatar = asset('storage/'.$selectedCustomer->avatar);
+                    }
                 }
             }
         }
@@ -403,6 +438,8 @@ class InboxController extends Controller
             'messages' => $messages,
             'selectedPhone' => $request->filled('phone') ? $request->get('phone') : null,
             'selectedChatId' => $request->filled('chat_id') ? $request->get('chat_id') : null,
+            'selectedWhatsAppChatId' => ($messageChannel === 'whatsapp' && $whatsappIsGroup && $selectedContact) ? $selectedContact : null,
+            'whatsappIsGroup' => $whatsappIsGroup,
             'selectedIgUserId' => $request->filled('ig_user_id') ? $request->get('ig_user_id') : null,
             'selectedTikTokOpenId' => $request->filled('tiktok_open_id') ? $request->get('tiktok_open_id') : null,
             'searchResults' => $searchResults,
@@ -413,46 +450,7 @@ class InboxController extends Controller
 
     protected function buildWhatsAppConversations(): \Illuminate\Support\Collection
     {
-        $peersFromIncoming = WhatsAppMessage::incoming()
-            ->whereNotNull('from_phone')
-            ->distinct()
-            ->pluck('from_phone');
-        $peersFromOutgoing = WhatsAppMessage::query()
-            ->where('direction', 'outgoing')
-            ->whereNotNull('to_phone')
-            ->distinct()
-            ->pluck('to_phone');
-        $allPhones = $peersFromIncoming->merge($peersFromOutgoing)->unique()->filter();
-
-        $conversations = collect();
-        foreach ($allPhones as $phone) {
-            $customer = $this->findCustomerByPhone($phone);
-            $lastMessage = WhatsAppMessage::query()
-                ->conversationWithPeer($phone)
-                ->latest()
-                ->first();
-            $unreadCount = WhatsAppMessage::where('from_phone', $phone)->where('direction', 'incoming')->whereNull('read_at')->count();
-            $messageCount = WhatsAppMessage::query()
-                ->conversationWithPeer($phone)
-                ->count();
-            $customerName = $customer?->name ?? '';
-            $displayName = ($customer && trim((string) $customerName) !== '' && $customerName !== $phone) ? $customerName : $phone;
-            $conversations->push([
-                'phone' => $phone,
-                'chat_id' => null,
-                'ig_user_id' => null,
-                'tiktok_open_id' => null,
-                'name' => $displayName,
-                'customer_id' => $customer?->id,
-                'avatar' => $customer?->avatar ? asset('storage/'.$customer->avatar) : null,
-                'last_message' => $lastMessage?->message,
-                'last_message_at' => $lastMessage?->created_at,
-                'unread_count' => $unreadCount,
-                'message_count' => $messageCount,
-            ]);
-        }
-
-        return $conversations->sortByDesc('last_message_at')->values();
+        return app(WhatsAppInboxService::class)->buildConversationList();
     }
 
     protected function buildTelegramConversations(): \Illuminate\Support\Collection
@@ -700,7 +698,8 @@ class InboxController extends Controller
         } elseif ($channel === 'tiktok') {
             $rules['to_tiktok_open_id'] = 'required|string';
         } else {
-            $rules['to_phone'] = 'required|string';
+            $rules['to_phone'] = 'required_without:to_chat_id|nullable|string';
+            $rules['to_chat_id'] = 'required_without:to_phone|nullable|string';
         }
         $validated = $request->validate($rules, [
             'media_file.file' => 'فایل آپلود نشد. حجم (حداکثر ۵۰ مگ) یا تنظیمات سرور را بررسی کنید.',
@@ -828,29 +827,33 @@ class InboxController extends Controller
             }
 
             $whatsappService = app(\App\Services\WhatsAppService::class);
-            $result = $whatsappService->sendMessage($validated['to_phone'], $messageToSend, $mediaUrl);
-            $customer = $this->findCustomerByPhone($validated['to_phone']);
-            $customerDigits = preg_replace('/[^0-9]/', '', (string) $validated['to_phone']);
+            $toChatId = trim((string) ($validated['to_chat_id'] ?? ''));
+            $toPhone = trim((string) ($validated['to_phone'] ?? ''));
+            $destination = $toChatId !== '' ? $toChatId : $toPhone;
+            $isGroup = $toChatId !== '' && WhatsAppYarApiService::isGroupChatId($toChatId);
+
+            $result = $whatsappService->sendMessage($destination, $messageToSend, $mediaUrl);
+            $customer = $isGroup ? null : $this->findCustomerByPhone($toPhone);
+            $customerDigits = preg_replace('/[^0-9]/', '', (string) $toPhone);
             if (str_starts_with($customerDigits, '00')) {
                 $customerDigits = substr($customerDigits, 2);
             }
-            $ronibotSettings = Setting::getForOrganization('ronibot', []) ?? [];
+            $whatsappSettings = WhatsAppSettings::get() ?? [];
             $ourLineDigits = '';
-            foreach (['line_phone', 'wa_line_phone', 'connected_line_phone'] as $lineKey) {
-                $lv = $ronibotSettings[$lineKey] ?? null;
-                if ($lv !== null && $lv !== '') {
-                    $ourLineDigits = preg_replace('/[^0-9]/', '', (string) $lv);
-                    if (str_starts_with($ourLineDigits, '00')) {
-                        $ourLineDigits = substr($ourLineDigits, 2);
-                    }
-                    break;
+            $linePhone = $whatsappSettings['line_phone'] ?? null;
+            if ($linePhone !== null && $linePhone !== '') {
+                $ourLineDigits = preg_replace('/[^0-9]/', '', (string) $linePhone);
+                if (str_starts_with($ourLineDigits, '00')) {
+                    $ourLineDigits = substr($ourLineDigits, 2);
                 }
             }
             $fromPhoneStored = (strlen($ourLineDigits) >= 8) ? $ourLineDigits : $customerDigits;
+            $resolvedChatId = $isGroup ? $toChatId : WhatsAppYarApiService::phoneToChatId($customerDigits);
             WhatsAppMessage::create([
                 'message_id' => $result['message_id'] ?? null,
+                'chat_id' => $resolvedChatId,
                 'from_phone' => $fromPhoneStored,
-                'to_phone' => $customerDigits,
+                'to_phone' => $isGroup ? $toChatId : $customerDigits,
                 'message' => $messageToSend ?: null,
                 'message_type' => $mediaUrl ? $fileType : 'text',
                 'media_url' => $mediaUrl,
@@ -858,16 +861,20 @@ class InboxController extends Controller
                 'customer_id' => $customer?->id,
                 'direction' => 'outgoing',
                 'status' => $result['success'] ? 'sent' : 'failed',
+                'metadata' => $isGroup ? ['is_group' => true] : null,
             ]);
+            $redirectParams = $isGroup
+                ? ['channel' => 'whatsapp', 'chat_id' => $toChatId]
+                : ['phone' => $toPhone];
             if ($result['success']) {
-                return redirect()->route('inbox.index', ['phone' => $validated['to_phone']])
+                return redirect()->route('inbox.index', $redirectParams)
                     ->with('success', 'Message sent successfully.')->with('refresh', true);
             }
             if (! str_contains($result['error'] ?? '', 'timed out')) {
                 Log::error('Failed to send WhatsApp message via API: '.($result['error'] ?? 'Unknown error'));
             }
 
-            return redirect()->route('inbox.index', ['phone' => $validated['to_phone']])
+            return redirect()->route('inbox.index', $redirectParams)
                 ->with('error', 'Message saved but failed to send via WhatsApp: '.($result['error'] ?? 'Unknown error'));
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Error sending message: '.$e->getMessage());
@@ -1241,9 +1248,25 @@ class InboxController extends Controller
                         ->whereNull('read_at')
                         ->update(['read_at' => now(), 'status' => 'read']);
                 } else {
-                    WhatsAppMessage::where('from_phone', $contactKey)
-                        ->whereNull('read_at')
-                        ->update(['read_at' => now(), 'status' => 'read']);
+                    if (str_contains($contactKey, '@g.us')) {
+                        WhatsAppMessage::forChat($contactKey)
+                            ->where('direction', 'incoming')
+                            ->whereNull('read_at')
+                            ->update(['read_at' => now(), 'status' => 'read']);
+                    } else {
+                        WhatsAppMessage::where('from_phone', $contactKey)
+                            ->whereNull('read_at')
+                            ->update(['read_at' => now(), 'status' => 'read']);
+                    }
+
+                    try {
+                        app(WhatsAppInboxService::class)->markChatReadOnDevice($contactKey);
+                    } catch (\Throwable $e) {
+                        Log::warning('WhatsApp device mark-read failed', [
+                            'contact' => $contactKey,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
                 }
 
                 return;

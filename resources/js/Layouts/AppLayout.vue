@@ -1,5 +1,5 @@
 <template>
-    <div class="min-h-screen bg-gray-50" :dir="currentDir" :style="currentFontStyle">
+    <div class="min-h-screen bg-gray-50" :dir="currentDir" :style="currentFontStyle" :key="i18nRevision">
         <!-- Mobile Overlay -->
         <div
             v-if="sidebarOpen"
@@ -645,12 +645,12 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { useI18n } from '@/composables/useI18n';
 
-const sidebarOpen = ref(true);
+const sidebarOpen = ref(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
 /** Default branding when organization has no custom logo (public/) */
 const brandLogoFull = '/brand/logo-full-96px.png';
 const brandIcon = '/brand/logo-icon-512px.png';
 const page = usePage();
-const { load: loadLocaleMessages } = useI18n();
+const { t, load: loadLocaleMessages, revision: i18nRevision } = useI18n();
 const organizations = computed(() => page.props.organizations || []);
 const languages = computed(() => page.props.languages || []);
 const selectedOrganizationId = ref(page.props.auth?.user?.current_organization_id || null);
@@ -670,7 +670,7 @@ const openMenus = ref({
 
 const channelNavItems = [
     { tab: 'smtp', labelKey: 'settings.tabs.smtp' },
-    { tab: 'ronibot', labelKey: 'settings.tabs.ronibot' },
+    { tab: 'whatsapp', labelKey: 'settings.tabs.whatsapp' },
     { tab: 'telegram', labelKey: 'settings.tabs.telegram_inbox' },
     { tab: 'instagram', labelKey: 'settings.tabs.instagram_inbox' },
     { tab: 'tiktok', labelKey: 'settings.tabs.tiktok_inbox' },
@@ -756,7 +756,7 @@ const isChannelsMenuSectionActive = computed(() => {
         return false;
     }
     const t = settingsQueryTab() || '';
-    return ['smtp', 'ronibot', 'telegram', 'instagram', 'tiktok', 'google-contacts'].includes(t);
+    return ['smtp', 'whatsapp', 'telegram', 'instagram', 'tiktok', 'google-contacts'].includes(t);
 });
 
 const isSettingsSubtreeActive = computed(() => {

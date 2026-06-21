@@ -25,11 +25,19 @@
             </Link>
         </div>
 
+        <div v-if="!whatsappConnected && (channelFilter === 'all' || channelFilter === 'whatsapp')" class="p-6 border border-amber-200 rounded-lg bg-amber-50 mb-6">
+            <p class="text-gray-800 mb-4">{{ t('telegram_groups.connect_whatsapp_first') }}</p>
+            <Link :href="route('settings.index', { tab: 'whatsapp' })" class="inline-flex items-center px-5 py-2.5 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700">
+                {{ t('telegram_groups.go_to_whatsapp_settings') }}
+            </Link>
+        </div>
+
         <div class="space-y-6">
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
                     <p class="text-sm text-gray-600 mb-4">
                         {{ t('telegram_groups.groups_help_text') }}
+                        <span class="block mt-1 text-xs text-gray-500">{{ t('telegram_groups.at_inbox_help') }}</span>
                     </p>
                     <div class="flex flex-wrap gap-4 items-center">
                         <div class="flex items-center gap-2">
@@ -75,7 +83,16 @@
                                 {{ t('telegram_groups.clear_filters') }}
                             </Link>
                             <button
-                                v-if="channelFilter !== 'whatsapp'"
+                                v-if="filterChannel === 'whatsapp' || filterChannel === 'all'"
+                                type="button"
+                                @click="refreshWhatsAppGroups"
+                                :disabled="refreshingWhatsApp || !whatsappConnected"
+                                class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium disabled:opacity-50"
+                            >
+                                {{ refreshingWhatsApp ? t('telegram_groups.refreshing') : t('telegram_groups.refresh_whatsapp') }}
+                            </button>
+                            <button
+                                v-if="filterChannel === 'telegram' || filterChannel === 'all'"
                                 type="button"
                                 @click="refreshGroups"
                                 :disabled="refreshing || !telegramConnected"
@@ -84,7 +101,7 @@
                                 {{ refreshing ? t('telegram_groups.refreshing') : t('telegram_groups.refresh') }}
                             </button>
                             <Link
-                                v-if="channelFilter !== 'whatsapp'"
+                                v-if="filterChannel === 'telegram' || filterChannel === 'all'"
                                 :href="route('telegram-crawler.index')"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
                             >
@@ -103,6 +120,7 @@
                                 <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.category') }}</th>
                                 <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_language') }}</th>
                                 <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_id') }}</th>
+                                <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_at_inbox') }}</th>
                                 <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_can_post') }}</th>
                                 <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('telegram_groups.column_last_synced') }}</th>
                                 <th class="px-4 py-3 text-left rtl:text-right text-xs font-medium text-gray-500 uppercase">{{ t('common.actions') }}</th>
@@ -110,7 +128,7 @@
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             <tr v-if="!groups.data?.length" class="text-center text-gray-500 py-8">
-                                <td colspan="9" class="px-4 py-6">
+                                <td colspan="10" class="px-4 py-6">
                                     {{ t('telegram_groups.no_groups_found') }}
                                 </td>
                             </tr>
@@ -148,6 +166,17 @@
                                     </select>
                                 </td>
                                 <td class="px-4 py-3 text-sm font-mono text-gray-500 break-all max-w-[14rem]">{{ g.telegram_group_id }}</td>
+                                <td class="px-4 py-3 text-center">
+                                    <input
+                                        v-if="g.channel === 'whatsapp'"
+                                        type="checkbox"
+                                        :checked="!!g.at_inbox"
+                                        :disabled="updatingGroupId === g.id"
+                                        class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-50"
+                                        @change="(e) => updateGroup(g, 'at_inbox', e.target.checked)"
+                                    />
+                                    <span v-else class="text-xs text-gray-400">—</span>
+                                </td>
                                 <td class="px-4 py-3">
                                     <span
                                         v-if="g.can_post"
@@ -166,14 +195,30 @@
                                 </td>
                                 <td class="px-4 py-3 text-sm text-gray-500">{{ formatDate(g.last_synced_at) }}</td>
                                 <td class="px-4 py-3">
+                                    <template v-if="g.channel === 'whatsapp'">
+                                        <Link
+                                            v-if="g.at_inbox"
+                                            :href="route('inbox.index', { channel: 'whatsapp', chat_id: g.telegram_group_id })"
+                                            class="text-emerald-700 hover:text-emerald-900 text-sm font-medium mr-2"
+                                        >
+                                            {{ t('telegram_groups.open_inbox') }}
+                                        </Link>
+                                        <button
+                                            type="button"
+                                            class="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
+                                            :disabled="leavingGroupId === g.id"
+                                            @click="leaveWhatsAppGroup(g)"
+                                        >
+                                            {{ leavingGroupId === g.id ? t('telegram_groups.leaving') : t('telegram_groups.leave_group') }}
+                                        </button>
+                                    </template>
                                     <Link
-                                        v-if="g.channel !== 'whatsapp'"
+                                        v-else
                                         :href="route('telegram-crawler.index')"
                                         class="text-blue-600 hover:text-blue-800 text-sm font-medium"
                                     >
                                         {{ t('telegram_groups.crawl_send') }}
                                     </Link>
-                                    <span v-else class="text-sm text-gray-400">—</span>
                                 </td>
                             </tr>
                         </tbody>
@@ -217,6 +262,7 @@ const { t } = useI18n();
 
 const props = defineProps({
     telegramConnected: { type: Boolean, default: false },
+    whatsappConnected: { type: Boolean, default: false },
     channelFilter: { type: String, default: 'all' },
     groups: { type: Object, default: () => ({ data: [], links: [] }) },
 });
@@ -230,6 +276,8 @@ const filterLanguage = ref('');
 const filterChannel = ref(props.channelFilter || 'all');
 const updatingGroupId = ref(null);
 const refreshing = ref(false);
+const refreshingWhatsApp = ref(false);
+const leavingGroupId = ref(null);
 const refreshError = ref('');
 
 onMounted(() => {
@@ -250,18 +298,50 @@ const applyFilters = () => {
 const updateGroup = async (g, field, value) => {
     updatingGroupId.value = g.id;
     try {
-        const payload = field === 'category'
-            ? { telegram_group_category_id: value ? parseInt(value, 10) : null }
-            : { language: value || null };
+        let payload;
+        if (field === 'category') {
+            payload = { telegram_group_category_id: value ? parseInt(value, 10) : null };
+        } else if (field === 'at_inbox') {
+            payload = { at_inbox: !!value };
+        } else {
+            payload = { language: value || null };
+        }
         const { data } = await axios.patch(route('groups.update', g.id), payload);
         if (data.group) {
             g.category = data.group.category;
             g.language = data.group.language;
+            if (field === 'at_inbox') g.at_inbox = data.group.at_inbox;
         }
     } catch (e) {
         console.error('Update failed', e);
     } finally {
         updatingGroupId.value = null;
+    }
+};
+
+const refreshWhatsAppGroups = async () => {
+    refreshingWhatsApp.value = true;
+    refreshError.value = '';
+    try {
+        await axios.get(route('whatsapp.groups.sync'), { timeout: 120000 });
+        applyFilters();
+    } catch (e) {
+        refreshError.value = e.response?.data?.error || e.message || t('telegram_groups.refresh_failed');
+    } finally {
+        refreshingWhatsApp.value = false;
+    }
+};
+
+const leaveWhatsAppGroup = async (g) => {
+    if (!confirm(t('telegram_groups.leave_group_confirm'))) return;
+    leavingGroupId.value = g.id;
+    try {
+        await axios.post(route('whatsapp.groups.leave', g.id));
+        applyFilters();
+    } catch (e) {
+        refreshError.value = e.response?.data?.error || e.message || t('telegram_groups.leave_failed');
+    } finally {
+        leavingGroupId.value = null;
     }
 };
 

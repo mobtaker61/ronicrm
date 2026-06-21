@@ -22,11 +22,21 @@ class SetCurrentOrganization
                 ->value('id');
         }
 
-        if (! $organizationId && $request->user()?->current_organization_id) {
-            $organizationId = (int) $request->user()->current_organization_id;
+        $user = $request->user();
+
+        if (! $organizationId && $user?->current_organization_id) {
+            $organizationId = (int) $user->current_organization_id;
         }
 
-        if (! $organizationId) {
+        if (! $organizationId && $user) {
+            $organizationId = $user->organizations()
+                ->wherePivot('status', 'active')
+                ->orderByDesc('organization_user.is_default')
+                ->orderBy('organizations.id')
+                ->value('organizations.id');
+        }
+
+        if (! $organizationId && ! $user) {
             $organizationId = Organization::query()->where('is_active', true)->orderBy('id')->value('id');
         }
 

@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Organization;
 use App\Models\Setting;
 use App\Models\SocialMediaType;
-use App\Support\RonibotUrlDefaults;
+use App\Support\FlashTranslator;
+use App\Support\WhatsAppSettings;
+use App\Support\WhatsAppYarUrlDefaults;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -132,14 +135,31 @@ class SettingsController extends Controller
             }
         }
 
-        $allowedTabs = ['smtp', 'ronibot', 'telegram', 'instagram', 'tiktok', 'google-contacts', 'notifications'];
+        $allowedTabs = ['smtp', 'whatsapp', 'telegram', 'instagram', 'tiktok', 'google-contacts', 'notifications'];
         if ($canManageOrganizationSettings) {
             $allowedTabs[] = 'organization';
         }
-        $defaultTab = $canManageOrganizationSettings ? 'organization' : 'smtp';
+        $defaultTab = 'smtp';
+        if ($canManageOrganizationSettings) {
+            $orgId = $authUser->current_organization_id;
+            $subActive = $orgId
+                && app(\App\Services\SubscriptionService::class)->isActive(
+                    app(\App\Services\SubscriptionService::class)->getOrCreateForOrganization((int) $orgId)
+                );
+            $defaultTab = $subActive ? 'smtp' : 'organization';
+        }
         $initialTab = in_array(request()->query('tab'), $allowedTabs, true)
             ? request()->query('tab')
             : $defaultTab;
+
+        $whatsappOrg = $authUser->current_organization_id
+            ? Organization::query()->find($authUser->current_organization_id)
+            : null;
+        $whatsappSettings = WhatsAppSettings::get($authUser->current_organization_id);
+        $whatsappSettings['api_url'] = WhatsAppYarUrlDefaults::apiBaseUrl();
+        $whatsappSettings['webhook_url'] = WhatsAppSettings::webhookUrl($whatsappOrg);
+        $whatsappSettings['webhook_public'] = WhatsAppSettings::isWebhookUrlPubliclyReachable($whatsappSettings['webhook_url']);
+        $whatsappSettings['api_key_configured'] = WhatsAppSettings::isConfigured($authUser->current_organization_id);
 
         return Inertia::render('Settings/Index', [
             'initialTab' => $initialTab,
@@ -165,32 +185,8 @@ class SettingsController extends Controller
                 'imap_port' => '993',
                 'imap_encryption' => 'ssl',
             ]),
-            'ronibotSettings' => (function () {
-                $defaults = [
-                    'api_url' => RonibotUrlDefaults::createMessageUrl() ?: 'https://ronibot.com/api/create-message',
-                    'appkey' => '',
-                    'authkey' => '',
-                    'webhook_url' => RonibotUrlDefaults::webhookUrl() ?: 'https://ronicrm.com/wpwebhook',
-                    'enabled' => false,
-                    'line_phone' => '',
-                    'wa_session_id' => '',
-                    'device_id' => '',
-                    'device_uuid' => '',
-                    'ronibot_user_id' => '',
-                    'ronibot_phone' => '',
-                ];
-                $stored = Setting::getForOrganization('ronibot', $defaults);
-                $cm = RonibotUrlDefaults::createMessageUrl();
-                if ($cm !== '') {
-                    $stored['api_url'] = $cm;
-                }
-                $wh = RonibotUrlDefaults::webhookUrl();
-                if ($wh !== '') {
-                    $stored['webhook_url'] = $wh;
-                }
-
-                return $stored;
-            })(),
+            'whatsappSettings' => $whatsappSettings,
+            'whatsappConnection' => $this->getWhatsAppConnectionForFront(),
             'orgNotificationsSettings' => app(\App\Services\OrganizationNotificationService::class)
                 ->getSettingsForOrganization($authUser->current_organization_id),
             'telegramSettings' => array_merge(Setting::getScoped('telegram', [
@@ -243,7 +239,7 @@ class SettingsController extends Controller
         ]);
         $service->saveSettingsForOrganization($toSave, Auth::user()?->current_organization_id);
 
-        return redirect()->back()->with('success', __('flash.org_notifications_saved'));
+        return redirect()->back()->with('success', FlashTranslator::get('org_notifications_saved'));
     }
 
     protected function getSubscriptionSummaryForFront(): ?array
@@ -259,6 +255,7 @@ class SettingsController extends Controller
         return [
             'id' => $sub->id,
             'status' => $service->computeStatus($sub),
+            'is_active' => $service->isActive($sub),
             'remaining_days' => $service->remainingDays($sub),
             'plan' => $sub->plan ? [
                 'id' => $sub->plan->id,
@@ -395,80 +392,26 @@ class SettingsController extends Controller
             ->with('success', 'SMTP settings updated successfully.');
     }
 
-    public function updateRonibot(Request $request)
+    protected function getWhatsAppConnectionForFront(): ?array
     {
-        $validated = $request->validate([
-            'api_url' => 'nullable|url|max:500',
-            'appkey' => 'nullable|string|max:500',
-            'authkey' => 'nullable|string|max:500',
-            'webhook_url' => 'nullable|url|max:500',
-            'enabled' => 'boolean',
-            'line_phone' => 'nullable|string|max:32',
-            'wa_session_id' => 'nullable|string|max:128',
-            'device_id' => 'nullable|string|max:64',
-            'device_uuid' => 'nullable|string|max:128',
-            'ronibot_user_id' => 'nullable|string|max:64',
-            'ronibot_phone' => 'nullable|string|max:32',
-        ]);
-
-        $cm = RonibotUrlDefaults::createMessageUrl();
-        if ($cm !== '') {
-            $validated['api_url'] = $cm;
-        } elseif (trim((string) ($validated['api_url'] ?? '')) === '') {
-            $validated['api_url'] = 'https://ronibot.com/api/create-message';
+        $settings = WhatsAppSettings::get();
+        $sessionId = trim((string) ($settings['session_id'] ?? ''));
+        if ($sessionId === '') {
+            return null;
         }
 
-        $wh = RonibotUrlDefaults::webhookUrl();
-        if ($wh !== '') {
-            $validated['webhook_url'] = $wh;
-        }
+        $status = strtolower((string) ($settings['status'] ?? ''));
+        $connected = WhatsAppSettings::isReady();
 
-        Setting::setForOrganization('ronibot', $validated);
-
-        return redirect()->back()
-            ->with('success', 'Ronibot settings updated successfully.');
-    }
-
-    public function testRonibot(Request $request)
-    {
-        $validated = $request->validate([
-            'test_phone' => 'required|string|max:20',
-            'test_message' => 'nullable|string|max:500',
-        ]);
-
-        try {
-            $ronibotSettings = Setting::getForOrganization('ronibot', []);
-
-            if (empty($ronibotSettings['appkey']) || empty($ronibotSettings['authkey'])) {
-                return redirect()->back()
-                    ->with('error', 'Please configure Ronibot settings first (App Key and Auth Key are required).');
-            }
-
-            if (! ($ronibotSettings['enabled'] ?? false)) {
-                return redirect()->back()
-                    ->with('error', 'Please enable Ronibot first.');
-            }
-
-            $whatsappService = app(\App\Services\WhatsAppService::class);
-            $message = $validated['test_message'] ?? 'This is a test message from RoniCRM. If you received this message, your Ronibot settings are working correctly!';
-
-            $result = $whatsappService->sendMessage($validated['test_phone'], $message);
-
-            if ($result['success']) {
-                return redirect()->back()
-                    ->with('success', 'Test WhatsApp message sent successfully to '.$validated['test_phone'].'!');
-            } else {
-                return redirect()->back()
-                    ->with('error', 'Failed to send test message: '.($result['error'] ?? 'Unknown error'));
-            }
-        } catch (\Exception $e) {
-            Log::error('Ronibot test error: '.$e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return redirect()->back()
-                ->with('error', 'Failed to send test message: '.$e->getMessage());
-        }
+        return [
+            'session_id' => $sessionId,
+            'session_name' => (string) ($settings['session_name'] ?? ''),
+            'phone' => (string) ($settings['line_phone'] ?? ''),
+            'status' => $status,
+            'connected' => $connected,
+            'webhook_pending' => (bool) ($settings['webhook_pending'] ?? false),
+            'webhook_error' => (string) ($settings['webhook_error'] ?? ''),
+        ];
     }
 
     public function updateTelegram(Request $request)
@@ -691,10 +634,23 @@ class SettingsController extends Controller
 
         $base = $sub->ends_at && $sub->ends_at->isFuture() ? $sub->ends_at->copy() : now();
         $sub->started_at = $sub->started_at ?: now();
+        $sub->status = 'active';
         $sub->ends_at = $base->addMonths($months);
         $sub->grace_ends_at = null;
+        $sub->cancel_at_period_end = false;
         $sub->save();
 
-        return redirect()->back()->with('success', 'اشتراک سازمان تمدید شد.');
+        $summary = $this->getSubscriptionSummaryForFront();
+        $message = FlashTranslator::get('subscription_renewed');
+
+        if (($request->expectsJson() || $request->ajax()) && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'subscription' => $summary,
+            ]);
+        }
+
+        return redirect()->route('dashboard')->with('success', $message);
     }
 }

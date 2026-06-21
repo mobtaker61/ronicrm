@@ -30,7 +30,13 @@ class TelegramGroup extends Model
         'last_crawled_message_id',
         'last_synced_at',
         'is_active',
+        'at_inbox',
     ];
+
+    public function scopeAtInbox($query)
+    {
+        return $query->where('at_inbox', true);
+    }
 
     public function scopeActive($query)
     {
@@ -52,6 +58,7 @@ class TelegramGroup extends Model
         return [
             'can_post' => 'boolean',
             'is_active' => 'boolean',
+            'at_inbox' => 'boolean',
             'last_synced_at' => 'datetime',
         ];
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Services\SubscriptionService;
+use App\Support\FlashTranslator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -47,12 +48,12 @@ class LoginController extends Controller
                 return redirect()->intended(route('verification.notice'));
             }
 
-            if ($user && $user->current_organization_id) {
+            if ($user && $user->current_organization_id && ! $user->isSuperAdmin()) {
                 $sub = app(SubscriptionService::class)->getOrCreateForOrganization((int) $user->current_organization_id);
                 if (! app(SubscriptionService::class)->isActive($sub)) {
                     return redirect()
                         ->route('settings.index', ['tab' => 'organization'])
-                        ->with('error', 'اشتراک سازمان شما منقضی شده است. لطفاً اشتراک را تمدید کنید یا با پشتیبانی تماس بگیرید.');
+                        ->with('error', FlashTranslator::get('subscription_expired'));
                 }
             }
 

@@ -2,129 +2,84 @@
 
 namespace App\Services;
 
-use App\Models\Setting;
-use App\Support\RonibotUrlDefaults;
-use Illuminate\Support\Facades\Http;
+use App\Support\OrganizationContext;
+use App\Support\WhatsAppSettings;
 use Illuminate\Support\Facades\Log;
 
 class WhatsAppService
 {
-    protected string $appKey;
+    public function __construct(
+        protected WhatsAppYarApiService $api
+    ) {}
 
-    protected string $authKey;
-
-    protected string $apiUrl;
-
-    protected bool $enabled;
-
-    public function __construct()
+    /**
+     * @return array{success: bool, error?: string, status: string, message_id?: string|null, warning?: string, response?: mixed}
+     */
+    public function sendMessage(string $phone, string $message, ?string $fileUrl = null, ?string $mimeType = null): array
     {
-        $settings = Setting::getForOrganization('ronibot', []);
-        $this->appKey = $settings['appkey'] ?? '';
-        $this->authKey = $settings['authkey'] ?? '';
-        $fromEnv = RonibotUrlDefaults::createMessageUrl();
-        $fromDb = RonibotUrlDefaults::normalizeCreateMessageUrl((string) ($settings['api_url'] ?? ''));
-        $this->apiUrl = $fromEnv !== '' ? $fromEnv : ($fromDb !== '' ? $fromDb : 'https://ronibot.com/api/create-message');
-        $this->enabled = $settings['enabled'] ?? false;
-    }
+        $organizationId = OrganizationContext::getOrganizationId();
+        $settings = WhatsAppSettings::get($organizationId);
 
-    public function sendMessage(string $phone, string $message, ?string $fileUrl = null): array
-    {
-        if (! $this->enabled) {
+        if (! ($settings['enabled'] ?? false)) {
             return [
                 'success' => false,
-                'error' => 'Ronibot is not enabled',
+                'error' => 'WhatsApp is not enabled',
                 'status' => 'failed',
             ];
         }
 
-        if (empty($this->appKey) || empty($this->authKey)) {
-            Log::error('Ronibot credentials are missing');
+        $sessionId = trim((string) ($settings['session_id'] ?? ''));
+        if ($sessionId === '') {
+            return [
+                'success' => false,
+                'error' => 'WhatsApp session is not configured',
+                'status' => 'failed',
+            ];
+        }
+
+        if (! WhatsAppSettings::isConfigured($organizationId)) {
+            Log::error('WhatsAppYar API key is missing');
 
             return [
                 'success' => false,
-                'error' => 'Ronibot credentials are not configured',
+                'error' => 'WhatsApp API key is not configured',
                 'status' => 'failed',
             ];
         }
 
         try {
-            $phone = $this->formatPhone($phone);
+            $chatId = WhatsAppYarApiService::resolveChatId($phone);
+            $api = $this->api->forOrganization($organizationId);
 
-            // ساخت POST data
-            $postData = [
-                'appkey' => $this->appKey,
-                'authkey' => $this->authKey,
-                'to' => $phone,
-                'sandbox' => 'false',
-            ];
-
-            // اگر فایل وجود دارد، اضافه کن
             if ($fileUrl) {
-                $postData['file'] = $fileUrl;
-                // اگر message خالی است و فایل داریم، یک message پیش‌فرض بگذار
-                // API Ronibot نیاز به message دارد حتی اگر فایل هم داشته باشیم
-                // استفاده از یک متن ساده به جای emoji برای سازگاری بیشتر
-                $postData['message'] = trim($message) ?: 'File';
+                $endpoint = $this->resolveMediaEndpoint($fileUrl, $mimeType);
+                $caption = trim($message) !== '' ? $message : null;
+                $response = $api->sendMedia(
+                    $sessionId,
+                    $endpoint,
+                    $chatId,
+                    $fileUrl,
+                    $caption,
+                    $mimeType,
+                    basename(parse_url($fileUrl, PHP_URL_PATH) ?: 'file')
+                );
             } else {
-                // اگر فایل نداریم، message اجباری است
-                $postData['message'] = $message;
+                $response = $api->sendText($sessionId, $chatId, $message);
             }
 
-            /** @var \Illuminate\Http\Client\Response $response */
-            // Increase timeout to 120 seconds for file uploads
-            $timeout = $fileUrl ? 120 : 60;
-            $response = Http::timeout($timeout)->asForm()->post($this->apiUrl, $postData);
-
-            if ($response->successful()) {
-                $responseData = $response->json();
-
-                // Check if API returned an error in the response body
-                if (isset($responseData['success']) && $responseData['success'] === false) {
-                    $error = $responseData['message'] ?? 'Unknown error from API';
-                    if (isset($responseData['data']) && is_array($responseData['data'])) {
-                        $errors = [];
-                        foreach ($responseData['data'] as $field => $messages) {
-                            $errors[] = $field.': '.implode(', ', $messages);
-                        }
-                        $error = implode(' | ', $errors);
-                    }
-
-                    return [
-                        'success' => false,
-                        'error' => $error,
-                        'status' => 'failed',
-                        'response' => $responseData,
-                    ];
-                }
-
-                return [
-                    'success' => true,
-                    'message_id' => $responseData['message_id'] ?? null,
-                    'status' => 'sent',
-                    'response' => $responseData,
-                ];
-            }
-
-            $responseBody = $response->body();
-            $responseJson = $response->json();
-            $error = ($responseJson && isset($responseJson['error'])) ? $responseJson['error'] : ($responseBody ?: 'Unknown error');
+            $messageId = $this->extractMessageId($response);
 
             return [
-                'success' => false,
-                'error' => $error,
-                'status' => 'failed',
+                'success' => true,
+                'message_id' => $messageId,
+                'status' => 'sent',
+                'response' => $response,
             ];
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            // Handle timeout specifically - message might have been sent
             $errorMessage = $e->getMessage();
-
-            // If it's a timeout, we can't be sure if message was sent or not
-            // But since user reported messages were sent despite timeout, we'll mark as sent
-            // with a warning note
-            if (str_contains($errorMessage, 'timed out') || str_contains($errorMessage, 'timeout')) {
+            if (str_contains(strtolower($errorMessage), 'timeout')) {
                 return [
-                    'success' => true, // Assume success if timeout (message might have been sent)
+                    'success' => true,
                     'status' => 'sent',
                     'warning' => 'Message sent but timeout occurred. Please verify delivery.',
                     'error' => $errorMessage,
@@ -136,9 +91,8 @@ class WhatsAppService
                 'error' => $errorMessage,
                 'status' => 'failed',
             ];
-        } catch (\Exception $e) {
-            // Only log critical errors
-            if (! str_contains($e->getMessage(), 'timed out')) {
+        } catch (\Throwable $e) {
+            if (! str_contains(strtolower($e->getMessage()), 'timeout')) {
                 Log::error('WhatsApp API Exception: '.$e->getMessage());
             }
 
@@ -150,23 +104,53 @@ class WhatsAppService
         }
     }
 
-    protected function formatPhone(string $phone): string
+    protected function resolveMediaEndpoint(string $fileUrl, ?string $mimeType): string
     {
-        // Remove all non-numeric characters
-        $phone = preg_replace('/[^0-9]/', '', $phone);
-
-        // اگر شماره با + شروع می‌شود، + را حذف کن
-        $phone = ltrim($phone, '+');
-
-        // اگر شماره با 00 شروع می‌شود، 00 را حذف کن
-        if (str_starts_with($phone, '00')) {
-            $phone = substr($phone, 2);
+        $mime = strtolower((string) ($mimeType ?? ''));
+        if ($mime === '') {
+            $path = parse_url($fileUrl, PHP_URL_PATH) ?? '';
+            $ext = strtolower(pathinfo((string) $path, PATHINFO_EXTENSION));
+            $mime = match ($ext) {
+                'jpg', 'jpeg', 'png', 'gif', 'webp' => 'image/'.$ext,
+                'mp4', 'mov', 'm4v' => 'video/mp4',
+                'mp3', 'wav', 'ogg', 'm4a' => 'audio/'.$ext,
+                default => '',
+            };
         }
 
-        // برای شماره‌های امارات (971) یا ایران (98) یا سایر کشورها
-        // شماره را به همان صورت که هست برگردان (بدون تغییر)
-        // چون ممکن است کاربر خودش country code را وارد کرده باشد
+        if (str_starts_with($mime, 'image/')) {
+            return 'send-image';
+        }
+        if (str_starts_with($mime, 'video/')) {
+            return 'send-video';
+        }
+        if (str_starts_with($mime, 'audio/')) {
+            return 'send-audio';
+        }
 
-        return $phone;
+        return 'send-document';
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     */
+    protected function extractMessageId(array $response): ?string
+    {
+        foreach (['id', 'messageId', 'message_id'] as $key) {
+            if (! empty($response[$key])) {
+                return (string) $response[$key];
+            }
+        }
+
+        $nested = $response['data'] ?? null;
+        if (is_array($nested)) {
+            foreach (['id', 'messageId', 'message_id'] as $key) {
+                if (! empty($nested[$key])) {
+                    return (string) $nested[$key];
+                }
+            }
+        }
+
+        return null;
     }
 }

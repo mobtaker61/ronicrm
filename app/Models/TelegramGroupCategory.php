@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 
 class TelegramGroupCategory extends Model
 {
-    protected $fillable = ['name', 'sort_order'];
+    use BelongsToOrganization;
+
+    protected $fillable = ['organization_id', 'name', 'sort_order'];
 
     public function groups()
     {

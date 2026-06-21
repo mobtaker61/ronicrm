@@ -9,4 +9,5 @@ return [
     'password_reset_failed' => 'تعذر تغيير كلمة المرور. قد يكون الرابط غير صالح أو منتهيًا.',
     'superadmin_notifications_saved' => 'تم حفظ إعدادات إشعارات المنصة.',
     'org_notifications_saved' => 'تم حفظ إعدادات إشعارات المؤسسة.',
+    'subscription_renewed' => 'تم تجديد اشتراك المؤسسة بنجاح.',
 ];

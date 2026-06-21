@@ -6,6 +6,7 @@ use App\Models\InstagramMessage;
 use App\Models\TelegramMessage;
 use App\Models\TikTokMessage;
 use App\Models\WhatsAppMessage;
+use App\Services\WhatsAppInboxService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\QueryException;
@@ -70,13 +71,22 @@ class MarkInboxConversationReadJob implements ShouldQueue
                 return;
             }
 
-            $updated = WhatsAppMessage::where('from_phone', $this->contactKey)
-                ->whereNull('read_at')
-                ->update(['read_at' => now(), 'status' => 'read']);
+            $updated = str_contains($this->contactKey, '@g.us')
+                ? WhatsAppMessage::forChat($this->contactKey)->where('direction', 'incoming')->whereNull('read_at')->update(['read_at' => now(), 'status' => 'read'])
+                : WhatsAppMessage::where('from_phone', $this->contactKey)->whereNull('read_at')->update(['read_at' => now(), 'status' => 'read']);
             Log::info('MarkInboxConversationReadJob: whatsapp marked read', [
                 'contact' => $this->contactKey,
                 'updated' => $updated,
             ]);
+
+            try {
+                app(WhatsAppInboxService::class)->markChatReadOnDevice($this->contactKey);
+            } catch (\Throwable $e) {
+                Log::warning('MarkInboxConversationReadJob: whatsapp device mark-read failed', [
+                    'contact' => $this->contactKey,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         } catch (QueryException $e) {
             if (str_contains($e->getMessage(), '1205') && $this->attempts() < $this->tries) {
                 $this->release(2);

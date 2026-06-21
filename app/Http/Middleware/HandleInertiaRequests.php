@@ -185,6 +185,7 @@ class HandleInertiaRequests extends Middleware
 
                 return [
                     'status' => $status,
+                    'is_active' => $service->isActive($sub),
                     'remaining_days' => $service->remainingDays($sub),
                     'ends_at' => $sub->ends_at?->toIso8601String(),
                     'trial_ends_at' => $sub->trial_ends_at?->toIso8601String(),

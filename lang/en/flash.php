@@ -9,4 +9,6 @@ return [
     'password_reset_failed' => 'Could not reset password. The link may be invalid or expired.',
     'superadmin_notifications_saved' => 'Platform notification settings saved.',
     'org_notifications_saved' => 'Organization notification settings saved.',
+    'subscription_renewed' => 'Organization subscription renewed successfully.',
+    'subscription_expired' => 'Your organization subscription has expired. Please renew it or contact support.',
 ];

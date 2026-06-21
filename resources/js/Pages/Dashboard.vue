@@ -374,6 +374,9 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 
 defineProps({
     stats: {
@@ -432,7 +435,7 @@ function dashboardChannelHref(channel, connected) {
     }
     const settingsTabByChannel = {
         telegram: 'telegram',
-        whatsapp: 'ronibot',
+        whatsapp: 'whatsapp',
         instagram: 'instagram',
         tiktok: 'tiktok',
     };

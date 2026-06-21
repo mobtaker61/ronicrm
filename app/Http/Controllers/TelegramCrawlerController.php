@@ -10,10 +10,12 @@ use App\Models\CampaignTemplate;
 use App\Models\Language;
 use App\Models\TelegramGroup;
 use App\Models\TelegramUserConnection;
+use App\Services\WhatsAppGroupsSyncService;
+use App\Support\WhatsAppSettings;
+use Illuminate\Support\Facades\Cache;
 use App\Services\MadelineProtoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -48,27 +50,24 @@ class TelegramCrawlerController extends Controller
         $conn = TelegramUserConnection::getActive();
         $channelFilter = $request->input('channel', 'all');
 
+        if (WhatsAppSettings::isReady() && in_array($channelFilter, ['all', 'whatsapp'], true)) {
+            try {
+                Cache::remember(
+                    'whatsapp_groups_page_sync_'.(int) auth()->user()?->current_organization_id,
+                    60,
+                    fn () => app(WhatsAppGroupsSyncService::class)->syncFromApi()
+                );
+            } catch (\Throwable) {
+                // page still loads from DB
+            }
+        }
+
         $query = TelegramGroup::with('category')->active();
 
         if ($channelFilter === 'telegram') {
-            if (! $conn) {
-                $query->whereRaw('1 = 0');
-            } else {
-                $query->where('channel', 'telegram')
-                    ->where('telegram_user_connection_id', $conn->id);
-            }
+            $query->where('channel', 'telegram');
         } elseif ($channelFilter === 'whatsapp') {
             $query->where('channel', 'whatsapp');
-        } else {
-            $query->where(function ($q) use ($conn) {
-                $q->where('channel', 'whatsapp');
-                if ($conn) {
-                    $q->orWhere(function ($q2) use ($conn) {
-                        $q2->where('channel', 'telegram')
-                            ->where('telegram_user_connection_id', $conn->id);
-                    });
-                }
-            });
         }
 
         if ($request->filled('category')) {
@@ -92,6 +91,7 @@ class TelegramCrawlerController extends Controller
                 'category' => $g->category ? ['id' => $g->category->id, 'name' => $g->category->name] : null,
                 'language' => $g->language,
                 'can_post' => $g->can_post,
+                'at_inbox' => (bool) $g->at_inbox,
                 'last_error' => $g->last_error,
                 'last_crawled_message_id' => $g->last_crawled_message_id,
                 'last_synced_at' => $g->last_synced_at?->toIso8601String(),
@@ -100,6 +100,7 @@ class TelegramCrawlerController extends Controller
 
         return Inertia::render('TelegramGroups/Index', [
             'telegramConnected' => $conn !== null,
+            'whatsappConnected' => WhatsAppSettings::isReady(),
             'channelFilter' => $channelFilter,
             'groups' => $groups,
         ]);
@@ -117,6 +118,7 @@ class TelegramCrawlerController extends Controller
         $validated = $request->validate([
             'telegram_group_category_id' => ['nullable', 'exists:telegram_group_categories,id'],
             'language' => ['nullable', 'string', 'max:10', Rule::in(array_merge([''], Language::pluck('code')->toArray()))],
+            'at_inbox' => ['sometimes', 'boolean'],
         ]);
 
         $update = [];
@@ -125,6 +127,9 @@ class TelegramCrawlerController extends Controller
         }
         if ($request->has('language')) {
             $update['language'] = ($validated['language'] ?? null) ?: null;
+        }
+        if ($request->has('at_inbox')) {
+            $update['at_inbox'] = (bool) ($validated['at_inbox'] ?? false);
         }
         if ($update) {
             $group->update($update);
@@ -135,6 +140,7 @@ class TelegramCrawlerController extends Controller
             'id' => $group->id,
             'category' => $group->category ? ['id' => $group->category->id, 'name' => $group->category->name] : null,
             'language' => $group->language,
+            'at_inbox' => (bool) $group->at_inbox,
         ]]);
     }
 

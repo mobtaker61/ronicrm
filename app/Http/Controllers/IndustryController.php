@@ -3,12 +3,26 @@
 namespace App\Http\Controllers;
 
 use App\Models\Industry;
+use App\Support\OrganizationContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class IndustryController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(function ($request, $next) {
+            if (! Auth::check() || ! Auth::user()->hasOrgPermission('manage industries')) {
+                abort(403, 'Unauthorized action.');
+            }
+
+            return $next($request);
+        });
+    }
+
     public function index(): Response
     {
         $industries = Industry::with('parent', 'children')
@@ -27,11 +41,16 @@ class IndustryController extends Controller
 
     public function store(Request $request)
     {
+        $orgId = OrganizationContext::getOrganizationId();
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'color' => 'required|string|max:7',
-            'parent_id' => 'nullable|exists:industries,id',
+            'parent_id' => [
+                'nullable',
+                Rule::exists('industries', 'id')->where(fn ($q) => $q->where('organization_id', $orgId)),
+            ],
             'sort_order' => 'nullable|integer',
         ]);
 
@@ -43,11 +62,17 @@ class IndustryController extends Controller
 
     public function update(Request $request, Industry $industry)
     {
+        $orgId = OrganizationContext::getOrganizationId();
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'color' => 'required|string|max:7',
-            'parent_id' => 'nullable|exists:industries,id|different:' . $industry->id,
+            'parent_id' => [
+                'nullable',
+                Rule::exists('industries', 'id')->where(fn ($q) => $q->where('organization_id', $orgId)),
+                'different:'.$industry->id,
+            ],
             'sort_order' => 'nullable|integer|min:0',
         ]);
 
